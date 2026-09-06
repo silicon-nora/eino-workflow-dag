@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eino Workflow DAG — Vue</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../../dist/eino-workflow-dag.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #f6f8fa;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      #app { max-width: 1000px; margin: 0 auto; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "cytoscape": "/node_modules/cytoscape/dist/cytoscape.esm.min.mjs",
+          "vue": "/node_modules/vue/dist/vue.esm-browser.prod.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { createApp, h, ref } from "vue";
+      import { EinoWorkflowDAGVue } from "../../dist/vue.js";
+
+      const root = ref({
+        version: 2,
+        nodes: [
+          { id: "input", name: "Input", kind: "io", status: "success", cost_ms: 5 },
+          { id: "answer", name: "Answer", kind: "llm", status: "running", cost_ms: 30 },
+        ],
+        edges: [{ from: "input", to: "answer" }],
+      });
+      const direction = ref("RIGHT");
+      const locale = ref();
+      const activeNodeId = ref("answer");
+      const component = ref();
+      window.vueDagEvents = [];
+      window.vueDagRoot = root;
+      window.vueDagDirection = direction;
+      window.vueDagLocale = locale;
+      window.vueDagActiveNodeId = activeNodeId;
+      window.vueDagComponent = component;
+
+      const app = createApp({
+        setup() {
+          return () => h("main", [
+            h("h1", "Eino Workflow DAG — Vue"),
+            h(EinoWorkflowDAGVue, {
+              ref: component,
+              root: root.value,
+              direction: direction.value,
+              locale: locale.value,
+              activeNodeId: activeNodeId.value,
+              style: { height: "420px" },
+              pinNodeTip: false,
+              layoutCacheSize: 4,
+              onReady(instance) {
+                window.vueDagInstance = instance;
+              },
+              onNodeClick(node) {
+                window.vueDagEvents.push({ type: "node", id: node.id });
+              },
+              onError(error) {
+                window.vueDagEvents.push({ type: "error", message: error.message });
+              },
+            }),
+          ]);
+        },
+      });
+      window.vueDagApp = app;
+      app.mount("#app");
+    </script>
+  </body>
+</html>

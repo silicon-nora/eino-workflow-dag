@@ -1,0 +1,69 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify release commit belongs to the default branch
+        run: >-
+          git merge-base --is-ancestor
+          "$GITHUB_SHA"
+          "origin/${{ github.event.repository.default_branch }}"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - id: release
+        name: Verify release identity
+        run: >-
+          node scripts/release-metadata.js
+          "${{ github.event.release.tag_name }}"
+          "${{ github.repository }}"
+          "${{ github.event.release.prerelease }}"
+          >> "$GITHUB_OUTPUT"
+      - name: Verify open-source release authority
+        run: node scripts/check-release-readiness.js
+      - run: npm run prepublishOnly
+      - run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - id: artifact
+        name: Create the immutable release artifact
+        run: >-
+          node scripts/create-release-artifact.js
+          "$RUNNER_TEMP/eino-workflow-dag-release"
+          >> "$GITHUB_OUTPUT"
+      - name: Record release artifact
+        run: |
+          echo "### npm artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo '- File: `${{ steps.artifact.outputs.filename }}`' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Size: `${{ steps.artifact.outputs.size }} bytes`' >> "$GITHUB_STEP_SUMMARY"
+          echo '- SHA-1: `${{ steps.artifact.outputs.shasum }}`' >> "$GITHUB_STEP_SUMMARY"
+          echo '- Integrity: `${{ steps.artifact.outputs.integrity }}`' >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish to npm
+        run: >-
+          npm publish "${{ steps.artifact.outputs.tarball }}"
+          --ignore-scripts --access public
+          --tag "${{ steps.release.outputs.dist_tag }}"
+          --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

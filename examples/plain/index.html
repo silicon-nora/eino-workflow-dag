@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eino Workflow DAG</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="../../dist/eino-workflow-dag.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #f6f8fa;
+        color: #1f2328;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .cy-wrap {
+        height: 640px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Eino Workflow DAG</h1>
+      <div class="eino-workflow-dag-flow">
+        <div class="cy-wrap">
+          <div id="dag" class="cy-root"></div>
+        </div>
+      </div>
+    </main>
+
+    <script src="../../dist/eino-workflow-dag.umd.cjs"></script>
+    <script>
+      const root = {
+        version: 2,
+        nodes: [
+          { id: "input", name: "Input", kind: "io", status: "success", cost_ms: 8 },
+          {
+            id: "research",
+            name: "Research",
+            kind: "graph",
+            status: "success",
+            cost_ms: 180,
+            graph: {
+              nodes: [
+                { id: "search", name: "Search", kind: "io", status: "success", cost_ms: 50 },
+                { id: "rank", name: "Rank", kind: "cpu", status: "success", cost_ms: 30 },
+                { id: "summarize", name: "Summarize", kind: "llm", status: "success", cost_ms: 100 },
+              ],
+              edges: [
+                { from: "search", to: "rank" },
+                { from: "rank", to: "summarize" },
+              ],
+            },
+          },
+          { id: "answer", name: "Answer", kind: "llm", status: "success", cost_ms: 240 },
+        ],
+        edges: [
+          { from: "input", to: "research" },
+          { from: "research", to: "answer" },
+        ],
+      };
+
+      window.dagRoot = root;
+      window.dagEvents = [];
+      window.dagExpansionEvents = [];
+
+      window.dagInstance = EinoWorkflowDAG.mountWorkflowDAG(document.querySelector("#dag"), {
+        root,
+        direction: "RIGHT",
+        pinNodeTip: false,
+        additionalStyles: [
+          { selector: 'node[kind = "cpu"]', style: { 'border-width': 4 } },
+        ],
+        onExpandedChange(expanded) {
+          window.dagExpansionEvents.push(expanded);
+        },
+        onNodeClick(node) {
+          window.lastDagNodeClick = node;
+          window.dagEvents.push({ type: "node", id: node.id });
+        },
+        onEdgeClick(edge) {
+          window.dagEvents.push({ type: "edge", id: edge.id });
+        },
+        onError(error) {
+          window.dagEvents.push({ type: "error", message: error.message });
+        },
+      });
+    </script>
+  </body>
+</html>
