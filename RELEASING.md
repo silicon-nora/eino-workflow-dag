@@ -7,12 +7,12 @@ beta only after those migrations are proven in their own CI.
 
 ## Pre-release checklist
 
-1. Confirm that all extracted source and visual assets are authorized for an
-   Apache-2.0 release, complete the checklist and approval record in
-   `PROVENANCE.md`.
-2. Recheck that `eino-workflow-dag` is available on the official npm registry,
-   then set `repository`, `homepage`, and `bugs` in `package.json` after the
-   final GitHub organization and repository URL are known.
+1. Confirm that all code, documentation, and visual assets present in this
+   repository are authorized for an Apache-2.0 release, then complete the
+   checklist and approval record in `PROVENANCE.md`.
+2. Recheck that `eino-workflow-dag` is available on the official npm registry
+   and confirm that `repository`, `homepage`, and `bugs` still point to
+   `https://github.com/silicon-nora/eino-workflow-dag`.
 3. Run `npm run release:check`; it must pass before preparing a release tag.
 4. Run `npm ci` from a clean checkout.
 5. Run `npm run prepublishOnly` and `npm run test:browser`. The publish gate
@@ -45,9 +45,9 @@ beta only after those migrations are proven in their own CI.
 9. Replace the `0.4.0-alpha.2` candidate's `Unreleased` changelog date with the
    release date and confirm that exact version throughout the artifact.
 10. Run `npm run release:dry-run:next`, create a matching `v<version>` tag, and
-   publish a GitHub Release. `.github/workflows/publish.yml` re-runs all gates
-   and publishes prereleases under `next`; stable versions use `latest`. The
-   tagged commit must belong to the repository's default branch.
+    publish a GitHub Release. `.github/workflows/publish.yml` re-runs all gates
+    and publishes prereleases under `next`; stable versions use `latest`. The
+    tagged commit must belong to the repository's default branch.
 11. Confirm npm serves the expected integrity and package metadata, then migrate
     both real consumers with `npm install --save-exact
     eino-workflow-dag@0.4.0-alpha.2` or the equivalent versioned static assets.
@@ -82,18 +82,21 @@ file.
 The publish job uses the protected GitHub environment `npm-release`. Configure
 required reviewers for that environment before the first release.
 
-npm requires a package to exist before a Trusted Publisher can be attached.
-For the first release only, add a short-lived granular npm publish token as the
-`NPM_TOKEN` environment secret, publish the GitHub Release, and remove that
+npm requires a package to exist before a Trusted Publisher can be attached,
+so the first release needs a one-time bootstrap credential. Two-factor
+authentication is not a project prerequisite. For the first release only,
+create a short-lived granular publish token with the minimum package
+permissions and publish-time 2FA bypass enabled, add it as the protected
+environment secret `NPM_TOKEN`, publish the GitHub Release, and remove that
 secret immediately after the job succeeds. The workflow requests GitHub OIDC
 and adds npm provenance to this first artifact.
 
-After the package exists, configure its npm Trusted Publisher with the exact
-GitHub owner/repository, workflow filename `publish.yml`, environment
-`npm-release`, and direct-publish permission. Future jobs authenticate with
-short-lived OIDC credentials and do not need `NPM_TOKEN`. The public
-`repository` field in `package.json` must match the GitHub repository exactly.
-Keep prereleases away from the `latest` dist-tag.
+After the package exists, configure its npm Trusted Publisher with GitHub user
+`silicon-nora`, repository `eino-workflow-dag`, workflow filename
+`publish.yml`, environment `npm-release`, and direct-publish permission.
+Future jobs authenticate with short-lived OIDC credentials and do not need
+`NPM_TOKEN`. The public `repository` field in `package.json` must match the
+GitHub repository exactly. Keep prereleases away from the `latest` dist-tag.
 
 The `prepack` lifecycle rebuilds and checks `dist`, so a tarball cannot silently
 reuse an older local build. `npm run pack:check` also uses an isolated temporary

@@ -4,6 +4,14 @@
   "description": "Framework-agnostic visualization for nested Eino workflow DAGs and execution traces.",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silicon-nora/eino-workflow-dag.git"
+  },
+  "homepage": "https://github.com/silicon-nora/eino-workflow-dag#readme",
+  "bugs": {
+    "url": "https://github.com/silicon-nora/eino-workflow-dag/issues"
+  },
   "main": "./dist/eino-workflow-dag.umd.cjs",
   "module": "./dist/eino-workflow-dag.js",
   "types": "./src/index.d.ts",

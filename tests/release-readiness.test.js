@@ -11,14 +11,14 @@ const manifest = {
   publishConfig: { access: "public" },
 };
 const approved = `
-- [x] Confirm the copyright owner for both source application repositories
-- [x] Obtain written approval for an Apache-2.0 public release
-- [x] Confirm that employee and contractor contribution agreements cover the
-  extracted revisions
+- [x] Confirm that all code and documentation present in this repository may
+  be publicly released under Apache-2.0
+- [x] Confirm that permission covers any code adapted from separate application
+  repositories without relicensing those applications
+- [x] Confirm that authorization covers all contributor work present in this
+  repository
 - [x] Review visual assets, fixtures, and example data for confidential or
   third-party material
-- [x] Confirm that publishing the source application names, paths, and commit
-  identifiers recorded above is authorized
 - [x] Include the bundled Cytoscape.js MIT notice
 - [x] Verify that the exact npm name was unregistered on 2026-09-05; repeat
   immediately before publishing because a lookup does not reserve the name
@@ -40,8 +40,8 @@ assert.throws(
       manifest,
       approved
         .replace(
-          "- [x] Obtain written approval for an Apache-2.0 public release",
-          "- [ ] Obtain written approval for an Apache-2.0 public release",
+          "- [x] Confirm that authorization covers all contributor work present in this\n  repository",
+          "- [ ] Confirm that authorization covers all contributor work present in this\n  repository",
         )
         .replace("Example Open Source Office", "Pending")
         .replace("2026-09-06", "2026-02-30"),

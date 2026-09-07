@@ -4,7 +4,7 @@ All notable changes will be documented in this file. The project follows
 semantic versioning after `1.0.0`; pre-release compatibility is described in
 `RELEASING.md`.
 
-## [0.4.0-alpha.2] - Unreleased
+## [0.4.0-alpha.2] - 2026-09-07
 
 ### Changed
 
@@ -36,6 +36,10 @@ semantic versioning after `1.0.0`; pre-release compatibility is described in
 - Release and migration documentation now records the handoff order: authorize
   and publish the alpha under `next`, migrate both consumers to that exact
   version, then promote to beta only after their CI and visual review pass.
+- Package metadata now points to the public
+  `silicon-nora/eino-workflow-dag` repository. A short-lived token is limited
+  to bootstrapping the first release; later releases use GitHub OIDC trusted
+  publishing without retaining an npm publish token.
 
 ## [0.4.0-alpha.1] - Unreleased
 

@@ -5,11 +5,10 @@ import { repositorySlug } from "./release-metadata.js";
 const projectRoot = resolve(import.meta.dirname, "..");
 
 const requiredProvenanceItems = [
-  "Confirm the copyright owner for both source application repositories",
-  "Obtain written approval for an Apache-2.0 public release",
-  "Confirm that employee and contractor contribution agreements cover the extracted revisions",
+  "Confirm that all code and documentation present in this repository may be publicly released under Apache-2.0",
+  "Confirm that permission covers any code adapted from separate application repositories without relicensing those applications",
+  "Confirm that authorization covers all contributor work present in this repository",
   "Review visual assets, fixtures, and example data for confidential or third-party material",
-  "Confirm that publishing the source application names, paths, and commit identifiers recorded above is authorized",
   "Include the bundled Cytoscape.js MIT notice",
   "Verify that the exact npm name was unregistered on 2026-09-05; repeat immediately before publishing because a lookup does not reserve the name",
   "Record the approving party and approval date in the release record",

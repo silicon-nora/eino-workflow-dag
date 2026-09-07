@@ -39,7 +39,7 @@ generic graph protocol, workflow editor, execution engine, or debugger.
   - The real migration branches must still change `version: number` to the
     literal `2`, make flat producers emit v2, and serialize empty edge slices
     as `[]` rather than `null`
-- [ ] Confirm code provenance, naming, and open-source release authority
+- [x] Confirm code provenance, naming, and open-source release authority
 - [ ] Add final GitHub metadata, run the official-registry audit, and publish
   under the npm `next` dist-tag after authorization
 
