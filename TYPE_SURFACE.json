@@ -1,0 +1,30 @@
+{
+  ".": {
+    "path": "src/index.d.ts",
+    "sha256": "15e5a971a80b94b7b3232b3e0bddcfbdbd0829993edbc12ab10d1da846974b9f"
+  },
+  "./model": {
+    "path": "src/model.d.ts",
+    "sha256": "539bc831eebab3da46ec1a8ff85a81915e30378db171a8360981337f9752c556"
+  },
+  "./layout": {
+    "path": "src/layout.d.ts",
+    "sha256": "ca1e938599bc63111c367e7fb3081ad47433b50d4c659862df19d2bb6e727607"
+  },
+  "./layout-worker": {
+    "path": "src/layout-worker.d.ts",
+    "sha256": "248f61635299d0cf434efc9ecf0d0f68afde3b89483ea20c4204e06e5ca2f0b3"
+  },
+  "./validation": {
+    "path": "src/validation.d.ts",
+    "sha256": "2a22040eb96ea2cf1f1aeda44e209e6605ec8b46d7309d1b0f77b06d12f50fde"
+  },
+  "./vue": {
+    "path": "src/vue.d.ts",
+    "sha256": "7e1f6f2a21a4798bff914ebd5a75f5fc112528704d3ad153d33c7dd0f5ea8312"
+  },
+  "./react": {
+    "path": "src/react.d.ts",
+    "sha256": "c9c8e370f6aad3aecdab574bbcdbdc6faf55dc59084488a196c0924632f6559c"
+  }
+}

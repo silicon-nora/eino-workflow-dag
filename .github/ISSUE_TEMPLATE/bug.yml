@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible defect in the renderer, adapters, or package.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not include secrets, prompts, model inputs, or confidential workflow
+        data. Security vulnerabilities belong in a private security advisory.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.4.0-alpha.0
+    validations:
+      required: true
+  - type: dropdown
+    id: entry
+    attributes:
+      label: Integration
+      options:
+        - Core ESM
+        - Core CommonJS
+        - UMD browser build
+        - Vue wrapper
+        - React wrapper
+        - Data-only subpath
+        - Layout Worker
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser and version, Node version, framework, and bundler.
+      placeholder: Chrome 140, Node 22, React 19, Vite 6
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Link to a minimal repository or paste a non-sensitive DAG payload and code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Relevant console output and `instance.getDiagnostics()` result.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and confidential workflow data.
+          required: true
+        - label: I searched existing issues for a duplicate.
+          required: true

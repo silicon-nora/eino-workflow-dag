@@ -1,0 +1,181 @@
+{
+  "name": "eino-workflow-dag",
+  "version": "0.4.0-alpha.2",
+  "description": "Framework-agnostic visualization for nested Eino workflow DAGs and execution traces.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/silicon-nora/eino-workflow-dag.git"
+  },
+  "homepage": "https://github.com/silicon-nora/eino-workflow-dag#readme",
+  "bugs": {
+    "url": "https://github.com/silicon-nora/eino-workflow-dag/issues"
+  },
+  "main": "./dist/eino-workflow-dag.umd.cjs",
+  "module": "./dist/eino-workflow-dag.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./src/index.d.ts",
+        "default": "./dist/eino-workflow-dag.js"
+      },
+      "require": {
+        "types": "./src/index.d.cts",
+        "default": "./dist/eino-workflow-dag.cjs"
+      }
+    },
+    "./model": {
+      "import": {
+        "types": "./src/model.d.ts",
+        "default": "./dist/model.js"
+      },
+      "require": {
+        "types": "./src/model.d.cts",
+        "default": "./dist/model.cjs"
+      }
+    },
+    "./layout": {
+      "import": {
+        "types": "./src/layout.d.ts",
+        "default": "./dist/layout.js"
+      },
+      "require": {
+        "types": "./src/layout.d.cts",
+        "default": "./dist/layout.cjs"
+      }
+    },
+    "./layout-worker": {
+      "import": {
+        "types": "./src/layout-worker.d.ts",
+        "default": "./dist/layout-worker.js"
+      },
+      "require": {
+        "types": "./src/layout-worker.d.cts",
+        "default": "./dist/layout-worker.cjs"
+      }
+    },
+    "./validation": {
+      "import": {
+        "types": "./src/validation.d.ts",
+        "default": "./dist/validation.js"
+      },
+      "require": {
+        "types": "./src/validation.d.cts",
+        "default": "./dist/validation.cjs"
+      }
+    },
+    "./vue": {
+      "import": {
+        "types": "./src/vue.d.ts",
+        "default": "./dist/vue.js"
+      },
+      "require": {
+        "types": "./src/vue.d.cts",
+        "default": "./dist/vue.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./src/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./src/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
+    "./styles.css": "./dist/eino-workflow-dag.css"
+  },
+  "files": [
+    "dist",
+    "src/*.d.ts",
+    "src/*.d.cts",
+    "API_SURFACE.json",
+    "PUBLIC_ASSETS.json",
+    "TYPE_SURFACE.json",
+    "README.md",
+    "CONTRACT.md",
+    "SECURITY.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "PROVENANCE.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "npm run build:es && npm run build:cjs && npm run build:umd",
+    "build:es": "vite build --mode es",
+    "build:cjs": "vite build --mode cjs",
+    "build:umd": "vite build --mode umd",
+    "check": "node --check scripts/check-snapshot.js && node --check scripts/check-consumer-types.js && node --check scripts/check-packed-consumers.js && node --check scripts/check-licenses.js && node --check scripts/check-public-assets.js && node --check scripts/public-assets.js && node --check scripts/check-type-surface.js && node --check scripts/type-surface.js && node --check scripts/document-links.js && node --check scripts/source-map-contract.js && node --check scripts/package-contract.js && node --check scripts/check-release-readiness.js && node --check scripts/check-reproducible-build.js && node --check scripts/check-sensitive-content.js && node --check scripts/sensitive-content.js && node --check scripts/create-release-artifact.js && node --check scripts/lint-package.js && node --check scripts/release-metadata.js && node --check scripts/sync-cjs-types.js && node --check src/json-value.js && node --check src/key-map.js && node --check src/snapshot.js && node --check src/model.js && node --check src/layout.js && node --check src/layout-engine.js && node --check src/layout-worker.js && node --check src/renderer.js && node --check src/runtime.js && node --check src/cytoscape-layout.js && node --check src/routing.js && node --check src/port-planner.js && node --check src/svg-export.js && node --check src/theme.js && node --check src/axis-profile.js && node --check src/accessibility.js && node --check src/layout-cache.js && node --check src/locale.js && node --check src/elements.js && node --check src/edge-state.js && node --check src/interaction.js && node --check src/overlay.js && node --check src/tooltip.js && node --check src/viewport.js && node --check src/resize-observer.js && node --check src/validation.js && node --check src/vue.js && node --check src/react.js && node --check src/index.js",
+    "check:docs": "node scripts/check-docs.js",
+    "check:licenses": "node scripts/check-licenses.js",
+    "check:assets": "node scripts/check-public-assets.js",
+    "check:packed-consumers": "npm run build && node scripts/check-packed-consumers.js",
+    "check:reproducible": "npm run build && node scripts/check-reproducible-build.js",
+    "check:sensitive": "node scripts/check-sensitive-content.js",
+    "check:type-surface": "node scripts/check-type-surface.js",
+    "typecheck": "node scripts/sync-cjs-types.js --check && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json",
+    "types:cjs": "node scripts/sync-cjs-types.js",
+    "types:surface": "node scripts/check-type-surface.js --write",
+    "test": "node tests/validation.test.js && node tests/snapshot.test.js && node tests/snapshot-cli.test.js && node tests/accessibility.test.js && node tests/elements.test.js && node tests/tooltip.test.js && node tests/layout-cache.test.js && node tests/layout-engine.test.js && node tests/layout-worker.test.js && node tests/svg-export.test.js && node tests/theme.test.js && node tests/model.test.js && node tests/layout.test.js && node tests/model-layout-fuzz.test.js && node tests/align-critical.test.js && node tests/port-planner.test.js && node tests/axis-profile.test.js && node tests/release-metadata.test.js && node tests/release-readiness.test.js && node tests/sensitive-content.test.js && node tests/public-assets.test.js && node tests/type-surface.test.js && node tests/document-links.test.js && node tests/source-map-contract.test.js && node tests/package-contract.test.js && node tests/consumer-types.test.js",
+    "validate:snapshot": "node scripts/check-snapshot.js",
+    "test:browser": "npm run build && npm run build:react-example && playwright test",
+    "build:react-example": "vite build --config vite.react-example.config.js",
+    "benchmark": "node benchmarks/layout.js",
+    "benchmark:check": "node benchmarks/layout.js --check",
+    "check:dist": "node scripts/check-dist.js",
+    "lint:package": "npm run build && npm run check:dist && node scripts/lint-package.js",
+    "pack:check": "npm run build && npm run check:dist && node scripts/check-pack.js",
+    "release:dry-run:next": "npm publish --dry-run --access public --tag next",
+    "release:check": "node scripts/check-release-readiness.js",
+    "prepack": "npm run build && npm run check:dist",
+    "prepublishOnly": "npm run check && npm run check:docs && npm run check:licenses && npm run check:assets && npm run check:sensitive && npm run check:type-surface && npm run typecheck && npm test && npm run benchmark:check && npm run build && npm run check:dist && node scripts/check-reproducible-build.js && node scripts/check-pack.js && node scripts/check-packed-consumers.js && node scripts/lint-package.js"
+  },
+  "keywords": [
+    "eino",
+    "workflow",
+    "dag",
+    "graph",
+    "visualization",
+    "trace",
+    "cytoscape"
+  ],
+  "dependencies": {
+    "cytoscape": "^3.34.0"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "publint": "^0.3.24",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^5.4.0",
+    "vite": "^6.0.0",
+    "vue": "^3.5.42"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run prepublishOnly
+      - if: matrix.node == 24
+        name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+
+  browser:
+    name: Browser / Chromium
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
+  peer-minimums:
+    name: Peer minimums / Node 20
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install minimum supported framework peers
+        run: >-
+          npm install --save-dev --save-exact --package-lock=false --ignore-scripts
+          react@18.2.0 react-dom@18.2.0
+          @types/react@18.2.79 @types/react-dom@18.2.25
+          vue@3.4.0
+      - name: Verify minimum peer resolution
+        run: >-
+          npm ls --depth=0
+          react@18.2.0 react-dom@18.2.0
+          @types/react@18.2.79 @types/react-dom@18.2.25
+          vue@3.4.0
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

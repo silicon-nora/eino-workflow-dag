@@ -1,0 +1,760 @@
+import cytoscape from "cytoscape";
+import { EinoWorkflowDAGModel } from "./model.js";
+import { registerWorkflowDAGLayout } from "./cytoscape-layout.js";
+import { createSubgraphOverlay } from "./overlay.js";
+import { createNodeTooltip } from "./tooltip.js";
+import { observeElementResize } from "./resize-observer.js";
+import {
+  formatDuration,
+  patchCytoscapeElements,
+  syncCytoscapeElements,
+  toCytoscapeElements,
+} from "./elements.js";
+import { bindGraphInteractions } from "./interaction.js";
+import { createViewportController } from "./viewport.js";
+import { createEdgeStateController } from "./edge-state.js";
+import {
+  axisProfile,
+  defaultAxisProfile,
+  normalizeDirection,
+} from "./axis-profile.js";
+import {
+  GRAPH_COMPOUND_PAD,
+  WorkflowDAGRules,
+} from "./routing.js";
+import { createAccessibilityPresenter } from "./accessibility.js";
+import {
+  captureCytoscapeLayout,
+  createLayoutCache,
+  layoutCacheKey,
+  restoreCytoscapeLayout,
+} from "./layout-cache.js";
+import { resolveLocale } from "./locale.js";
+import { exportWorkflowDAGSVG } from "./svg-export.js";
+import { createKeyMap, hasOwnKey, toPlainRecord } from "./key-map.js";
+import { assertValidDAG } from "./validation.js";
+import { normalizeDAGSnapshot } from "./snapshot.js";
+import {
+  normalizeTheme,
+  stylesheet,
+  themeTokens,
+} from "./theme.js";
+
+/* ---------- Cytoscape mount / 样式 / 交互 ---------- */
+
+  // Cytoscape compound nodes only support uniform padding. Use the top value
+  // so the title overlay has five extra pixels of breathing room.
+  var COMPOUND_PAD = GRAPH_COMPOUND_PAD;
+  // Root graph spacing. Leaf nodes remain 220×64.
+  // betweenLayers controls main-axis spacing; nodeNode controls cross-axis spacing.
+  var SPACE_ROOT = {
+    nodeNode: 56,
+    // Edge-to-node clearance also controls the outer detour channel.
+    edgeNode: 44,
+    edgeEdge: 28,
+    portPort: 20,
+    betweenLayers: 48,
+    edgeNodeBetweenLayers: 44,
+    edgeEdgeBetweenLayers: 28,
+    fitPadding: 28,
+  };
+  var SPACE_COMPOUND = {
+    nodeNode: 64,
+    edgeNode: 52,
+    edgeEdge: 30,
+    portPort: 22,
+    betweenLayers: 56,
+    edgeNodeBetweenLayers: 52,
+    edgeEdgeBetweenLayers: 28,
+  };
+
+  function ensureWorkflowLayoutRegistered() {
+    var cytoLib = cytoscape;
+    if (!cytoLib) throw new Error("Cytoscape is unavailable");
+    try {
+      registerWorkflowDAGLayout(cytoLib, WorkflowDAGRules);
+    } catch (e) {
+      /* 可能已注册 */
+    }
+  }
+
+  function sameExpandedMap(left, right) {
+    var leftKeys = Object.keys(left || {});
+    var rightKeys = Object.keys(right || {});
+    if (leftKeys.length !== rightKeys.length) return false;
+    return leftKeys.every(function (key) {
+      return hasOwnKey(right, key) && left[key] === right[key];
+    });
+  }
+
+  function normalizeExpandedMap(source) {
+    var normalized = createKeyMap();
+    if (!source || typeof source !== "object") return normalized;
+    Object.keys(source).forEach(function (path) {
+      if (source[path]) normalized[path] = true;
+    });
+    return normalized;
+  }
+
+  function normalizeActiveNodeId(value) {
+    if (value == null || value === "") return null;
+    if (typeof value !== "string") {
+      throw new TypeError("active node id must be a string or null");
+    }
+    return value;
+  }
+
+  function sameRecord(left, right) {
+    var leftKeys = Object.keys(left || {});
+    var rightKeys = Object.keys(right || {});
+    if (leftKeys.length !== rightKeys.length) return false;
+    return leftKeys.every(function (key) {
+      return hasOwnKey(right, key) && left[key] === right[key];
+    });
+  }
+
+  function sameLocale(left, right) {
+    return (
+      left.collapseSubgraphTitle === right.collapseSubgraphTitle &&
+      sameRecord(left.kinds, right.kinds) &&
+      sameRecord(left.statuses, right.statuses) &&
+      sameRecord(left.tooltip, right.tooltip)
+    );
+  }
+
+  /** Theme-driven styles; see THEMES for the built-in visual systems. */
+
+  /**
+   * @param {object} [profile] AxisProfile（含 direction）；缺省 RIGHT
+   * @param {object} [visible] WorkflowDAGModel.buildVisibleGraph 结果
+   */
+  function workflowLayoutOptions(profile, visible, fit) {
+    var sr = SPACE_ROOT;
+    var sc = SPACE_COMPOUND;
+    var p = profile || defaultAxisProfile();
+    var dir = p.direction;
+    return {
+      // 递归 layoutLayer 排点 + 流程线计算画边
+      name: "eino-workflow-dag",
+      animate: false,
+      fit: fit !== false,
+      padding: sr.fitPadding,
+      nodeDimensionsIncludeLabels: true,
+      axisProfile: p,
+      visibleGraph: visible,
+      // Nested graph spacing; top padding reserves room for the title overlay.
+      nodeLayoutOptions: function (node) {
+        if (!node.isParent()) return undefined;
+        var pad = COMPOUND_PAD;
+        return {
+          direction: dir,
+          padding: Object.assign({}, pad),
+          spacing: Object.assign({}, sc),
+        };
+      },
+      layoutConfig: {
+        direction: dir,
+        padding: { top: 8, right: 8, bottom: 8, left: 8 },
+        spacing: Object.assign({}, sr),
+      },
+    };
+  }
+
+  /**
+   * @param {HTMLElement} container
+   * @param {{ root: object, direction?: 'RIGHT'|'LEFT'|'DOWN'|'UP', onExpandedChange?: Function, onError?: Function }} options
+   */
+export function mountRenderer(container, options) {
+    ensureWorkflowLayoutRegistered();
+    var Model = EinoWorkflowDAGModel;
+    if (!Model) throw new Error("EinoWorkflowDAGModel is unavailable");
+    if (!container) throw new Error("A container element is required");
+    if (!options) throw new TypeError("options are required");
+    assertValidDAG(options.root);
+
+    var hostElement = container.parentElement;
+    var addedHostClass = false;
+    var hadHostTheme = false;
+    var previousHostTheme = null;
+    var previousContainerBackground = {
+      value: container.style.getPropertyValue("background"),
+      priority: container.style.getPropertyPriority("background"),
+    };
+    var hostStyleProperties = [
+      "--eino-workflow-dag-title-bg",
+      "--eino-workflow-dag-title-color",
+      "--eino-workflow-dag-title-hover-bg",
+      "--eino-workflow-dag-title-hover-border",
+      "--eino-workflow-dag-title-font",
+    ];
+    var previousHostStyles = createKeyMap();
+    if (hostElement && hostElement.classList) {
+      addedHostClass = !hostElement.classList.contains("eino-workflow-dag-host");
+      hostElement.classList.add("eino-workflow-dag-host");
+      hadHostTheme = hostElement.hasAttribute("data-theme");
+      previousHostTheme = hostElement.getAttribute("data-theme");
+      hostStyleProperties.forEach(function (property) {
+        previousHostStyles[property] = {
+          value: hostElement.style.getPropertyValue(property),
+          priority: hostElement.style.getPropertyPriority(property),
+        };
+      });
+    }
+
+    var ZOOM_STEP = 1.2;
+    var MIN_ZOOM = 0.45;
+    var MAX_ZOOM = 2.0;
+    var FIT_PADDING = 28;
+
+    var root = options.root;
+    var normalizedSnapshot = normalizeDAGSnapshot(root);
+    var profile = axisProfile(normalizeDirection(options && options.direction));
+    var themeId = normalizeTheme(options && options.theme);
+    var activeNodeId = normalizeActiveNodeId(options && options.activeNodeId);
+    // 主路子 Graph 默认展开；旁路 / skipped 收起（可由 options.expanded 覆盖）
+    var expanded =
+      options && options.expanded
+        ? normalizeExpandedMap(options.expanded)
+        : Model.defaultExpandedMap
+          ? normalizeExpandedMap(Model.defaultExpandedMap(root))
+          : createKeyMap();
+    var cy = null;
+    var locale = resolveLocale(options.locale);
+    var overlay = createSubgraphOverlay(container, togglePath, {
+      collapseSubgraphTitle: locale.collapseSubgraphTitle,
+    });
+    var listeners = {
+      onExpandedChange:
+        typeof options.onExpandedChange === "function"
+          ? options.onExpandedChange
+          : function () {},
+      onNodeClick:
+        typeof options.onNodeClick === "function"
+          ? options.onNodeClick
+          : function () {},
+      onEdgeClick:
+        typeof options.onEdgeClick === "function"
+          ? options.onEdgeClick
+          : function () {},
+      onError:
+        typeof options.onError === "function"
+          ? options.onError
+          : function () {},
+    };
+    var resizeObserver = null;
+    var interaction = null;
+    var activeLayout = null;
+    var layoutGeneration = 0;
+    var destroyed = false;
+    var additionalStyles = Array.isArray(options.additionalStyles)
+      ? options.additionalStyles.slice()
+      : [];
+    var accessibility = createAccessibilityPresenter(container, {
+      ariaLabel: options.ariaLabel,
+      labelFormatter: options.accessibilityLabelFormatter,
+    });
+    var layoutCache = createLayoutCache(options.layoutCacheSize);
+    var diagnostics = {
+      dataPatches: 0,
+      topologySyncs: 0,
+      layoutRuns: 0,
+      layoutCacheHits: 0,
+    };
+
+    function assertActive() {
+      if (destroyed) {
+        throw new Error("Cannot use a destroyed workflow DAG");
+      }
+    }
+
+    function reportError(error) {
+      var normalized =
+        error instanceof Error ? error : new Error(String(error));
+      try {
+        listeners.onError(normalized);
+      } catch (listenerError) {
+        if (options.debug && typeof console !== "undefined" && console.error) {
+          console.error(
+            "[eino-workflow-dag] onError callback failed",
+            listenerError,
+          );
+        }
+      }
+      if (options.debug && typeof console !== "undefined" && console.error) {
+        console.error("[eino-workflow-dag] renderer recovered from an error", normalized);
+      }
+    }
+
+    function graphStylesheet() {
+      return stylesheet(themeId).concat(additionalStyles);
+    }
+
+    /** 画布底色 + .cy-wrap data-theme / overlay CSS 变量（不触碰 cy layout） */
+    function applyThemeChrome(id) {
+      var tid = normalizeTheme(id);
+      var tokens = themeTokens(tid);
+      container.style.background = tokens.canvas.bg;
+      var wrap = hostElement;
+      if (wrap && wrap.classList) {
+        wrap.setAttribute("data-theme", tid);
+        wrap.style.setProperty("--eino-workflow-dag-title-bg", tokens.overlay.titleBg);
+        wrap.style.setProperty("--eino-workflow-dag-title-color", tokens.overlay.titleColor);
+        wrap.style.setProperty(
+          "--eino-workflow-dag-title-hover-bg",
+          tokens.overlay.titleHoverBg,
+        );
+        wrap.style.setProperty(
+          "--eino-workflow-dag-title-hover-border",
+          tokens.overlay.titleHoverBorder,
+        );
+        if (tokens.overlay.titleFont) {
+          wrap.style.setProperty(
+            "--eino-workflow-dag-title-font",
+            tokens.overlay.titleFont,
+          );
+        } else {
+          wrap.style.removeProperty("--eino-workflow-dag-title-font");
+        }
+      }
+    }
+
+    function getTheme() {
+      return themeId;
+    }
+
+    function setTheme(next) {
+      assertActive();
+      next = normalizeTheme(next);
+      if (next === themeId) return;
+      themeId = next;
+      if (cy) {
+        // 只换 stylesheet，保留边 segments / layout / expanded
+        cy.style(graphStylesheet());
+      }
+      applyThemeChrome(themeId);
+      viewport.sync();
+    }
+
+    function getLocale() {
+      return {
+        kinds: toPlainRecord(locale.kinds),
+        statuses: toPlainRecord(locale.statuses),
+        tooltip: toPlainRecord(locale.tooltip),
+        collapseSubgraphTitle: locale.collapseSubgraphTitle,
+      };
+    }
+
+    function setLocale(next) {
+      assertActive();
+      var resolved = resolveLocale(next);
+      if (sameLocale(locale, resolved)) return;
+      locale = resolved;
+      overlay.setCollapseSubgraphTitle(locale.collapseSubgraphTitle);
+      tooltip.setLocale(locale);
+      render({ fit: false, patchData: true });
+    }
+
+    function setDirection(next) {
+      assertActive();
+      var nextProfile = axisProfile(normalizeDirection(next));
+      if (nextProfile.direction === profile.direction) return;
+      profile = nextProfile;
+      render();
+    }
+
+    function getExpanded() {
+      return toPlainRecord(expanded);
+    }
+
+    function setExpanded(next) {
+      assertActive();
+      var normalized = normalizeExpandedMap(next);
+      if (sameExpandedMap(expanded, normalized)) return;
+      expanded = normalized;
+      listeners.onExpandedChange(getExpanded());
+      render();
+    }
+
+    function resolveActiveNode() {
+      if (!cy || !activeNodeId) return null;
+      var exact = cy.getElementById(activeNodeId);
+      if (exact && exact.length === 1 && exact.isNode()) return exact;
+      var matches = cy.nodes().filter(function (node) {
+        return node.data("key") === activeNodeId;
+      });
+      return matches.length === 1 ? matches : null;
+    }
+
+    function syncActiveNode() {
+      if (!cy) return;
+      cy.nodes(".active-node").removeClass("active-node");
+      var active = resolveActiveNode();
+      if (active) active.addClass("active-node");
+    }
+
+    function getActiveNodeId() {
+      return activeNodeId;
+    }
+
+    function setActiveNodeId(next) {
+      assertActive();
+      next = normalizeActiveNodeId(next);
+      if (next === activeNodeId) return;
+      activeNodeId = next;
+      syncActiveNode();
+    }
+
+    /** Replace runtime DAG data while keeping the current interaction state. */
+    function setData(nextRoot, updateOptions) {
+      assertActive();
+      assertValidDAG(nextRoot);
+      var nextSnapshot = normalizeDAGSnapshot(nextRoot);
+
+      var previousExpanded = expanded;
+      var keepExpanded = !updateOptions || updateOptions.preserveExpanded !== false;
+      if (keepExpanded) {
+        var available = createKeyMap();
+        Model.listSubgraphs(nextRoot).forEach(function (subgraph) {
+          available[subgraph.path] = true;
+        });
+        var nextExpanded = createKeyMap();
+        Object.keys(expanded).forEach(function (path) {
+          if (expanded[path] && available[path]) nextExpanded[path] = true;
+        });
+        expanded = nextExpanded;
+      } else {
+        expanded = Model.defaultExpandedMap
+          ? Model.defaultExpandedMap(nextRoot)
+          : createKeyMap();
+      }
+
+      root = nextRoot;
+      var canPatchRuntime =
+        normalizedSnapshot.layoutKey === nextSnapshot.layoutKey;
+      normalizedSnapshot = nextSnapshot;
+      if (!sameExpandedMap(previousExpanded, expanded)) {
+        listeners.onExpandedChange(getExpanded());
+      }
+      return render({
+        fit: !!(updateOptions && updateOptions.fit),
+        patchData: canPatchRuntime,
+      });
+    }
+
+    function togglePath(path) {
+      var next = createKeyMap();
+      Object.keys(expanded).forEach(function (k) {
+        next[k] = expanded[k];
+      });
+      if (next[path]) delete next[path];
+      else next[path] = true;
+      setExpanded(next);
+    }
+
+    function expandAll() {
+      var next = createKeyMap();
+      Model.listSubgraphs(root).forEach(function (s) {
+        next[s.path] = true;
+      });
+      setExpanded(next);
+    }
+
+    function collapseAll() {
+      setExpanded({});
+    }
+
+    function clearOverlays() {
+      overlay.clear();
+    }
+
+    var tooltip = createNodeTooltip(container, {
+      formatDuration: formatDuration,
+      formatter:
+        typeof options.tooltipFormatter === "function"
+          ? options.tooltipFormatter
+          : null,
+      pinning: options.pinNodeTip !== false,
+      locale: locale,
+    });
+    var viewport = createViewportController(container, {
+      getCy: function () { return cy; },
+      overlay: overlay,
+      tooltip: tooltip,
+      minZoom: MIN_ZOOM,
+      maxZoom: MAX_ZOOM,
+      fitPadding: FIT_PADDING,
+      zoomStep: ZOOM_STEP,
+    });
+    var edgeState = createEdgeStateController(function () { return cy; });
+
+    function runLayout(visible, fit, cacheKey) {
+      layoutGeneration += 1;
+      var generation = layoutGeneration;
+      if (activeLayout && typeof activeLayout.stop === "function") {
+        activeLayout.stop();
+      }
+      // 清掉上次边几何 bypass，避免叠样式
+      cy.edges().removeStyle();
+      clearOverlays();
+      var cached = layoutCache.get(cacheKey);
+      if (cached && restoreCytoscapeLayout(cy, cached)) {
+        diagnostics.layoutCacheHits += 1;
+        edgeState.refresh();
+        if (fit) cy.fit(undefined, FIT_PADDING);
+        viewport.afterViewSettled();
+        return;
+      }
+      diagnostics.layoutRuns += 1;
+      var layout = cy.layout(workflowLayoutOptions(profile, visible, fit));
+      activeLayout = layout;
+      layout.one("layoutstop", function () {
+        if (destroyed || generation !== layoutGeneration || !cy) return;
+        activeLayout = null;
+        layoutCache.set(cacheKey, captureCytoscapeLayout(cy));
+        edgeState.refresh();
+        viewport.afterViewSettled();
+        if (options.debug && typeof console !== "undefined" && console.debug) {
+          console.debug(
+            "[eino-workflow-dag] layoutstop nodes/edges",
+            cy.nodes().length,
+            cy.edges().length,
+          );
+        }
+      });
+      try {
+        layout.run();
+      } catch (err) {
+        if (generation !== layoutGeneration || destroyed || !cy) return;
+        activeLayout = null;
+        reportError(err);
+        cy.layout({ name: "grid", fit: true, padding: 24 }).run();
+        viewport.afterViewSettled();
+      }
+    }
+
+    function render(renderOptions) {
+      assertActive();
+      var visible = Model.buildVisibleGraph(root, expanded);
+      var elements = toCytoscapeElements(visible, {
+        locale: locale,
+        nodeLabelFormatter:
+          typeof options.nodeLabelFormatter === "function"
+            ? options.nodeLabelFormatter
+            : null,
+      });
+      if (
+        cy &&
+        renderOptions &&
+        renderOptions.patchData &&
+        additionalStyles.length === 0 &&
+        patchCytoscapeElements(cy, elements)
+      ) {
+        diagnostics.dataPatches += 1;
+        accessibility.update(visible);
+        edgeState.refresh();
+        syncActiveNode();
+        if (renderOptions.fit) cy.fit(undefined, FIT_PADDING);
+        viewport.afterViewSettled();
+        tooltip.refresh(cy);
+        return visible;
+      }
+      accessibility.update(visible);
+      if (options.debug && typeof console !== "undefined" && console.debug) {
+        console.debug(
+          "[eino-workflow-dag] elements nodes/edges",
+          elements.filter(function (e) {
+            return e.group === "nodes";
+          }).length,
+          elements.filter(function (e) {
+            return e.group === "edges";
+          }).length,
+        );
+      }
+      if (!cy) {
+        cy = cytoscape({
+          container: container,
+          elements: elements,
+          style: graphStylesheet(),
+          layout: { name: "null" },
+          autoungrabify: true,
+          autounselectify: true,
+          boxSelectionEnabled: false,
+          // Bare wheel events scroll the page; Ctrl+wheel zoom is bound by viewport.
+          userZoomingEnabled: false,
+          userPanningEnabled: true,
+          minZoom: MIN_ZOOM,
+          maxZoom: MAX_ZOOM,
+        });
+        interaction = bindGraphInteractions(cy, container, {
+          clearEdgeHighlight: edgeState.clear,
+          onEdgeClick: listeners.onEdgeClick,
+          onNodeClick: listeners.onNodeClick,
+          onViewport: viewport.onViewport,
+          setEdgeHighlight: edgeState.set,
+          togglePath: togglePath,
+          tooltip: tooltip,
+          keyboardNavigation: options.keyboardNavigation !== false,
+        });
+        viewport.bind();
+      } else {
+        var syncResult = syncCytoscapeElements(cy, elements);
+        if (syncResult.topologyChanged) diagnostics.topologySyncs += 1;
+      }
+      syncActiveNode();
+      runLayout(
+        visible,
+        !renderOptions || renderOptions.fit !== false,
+        layoutCacheKey(profile.direction, elements, additionalStyles.length > 0),
+      );
+      return visible;
+    }
+
+    function destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      layoutGeneration += 1;
+      if (activeLayout && typeof activeLayout.stop === "function") {
+        activeLayout.stop();
+        activeLayout = null;
+      }
+      if (interaction) {
+        interaction.destroy();
+        interaction = null;
+      }
+      viewport.destroy();
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+      }
+      tooltip.destroy();
+      overlay.destroy();
+      accessibility.destroy();
+      layoutCache.clear();
+      if (cy) {
+        cy.destroy();
+        cy = null;
+      }
+      if (previousContainerBackground.value) {
+        container.style.setProperty(
+          "background",
+          previousContainerBackground.value,
+          previousContainerBackground.priority,
+        );
+      } else {
+        container.style.removeProperty("background");
+      }
+      if (hostElement && hostElement.classList) {
+        if (hadHostTheme) hostElement.setAttribute("data-theme", previousHostTheme);
+        else hostElement.removeAttribute("data-theme");
+        hostStyleProperties.forEach(function (property) {
+          var previous = previousHostStyles[property];
+          if (previous && previous.value) {
+            hostElement.style.setProperty(
+              property,
+              previous.value,
+              previous.priority,
+            );
+          }
+          else hostElement.style.removeProperty(property);
+        });
+        if (addedHostClass) hostElement.classList.remove("eino-workflow-dag-host");
+      }
+    }
+
+    function resize() {
+      assertActive();
+      viewport.resize({ fit: true });
+    }
+
+    /** Export the current Cytoscape rendering without blocking large graphs. */
+    function exportImage(exportOptions) {
+      assertActive();
+      var requested = exportOptions || {};
+      var format =
+        requested.format === "jpeg"
+          ? "jpeg"
+          : requested.format === "svg"
+            ? "svg"
+            : "png";
+      if (format === "svg") {
+        return exportWorkflowDAGSVG(cy, {
+          full: requested.full,
+          background:
+            requested.background === undefined
+              ? themeTokens(themeId).canvas.bg
+              : requested.background,
+          scale: requested.scale,
+          maxWidth: requested.maxWidth,
+          maxHeight: requested.maxHeight,
+          padding: requested.padding,
+        });
+      }
+      var imageOptions = {
+        output: "blob-promise",
+        full: requested.full !== false,
+        bg:
+          requested.background === undefined
+            ? themeTokens(themeId).canvas.bg
+            : requested.background,
+      };
+      ["scale", "maxWidth", "maxHeight", "quality"].forEach(function (key) {
+        if (requested[key] !== undefined) imageOptions[key] = requested[key];
+      });
+      if (format === "jpeg") return cy.jpg(imageOptions);
+      delete imageOptions.quality;
+      return cy.png(imageOptions);
+    }
+
+    // 初始
+    applyThemeChrome(themeId);
+    render();
+    if (options.autoResize !== false) {
+      resizeObserver = observeElementResize(container, function () {
+        viewport.resize({ fit: false });
+      });
+    }
+
+    return {
+      render: render,
+      setData: setData,
+      expandAll: expandAll,
+      collapseAll: collapseAll,
+      togglePath: togglePath,
+      getExpanded: getExpanded,
+      setExpanded: setExpanded,
+      getActiveNodeId: getActiveNodeId,
+      setActiveNodeId: setActiveNodeId,
+      getDirection: function () {
+        return profile.direction;
+      },
+      setDirection: setDirection,
+      getTheme: getTheme,
+      setTheme: setTheme,
+      getLocale: getLocale,
+      setLocale: setLocale,
+      zoomIn: function () {
+        assertActive();
+        viewport.zoomIn();
+      },
+      zoomOut: function () {
+        assertActive();
+        viewport.zoomOut();
+      },
+      resetView: function () {
+        assertActive();
+        viewport.resetView();
+      },
+      listSubgraphs: function () {
+        return Model.listSubgraphs(root);
+      },
+      resize: resize,
+      exportImage: exportImage,
+      getDiagnostics: function () {
+        return Object.assign({ cachedLayouts: layoutCache.size() }, diagnostics);
+      },
+      destroy: destroy,
+      cy: function () {
+        return cy;
+      },
+    };
+  }
