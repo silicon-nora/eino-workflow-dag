@@ -8,9 +8,7 @@ export default defineConfig(({ mode }) => {
   const entries = isModuleBuild
     ? {
         index: resolve(import.meta.dirname, "src/index.js"),
-        model: resolve(import.meta.dirname, "src/model.js"),
-        layout: resolve(import.meta.dirname, "src/layout.js"),
-        "layout-worker": resolve(import.meta.dirname, "src/layout-worker.js"),
+        cytoscape: resolve(import.meta.dirname, "src/cytoscape.js"),
         validation: resolve(import.meta.dirname, "src/validation.js"),
         vue: resolve(import.meta.dirname, "src/vue.js"),
         react: resolve(import.meta.dirname, "src/react.js"),

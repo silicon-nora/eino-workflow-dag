@@ -1,27 +1,24 @@
 import {
-  CURRENT_DAG_VERSION,
-  mountWorkflowDAG,
-  type DAGData,
+  CURRENT_SCHEMA_VERSION,
+  createWorkflowDAG,
+  type EinoWorkflowSnapshot,
 } from "eino-workflow-dag";
-import { layoutVisibleGraph } from "eino-workflow-dag/layout";
 import {
-  attachLayoutWorker,
-  createLayoutWorkerClient,
-} from "eino-workflow-dag/layout-worker";
-import { buildVisibleGraph } from "eino-workflow-dag/model";
+  createCytoscapeWorkflowDAG,
+  getCytoscape,
+} from "eino-workflow-dag/cytoscape";
 import { EinoWorkflowDAGReact } from "eino-workflow-dag/react";
-import { validateDAG } from "eino-workflow-dag/validation";
+import { validateWorkflowSnapshot } from "eino-workflow-dag/validation";
 import { EinoWorkflowDAGVue } from "eino-workflow-dag/vue";
 
-const root: DAGData = { version: 2, nodes: [], edges: [] };
-const visible = buildVisibleGraph(root);
-layoutVisibleGraph(visible);
-validateDAG(root);
-mountWorkflowDAG(document.createElement("div"), { root });
-
-declare const worker: Worker;
-createLayoutWorkerClient(worker).destroy();
-void attachLayoutWorker;
+const snapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: { nodes: [], edges: [] },
+};
+validateWorkflowSnapshot(snapshot);
+createWorkflowDAG(document.createElement("div"), { snapshot });
+const advanced = createCytoscapeWorkflowDAG(document.createElement("div"), { snapshot });
+getCytoscape(advanced);
 void EinoWorkflowDAGReact;
 void EinoWorkflowDAGVue;
-void CURRENT_DAG_VERSION;
+void CURRENT_SCHEMA_VERSION;

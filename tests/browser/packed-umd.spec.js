@@ -28,203 +28,110 @@ test.beforeAll(() => {
       shell: process.platform === "win32",
     },
   );
-  if (packed.status !== 0) {
-    throw new Error(packed.stderr || packed.stdout || "npm pack failed");
-  }
+  if (packed.status !== 0) throw new Error(packed.stderr || packed.stdout);
   const report = JSON.parse(packed.stdout)[0];
-  const extracted = spawnSync(
-    "tar",
-    ["-xzf", resolve(work, report.filename), "-C", work],
-    { encoding: "utf8" },
-  );
-  if (extracted.status !== 0) {
-    throw new Error(extracted.stderr || extracted.stdout || "tar extraction failed");
-  }
+  const extracted = spawnSync("tar", ["-xzf", resolve(work, report.filename), "-C", work], { encoding: "utf8" });
+  if (extracted.status !== 0) throw new Error(extracted.stderr || extracted.stdout);
 });
 
 test.afterAll(() => {
   if (work) rmSync(work, { recursive: true, force: true });
 });
 
-test("runs the exact packed UMD and CSS in a static browser host", async ({
-  page,
-}) => {
+test("runs the exact packed UMD and CSS", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-
-  await page.route("**/favicon.ico", (route) =>
-    route.fulfill({ status: 204, body: "" }),
-  );
+  await page.route("**/favicon.ico", (route) => route.fulfill({ status: 204, body: "" }));
   await page.goto("/");
   await page.setContent(`
-    <main>
-      <div class="eino-workflow-dag-flow">
-        <div id="packed-host" class="cy-wrap" style="height:320px">
-          <div id="packed" class="cy-root"></div>
-        </div>
-      </div>
-    </main>
+    <div id="packed-host" class="cy-wrap" style="height:320px">
+      <div id="packed" class="cy-root" style="width:100%;height:100%"></div>
+    </div>
   `);
-  await page.addStyleTag({
-    url: `${publicRoot}/dist/eino-workflow-dag.css`,
-  });
-  await page.addScriptTag({
-    url: `${publicRoot}/dist/eino-workflow-dag.umd.cjs`,
-  });
-  const publicKeys = await page.evaluate(() =>
-    Object.keys(window.EinoWorkflowDAG).sort(),
-  );
-  expect(publicKeys).not.toContain("fromEinoGraphInfo");
-  expect(publicKeys).not.toContain("applyEinoTraceEvent");
-  const nonJSONCodes = await page.evaluate(() =>
-    window.EinoWorkflowDAG.validateDAG({
-      nodes: [{ id: "unsafe", metrics: { value: 1n } }],
-      edges: [],
-    }).errors.map((entry) => entry.code),
-  );
-  expect(nonJSONCodes).toContain("non_json_value");
-  const strictBoundary = await page.evaluate(() => {
+  await page.addStyleTag({ url: `${publicRoot}/dist/eino-workflow-dag.css` });
+  await page.addScriptTag({ url: `${publicRoot}/dist/eino-workflow-dag.umd.cjs` });
+
+  expect(await page.evaluate(() => Object.keys(window.EinoWorkflowDAG).sort())).toEqual([
+    "CURRENT_SCHEMA_VERSION",
+    "SUPPORTED_SCHEMA_VERSIONS",
+    "WorkflowDAGError",
+    "WorkflowSnapshotError",
+    "createWorkflowDAG",
+    "listWorkflowDAGThemes",
+    "parseWorkflowSnapshot",
+    "registerWorkflowDAGTheme",
+    "validateWorkflowSnapshot",
+  ]);
+
+  const strict = await page.evaluate(() => {
     let getterInvoked = false;
-    const root = { edges: [] };
-    Object.defineProperty(root, "nodes", {
+    const workflow = { edges: [] };
+    Object.defineProperty(workflow, "nodes", {
       enumerable: true,
-      get: () => {
+      get() {
         getterInvoked = true;
         return [];
       },
     });
-    const accessorErrors = window.EinoWorkflowDAG.validateDAG(root).errors;
-    const nestedErrors = window.EinoWorkflowDAG.validateDAG({
-      version: 2,
-      nodes: [
-        {
-          id: "nested",
-          kind: "graph",
-          graph: { version: 1, nodes: [], edges: [] },
-        },
-      ],
-      edges: [],
-    }).errors;
-    const missingVersionErrors = window.EinoWorkflowDAG.validateDAG({
-      nodes: [],
-      edges: [],
-    }).errors;
-    const v1Errors = window.EinoWorkflowDAG.validateDAG({
-      version: 1,
-      nodes: [],
-      edges: [],
-    }).errors;
-    return {
-      getterInvoked,
-      accessorCodes: accessorErrors.map((entry) => entry.code),
-      nestedCodes: nestedErrors.map((entry) => entry.code),
-      missingVersionCodes: missingVersionErrors.map((entry) => entry.code),
-      v1Codes: v1Errors.map((entry) => entry.code),
-    };
+    const result = window.EinoWorkflowDAG.validateWorkflowSnapshot({
+      schemaVersion: 1,
+      workflow,
+    });
+    return { getterInvoked, codes: result.errors.map((entry) => entry.code) };
   });
-  expect(strictBoundary.getterInvoked).toBe(false);
-  expect(strictBoundary.accessorCodes).toContain("non_json_property");
-  expect(strictBoundary.accessorCodes).toContain("invalid_nodes");
-  expect(strictBoundary.nestedCodes).toContain("unsupported_version");
-  expect(strictBoundary.missingVersionCodes).toContain("missing_version");
-  expect(strictBoundary.v1Codes).toContain("unsupported_version");
+  expect(strict.getterInvoked).toBe(false);
+  expect(strict.codes).toContain("invalid_json_value");
+  expect(strict.codes).toContain("invalid_nodes");
+
   await page.evaluate(() => {
-    window.packedDAG = window.EinoWorkflowDAG.mountWorkflowDAG(
+    window.packedSnapshot = {
+      schemaVersion: 1,
+      workflow: { nodes: [{ id: "node", name: "Node" }], edges: [] },
+      execution: { nodes: [{ path: ["node"], status: "running" }] },
+    };
+    window.packedDAG = window.EinoWorkflowDAG.createWorkflowDAG(
       document.querySelector("#packed"),
-      {
-        root: {
-          version: 2,
-          nodes: [{ id: "partial", name: "Partial runtime graph" }],
-          edges: [],
-        },
-      },
+      { snapshot: window.packedSnapshot },
     );
   });
   await page.locator("#packed canvas").first().waitFor();
-  await expect
-    .poll(() =>
-      page.evaluate(() => ({
-        version: window.EinoWorkflowDAG.CURRENT_DAG_VERSION,
-        nodes: window.packedDAG.cy().nodes().length,
-        hostMarked: document
-          .querySelector("#packed-host")
-          .classList.contains("eino-workflow-dag-host"),
-      })),
-    )
-    .toEqual({ version: 2, nodes: 1, hostMarked: true });
-
-  const protocolBoundary = await page.evaluate(() => {
-    const mountErrors = [];
-    for (const root of [
-      { nodes: [], edges: [] },
-      { version: 1, nodes: [], edges: [] },
-      { version: 2, nodes: [] },
-      {
-        version: 2,
-        nodes: [{ id: "a" }, { id: "b" }],
-        edges: [{ from: "a", to: "b" }, { from: "b", to: "a" }],
-      },
-    ]) {
-      const host = document.createElement("div");
-      const container = document.createElement("div");
-      host.appendChild(container);
-      document.body.appendChild(host);
-      try {
-        window.EinoWorkflowDAG.mountWorkflowDAG(container, { root });
-      } catch (error) {
-        mountErrors.push(String(error.message));
-      } finally {
-        host.remove();
-      }
-    }
-    let updateError = "";
-    try {
-      window.packedDAG.setData({ version: 1, nodes: [], edges: [] });
-    } catch (error) {
-      updateError = String(error.message);
-    }
-    return { mountErrors, updateError };
+  await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    window.getPackedCy = (instance) => instance[access]();
   });
-  expect(protocolBoundary.mountErrors).toHaveLength(4);
-  expect(protocolBoundary.mountErrors[0]).toContain("version 2");
-  expect(protocolBoundary.mountErrors[1]).toContain("versions are 2");
-  expect(protocolBoundary.mountErrors[2]).toContain("edges");
-  expect(protocolBoundary.mountErrors[3]).toContain("cycle");
-  expect(protocolBoundary.updateError).toContain("versions are 2");
+  await expect.poll(() => page.evaluate(() => ({
+    version: window.EinoWorkflowDAG.CURRENT_SCHEMA_VERSION,
+    nodes: window.getPackedCy(window.packedDAG).nodes().length,
+  }))).toEqual({ version: 1, nodes: 1 });
 
   await page.evaluate(() => {
-    window.packedDAG.setData({
-      version: 2,
-      nodes: [
-        {
-          id: "nested",
-          name: "Nested",
-          kind: "graph",
-          graph: {
-            nodes: [
-              { id: "first", name: "First" },
-              { id: "second", name: "Second" },
-            ],
-            edges: [{ from: "first", to: "second" }],
-          },
-        },
-      ],
-      edges: [],
-    });
-    window.packedDAG.expandAll();
+    const next = structuredClone(window.packedSnapshot);
+    next.execution.nodes[0].status = "success";
+    window.packedDAG.update(next);
   });
-  await expect
-    .poll(() => page.evaluate(() => window.packedDAG.cy().nodes().length))
-    .toBe(3);
+  await expect.poll(() => page.evaluate(() =>
+    window.getPackedCy(window.packedDAG).getElementById("node").data("status"),
+  )).toBe("success");
 
-  await page.evaluate(() => window.packedDAG.destroy());
-  await expect(page.locator("#packed canvas")).toHaveCount(0);
-  await expect(page.locator("#packed-host > .cy-overlays")).toHaveCount(0);
-  await expect(page.locator("#packed-host")).not.toHaveClass(
-    /eino-workflow-dag-host/,
-  );
+  const invalid = await page.evaluate(() => {
+    try {
+      window.packedDAG.update({ schemaVersion: 2, workflow: { nodes: [], edges: [] } });
+      return null;
+    } catch (error) {
+      return { code: error.code, issue: error.issues[0].code };
+    }
+  });
+  expect(invalid).toEqual({
+    code: "INVALID_WORKFLOW_SNAPSHOT",
+    issue: "unsupported_schema_version",
+  });
+
+  expect(await page.evaluate(() => {
+    window.packedDAG.destroy();
+    return window.getPackedCy(window.packedDAG);
+  })).toBeNull();
   expect(errors).toEqual([]);
 });

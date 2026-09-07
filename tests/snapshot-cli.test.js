@@ -18,25 +18,26 @@ function run(snapshot) {
 }
 
 const valid = run({
-  version: 2,
-  nodes: [
-    {
-      id: "group",
-      kind: "graph",
-      graph: { nodes: [{ id: "work" }], edges: [] },
-    },
-  ],
-  edges: [],
+  schemaVersion: 1,
+  workflow: {
+    nodes: [
+      {
+        id: "group",
+        workflow: { nodes: [{ id: "work" }], edges: [] },
+      },
+    ],
+    edges: [],
+  },
 });
 assert(valid.status === 0, `valid snapshot should pass: ${valid.stderr}`);
 assert(valid.stdout.includes("2 graphs, 2 nodes, 0 edges"), "summary counts nested graphs");
 
-const legacy = run({ version: 1, nodes: [{ id: "legacy" }], edges: [] });
-assert(legacy.status === 1, "v1 snapshot should fail");
-assert(legacy.stderr.includes("unsupported_version root.version"), "failure identifies v1");
+const unsupported = run({ schemaVersion: 2, workflow: { nodes: [], edges: [] } });
+assert(unsupported.status === 1, "unsupported schema should fail");
+assert(unsupported.stderr.includes("unsupported_schema_version root.schemaVersion"), "failure identifies the schema");
 
-const nullEdges = run({ version: 2, nodes: [{ id: "node" }], edges: null });
+const nullEdges = run({ schemaVersion: 1, workflow: { nodes: [{ id: "node" }], edges: null } });
 assert(nullEdges.status === 1, "null edges should fail");
-assert(nullEdges.stderr.includes("invalid_edges root.edges"), "failure identifies null edges");
+assert(nullEdges.stderr.includes("invalid_edges root.workflow.edges"), "failure identifies null edges");
 
 console.log("OK: snapshot CLI tests passed");

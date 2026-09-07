@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { layoutVisibleGraph } from "../src/layout.js";
 import { buildVisibleGraph, listSubgraphs } from "../src/model.js";
-import { validateDAG } from "../src/validation.js";
 
 const DIRECTIONS = ["RIGHT", "LEFT", "DOWN", "UP"];
 const SPECIAL_IDS = [
@@ -82,9 +81,6 @@ function mainCenter(position, direction) {
 
 for (let seed = 1; seed <= 80; seed += 1) {
   const root = { version: 2, ...makeLayer(randomFor(seed), seed, 0, 7 + (seed % 7)) };
-  const validation = validateDAG(root);
-  assert.equal(validation.valid, true, `seed ${seed}: generated DAG must be valid`);
-
   const expanded = Object.fromEntries(
     listSubgraphs(root).map(({ path }) => [path, true]),
   );

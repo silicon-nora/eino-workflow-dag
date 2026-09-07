@@ -41,7 +41,7 @@ body:
     id: reproduction
     attributes:
       label: Minimal reproduction
-      description: Link to a minimal repository or paste a non-sensitive DAG payload and code.
+      description: Link to a minimal repository or paste a non-sensitive workflow snapshot and code.
     validations:
       required: true
   - type: textarea

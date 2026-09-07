@@ -1,11 +1,13 @@
 export type {
-  DAGData,
-  DAGValidationIssue,
-  DAGValidationResult,
+  EinoWorkflowSnapshot,
+  WorkflowSnapshotIssue,
+  WorkflowSnapshotIssueCode,
+  WorkflowSnapshotValidationResult,
 } from "./index.js";
 export {
-  CURRENT_DAG_VERSION,
-  SUPPORTED_DAG_VERSIONS,
-  assertValidDAG,
-  validateDAG,
+  CURRENT_SCHEMA_VERSION,
+  SUPPORTED_SCHEMA_VERSIONS,
+  WorkflowSnapshotError,
+  parseWorkflowSnapshot,
+  validateWorkflowSnapshot,
 } from "./index.js";

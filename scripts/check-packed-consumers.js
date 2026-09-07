@@ -111,13 +111,12 @@ try {
   writeFixture(
     "src/main.ts",
     `import {
-  mountWorkflowDAG,
-  type DAGData,
+  createWorkflowDAG,
+  type EinoWorkflowSnapshot,
   type WorkflowDAGInstance,
 } from "${packageName}";
-import { buildVisibleGraph } from "${packageName}/model";
-import { layoutVisibleGraph } from "${packageName}/layout";
-import { validateDAG } from "${packageName}/validation";
+import { validateWorkflowSnapshot } from "${packageName}/validation";
+import { getCytoscape } from "${packageName}/cytoscape";
 import {
   EinoWorkflowDAGVue,
   type EinoWorkflowDAGVueRef,
@@ -128,34 +127,33 @@ import {
 } from "${packageName}/react";
 import "${packageName}/styles.css";
 
-const root: DAGData = {
-  version: 2,
-  nodes: [{ id: "input", status: "degraded" }],
-  edges: [],
+const snapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: { nodes: [{ id: "input" }], edges: [] },
+  execution: { nodes: [{ path: ["input"], status: "degraded" }] },
 };
-const visible = buildVisibleGraph(root, {});
-layoutVisibleGraph(visible, { direction: "RIGHT" });
-validateDAG(root);
+validateWorkflowSnapshot(snapshot);
 
 declare const dag: WorkflowDAGInstance;
 declare const vueRef: EinoWorkflowDAGVueRef;
 declare const reactRef: EinoWorkflowDAGReactRef;
 if (false) {
-  dag.setData(root);
-  dag.setActiveNodeId("input");
-  dag.getActiveNodeId();
-  vueRef.setActiveNodeId("input");
-  reactRef.setActiveNodeId(null);
+  dag.update(snapshot);
+  dag.setActiveNodePath(["input"]);
+  dag.getActiveNodePath();
+  vueRef.setActiveNodePath(["input"]);
+  reactRef.setActiveNodePath(null);
+  getCytoscape(dag);
   vueRef.getDiagnostics();
   reactRef.getDiagnostics();
 }
 
 Object.assign(globalThis, {
   packedConsumer: {
-    mountWorkflowDAG,
+    createWorkflowDAG,
     EinoWorkflowDAGVue,
     EinoWorkflowDAGReact,
-    root,
+    snapshot,
   },
 });
 `,
@@ -174,10 +172,8 @@ Object.assign(globalThis, {
 
   const cjsEntries = [
     packageName,
-    `${packageName}/model`,
-    `${packageName}/layout`,
-    `${packageName}/layout-worker`,
     `${packageName}/validation`,
+    `${packageName}/cytoscape`,
     `${packageName}/vue`,
     `${packageName}/react`,
   ];

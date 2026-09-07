@@ -58,6 +58,7 @@ export function summarizeVisibleGraph(graph) {
 export function createAccessibilityPresenter(container, options = {}) {
   const originalRole = container.getAttribute("role");
   const originalLabel = container.getAttribute("aria-label");
+  let graphLabel = "";
   if (!originalRole) container.setAttribute("role", "img");
 
   function update(visible) {
@@ -67,8 +68,21 @@ export function createAccessibilityPresenter(container, options = {}) {
       const formatted = options.labelFormatter(summary, visible);
       if (formatted != null) label = String(formatted);
     }
-    container.setAttribute("aria-label", label);
+    graphLabel = label;
+    container.setAttribute("aria-label", graphLabel);
     return summary;
+  }
+
+  function focusNode(node) {
+    if (!node) {
+      container.setAttribute("aria-label", graphLabel);
+      return;
+    }
+    const title = node.title || node.key || node.id || "Unnamed";
+    const details = [`Focused workflow node ${title}.`];
+    if (node.component) details.push(`Component ${node.component}.`);
+    if (node.status) details.push(`Status ${node.status}.`);
+    container.setAttribute("aria-label", details.join(" "));
   }
 
   function destroy() {
@@ -78,5 +92,5 @@ export function createAccessibilityPresenter(container, options = {}) {
     else container.setAttribute("aria-label", originalLabel);
   }
 
-  return { destroy, update };
+  return { destroy, focusNode, update };
 }

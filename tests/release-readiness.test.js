@@ -3,7 +3,7 @@ import { validateReleaseReadiness } from "../scripts/check-release-readiness.js"
 
 const manifest = {
   name: "eino-workflow-dag",
-  version: "0.4.0-alpha.2",
+  version: "0.4.0-alpha.3",
   license: "Apache-2.0",
   repository: "https://github.com/example-org/eino-workflow-dag.git",
   homepage: "https://github.com/example-org/eino-workflow-dag#readme",

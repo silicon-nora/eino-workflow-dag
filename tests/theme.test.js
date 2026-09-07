@@ -12,24 +12,24 @@ assert.equal(normalizeTheme("missing"), "classic");
 
 const unregister = registerTheme("test-brand", {
   canvas: { bg: "#fafafa" },
-  colors: { critical: "#663399" },
+  colors: { highlighted: "#663399" },
   node: { fontSize: 17 },
 });
 
 assert.equal(normalizeTheme("test-brand"), "test-brand");
 assert.equal(themeTokens("test-brand").canvas.bg, "#fafafa");
-assert.equal(themeTokens("test-brand").colors.critical, "#663399");
+assert.equal(themeTokens("test-brand").colors.highlighted, "#663399");
 assert.equal(themeTokens("test-brand").colors.paper, "#ffffff");
 assert.equal(themeTokens("test-brand").node.fontSize, 17);
 
 const rules = stylesheet("test-brand");
 const nodeRule = rules.find((rule) => rule.selector === "node");
-const criticalRule = rules.find((rule) => rule.selector === "edge[level = 1]");
+const highlightedRule = rules.find((rule) => rule.selector === "edge[level = 1]");
 const degradedRule = rules.find(
   (rule) => rule.selector === 'node[status = "degraded"]',
 );
 assert.equal(nodeRule.style["font-size"], 17);
-assert.equal(criticalRule.style["line-color"], "#663399");
+assert.equal(highlightedRule.style["line-color"], "#663399");
 assert.equal(degradedRule.style["border-color"], "#9a6700");
 assert.equal(degradedRule.style["background-color"], "#fff8c5");
 
@@ -41,10 +41,10 @@ unregister();
 assert.equal(normalizeTheme("test-brand"), "classic");
 
 const unregisterPrototype = registerTheme("__proto__", {
-  colors: { critical: "#010203" },
+  colors: { highlighted: "#010203" },
 });
 assert.equal(normalizeTheme("__proto__"), "__proto__");
-assert.equal(themeTokens("__proto__").colors.critical, "#010203");
+assert.equal(themeTokens("__proto__").colors.highlighted, "#010203");
 unregisterPrototype();
 assert.equal(normalizeTheme("__proto__"), "classic");
 

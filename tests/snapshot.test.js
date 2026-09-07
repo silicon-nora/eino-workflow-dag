@@ -1,72 +1,70 @@
-import { normalizeDAGSnapshot } from "../src/snapshot.js";
+import {
+  decodeNodePath,
+  encodeNodePath,
+  normalizeDAGSnapshot,
+} from "../src/snapshot.js";
 
 function assert(condition, message) {
-  if (!condition) {
-    console.error("FAIL:", message);
-    process.exit(1);
-  }
+  if (!condition) throw new Error(`FAIL: ${message}`);
 }
 
-const root = {
-  version: 2,
-  scene: "answer",
-  nodes: [
-    { id: "input", name: "Input", status: "running", cost_ms: 10 },
-    {
-      id: "work",
-      name: "Work",
-      kind: "graph",
-      status: "success",
-      cost_ms: 20,
-      graph: {
-        nodes: [{ id: "model", kind: "llm", metrics: { tokens: 4 } }],
-        edges: [],
+const snapshot = {
+  schemaVersion: 1,
+  workflow: {
+    nodes: [
+      { id: "input", name: "Input" },
+      {
+        id: "work/flow",
+        name: "Work",
+        component: "Workflow",
+        workflow: {
+          nodes: [{ id: "model", component: "ChatModel" }],
+          edges: [],
+        },
       },
-    },
-  ],
-  edges: [{ from: "input", to: "work", kind: "control" }],
+    ],
+    edges: [{ from: "input", to: "work/flow", channels: ["control"] }],
+    branches: [{ from: "input", targets: ["end"] }],
+  },
+  execution: {
+    nodes: [
+      { path: ["input"], status: "running", durationMs: 10 },
+      { path: ["work/flow"], status: "success", durationMs: 20 },
+      { path: ["work/flow", "model"], metrics: { tokens: 4 } },
+    ],
+  },
 };
 
-const normalized = normalizeDAGSnapshot(root);
-assert(normalized.definition.nodes[0].status === undefined, "definition omits runtime state");
-assert(normalized.runtimeByPath.input.status === "running", "root runtime is indexed");
-assert(
-  normalized.runtimeByPath["work/model"].metrics.tokens === 4,
-  "nested runtime is indexed by canonical path",
-);
+const normalized = normalizeDAGSnapshot(snapshot);
+assert(normalized.definition.nodes[0].status === undefined, "definition omits execution state");
+assert(normalized.runtimeByPath.input.status === "running", "root execution is indexed");
+const nestedKey = encodeNodePath(["work/flow", "model"]);
+assert(normalized.runtimeByPath[nestedKey].metrics.tokens === 4, "nested execution uses an unambiguous path key");
+assert(JSON.stringify(decodeNodePath(nestedKey)) === '["work/flow","model"]', "encoded paths round trip");
+for (const path of [["START"], ["END"], ["tilde~slash/"], ["\ud800"]]) {
+  assert(
+    JSON.stringify(decodeNodePath(encodeNodePath(path))) === JSON.stringify(path),
+    `path ${JSON.stringify(path)} round trips without endpoint collisions`,
+  );
+}
+assert(normalized.root.edges[0].kind === "control", "edge channels project to renderer semantics");
+assert(normalized.root.edges[1].kind === "branch", "Eino branches project to renderer edges");
+assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");
+assert(normalized.definition.nodes[1].graph.nodes[0].kind === "llm", "Eino components map to visual kinds");
 
-const statusOnly = structuredClone(root);
-statusOnly.nodes[0].status = "success";
-statusOnly.nodes[0].metrics = { bytes: 8 };
-const statusNormalized = normalizeDAGSnapshot(statusOnly);
-assert(
-  normalized.definitionKey === statusNormalized.definitionKey,
-  "runtime changes preserve the structural definition",
-);
-assert(
-  normalized.layoutKey === statusNormalized.layoutKey,
-  "non-layout runtime changes remain patchable",
-);
+const stateOnly = structuredClone(snapshot);
+stateOnly.execution.nodes[0].status = "success";
+stateOnly.execution.nodes[0].metrics = { bytes: 8 };
+const stateNormalized = normalizeDAGSnapshot(stateOnly);
+assert(normalized.definitionKey === stateNormalized.definitionKey, "execution changes preserve topology");
+assert(normalized.layoutKey === stateNormalized.layoutKey, "non-layout execution changes remain patchable");
 
-const costChanged = structuredClone(root);
-costChanged.nodes[0].cost_ms = 11;
-assert(
-  normalized.layoutKey !== normalizeDAGSnapshot(costChanged).layoutKey,
-  "cost changes invalidate critical-path layout",
-);
+const durationChanged = structuredClone(snapshot);
+durationChanged.execution.nodes[0].durationMs = 11;
+assert(normalized.layoutKey !== normalizeDAGSnapshot(durationChanged).layoutKey, "duration changes invalidate highlighted-path layout");
 
-const skipped = structuredClone(root);
-skipped.nodes[0].status = "skipped";
-assert(
-  normalized.layoutKey !== normalizeDAGSnapshot(skipped).layoutKey,
-  "skipped state changes invalidate critical-path layout",
-);
+const renamed = structuredClone(snapshot);
+renamed.workflow.nodes[0].name = "Long input label";
+assert(normalized.definitionKey !== normalizeDAGSnapshot(renamed).definitionKey, "labels remain structural");
 
-const renamed = structuredClone(root);
-renamed.nodes[0].name = "Long input label";
-assert(
-  normalized.definitionKey !== normalizeDAGSnapshot(renamed).definitionKey,
-  "label changes invalidate structural layout",
-);
-
-console.log("OK: DAG snapshot normalization tests passed");
+console.log("OK: workflow snapshot projection tests passed");

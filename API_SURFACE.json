@@ -1,30 +1,23 @@
 {
   ".": [
-    "CURRENT_DAG_VERSION",
-    "EinoWorkflowDAG",
-    "SUPPORTED_DAG_VERSIONS",
-    "assertValidDAG",
-    "default",
-    "mountWorkflowDAG",
+    "CURRENT_SCHEMA_VERSION",
+    "SUPPORTED_SCHEMA_VERSIONS",
+    "WorkflowDAGError",
+    "WorkflowSnapshotError",
+    "createWorkflowDAG",
+    "listWorkflowDAGThemes",
+    "parseWorkflowSnapshot",
     "registerWorkflowDAGTheme",
-    "validateDAG"
+    "validateWorkflowSnapshot"
   ],
-  "./model": [
-    "EinoWorkflowDAGModel",
-    "buildVisibleGraph",
-    "defaultExpandedMap",
-    "isGraphNode",
-    "listSubgraphs",
-    "nodeRef"
-  ],
-  "./layout": ["EinoWorkflowDAGLayout", "layoutVisibleGraph"],
-  "./layout-worker": ["attachLayoutWorker", "createLayoutWorkerClient"],
   "./validation": [
-    "CURRENT_DAG_VERSION",
-    "SUPPORTED_DAG_VERSIONS",
-    "assertValidDAG",
-    "validateDAG"
+    "CURRENT_SCHEMA_VERSION",
+    "SUPPORTED_SCHEMA_VERSIONS",
+    "WorkflowSnapshotError",
+    "parseWorkflowSnapshot",
+    "validateWorkflowSnapshot"
   ],
+  "./cytoscape": ["createCytoscapeWorkflowDAG", "getCytoscape"],
   "./vue": ["EinoWorkflowDAGVue", "default"],
   "./react": ["EinoWorkflowDAGReact", "default"]
 }

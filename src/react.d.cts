@@ -1,59 +1,32 @@
 // Generated from the matching .d.ts file by scripts/sync-cjs-types.js.
+import type { ForwardRefExoticComponent, HTMLAttributes, RefAttributes } from "react";
 import type {
-  ForwardRefExoticComponent,
-  HTMLAttributes,
-  RefAttributes,
-} from "react";
-import type {
-  DAGData,
-  DAGDirection,
-  DAGLocale,
-  DAGStyleRule,
-  DAGTheme,
-  MountOptions,
-  RenderedEdgeData,
-  RenderedNodeData,
+  CreateWorkflowDAGOptions,
+  EinoWorkflowSnapshot,
+  NodePath,
   WorkflowDAGInstance,
 } from "./index.cjs";
 
 export interface EinoWorkflowDAGReactProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onError"> {
-  root: DAGData;
-  direction?: DAGDirection;
-  theme?: DAGTheme;
-  expanded?: Record<string, boolean>;
-  activeNodeId?: string | null;
-  pinNodeTip?: boolean;
-  autoResize?: boolean;
-  debug?: boolean;
-  additionalStyles?: DAGStyleRule[];
-  ariaLabel?: string;
-  accessibilityLabelFormatter?: MountOptions["accessibilityLabelFormatter"];
-  keyboardNavigation?: boolean;
-  tooltipFormatter?: MountOptions["tooltipFormatter"];
-  nodeLabelFormatter?: MountOptions["nodeLabelFormatter"];
-  layoutCacheSize?: number;
+  extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onError">,
+    Omit<CreateWorkflowDAGOptions, "snapshot" | "onError"> {
+  snapshot: EinoWorkflowSnapshot;
   preserveExpanded?: boolean;
   fitOnUpdate?: boolean;
-  locale?: DAGLocale;
   onReady?: (instance: WorkflowDAGInstance) => void;
-  onExpandedChange?: (expanded: Record<string, boolean>) => void;
-  onNodeClick?: (node: RenderedNodeData) => void;
-  onEdgeClick?: (edge: RenderedEdgeData) => void;
-  onError?: (error: Error) => void;
+  onError?: CreateWorkflowDAGOptions["onError"];
 }
 
 export interface EinoWorkflowDAGReactRef {
   getInstance(): WorkflowDAGInstance | null;
-  render: WorkflowDAGInstance["render"];
-  setData: WorkflowDAGInstance["setData"];
+  update: WorkflowDAGInstance["update"];
   expandAll: WorkflowDAGInstance["expandAll"];
   collapseAll: WorkflowDAGInstance["collapseAll"];
-  togglePath: WorkflowDAGInstance["togglePath"];
+  toggle: WorkflowDAGInstance["toggle"];
   getExpanded: WorkflowDAGInstance["getExpanded"];
   setExpanded: WorkflowDAGInstance["setExpanded"];
-  getActiveNodeId: WorkflowDAGInstance["getActiveNodeId"];
-  setActiveNodeId: WorkflowDAGInstance["setActiveNodeId"];
+  getActiveNodePath: WorkflowDAGInstance["getActiveNodePath"];
+  setActiveNodePath: WorkflowDAGInstance["setActiveNodePath"];
   getDirection: WorkflowDAGInstance["getDirection"];
   setDirection: WorkflowDAGInstance["setDirection"];
   getTheme: WorkflowDAGInstance["getTheme"];
@@ -69,6 +42,7 @@ export interface EinoWorkflowDAGReactRef {
   getDiagnostics: WorkflowDAGInstance["getDiagnostics"];
 }
 
+export type { NodePath };
 export const EinoWorkflowDAGReact: ForwardRefExoticComponent<
   EinoWorkflowDAGReactProps & RefAttributes<EinoWorkflowDAGReactRef>
 >;

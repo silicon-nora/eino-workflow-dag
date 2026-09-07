@@ -1,62 +1,39 @@
 // Generated from the matching .d.ts file by scripts/sync-cjs-types.js.
 import type { ComponentOptionsMixin, DefineComponent } from "vue";
 import type {
-  DAGData,
-  DAGDirection,
-  DAGLocale,
-  DAGStyleRule,
-  DAGTheme,
-  MountOptions,
-  RenderedEdgeData,
-  RenderedNodeData,
+  CreateWorkflowDAGOptions,
+  EinoWorkflowSnapshot,
+  WorkflowDAGError,
   WorkflowDAGInstance,
+  WorkflowSnapshotError,
 } from "./index.cjs";
 
 export type EinoWorkflowDAGVueEmits = {
   ready: (instance: WorkflowDAGInstance) => void;
-  "expanded-change": (expanded: Record<string, boolean>) => void;
-  "node-click": (node: RenderedNodeData) => void;
-  "edge-click": (edge: RenderedEdgeData) => void;
-  error: (error: Error) => void;
+  "expanded-change": NonNullable<CreateWorkflowDAGOptions["onExpandedChange"]>;
+  "node-click": NonNullable<CreateWorkflowDAGOptions["onNodeClick"]>;
+  "edge-click": NonNullable<CreateWorkflowDAGOptions["onEdgeClick"]>;
+  error: (error: WorkflowDAGError | WorkflowSnapshotError) => void;
 };
 
-export interface EinoWorkflowDAGVueProps {
-  root: DAGData;
-  direction?: DAGDirection;
-  theme?: DAGTheme;
-  expanded?: Record<string, boolean>;
-  activeNodeId?: string | null;
-  pinNodeTip?: boolean;
-  autoResize?: boolean;
-  debug?: boolean;
-  additionalStyles?: DAGStyleRule[];
-  ariaLabel?: string;
-  accessibilityLabelFormatter?: MountOptions["accessibilityLabelFormatter"];
-  keyboardNavigation?: boolean;
-  tooltipFormatter?: MountOptions["tooltipFormatter"];
-  nodeLabelFormatter?: MountOptions["nodeLabelFormatter"];
-  layoutCacheSize?: number;
+export interface EinoWorkflowDAGVueProps
+  extends Omit<CreateWorkflowDAGOptions, "snapshot"> {
+  snapshot: EinoWorkflowSnapshot;
   preserveExpanded?: boolean;
   fitOnUpdate?: boolean;
-  locale?: DAGLocale;
   onReady?: EinoWorkflowDAGVueEmits["ready"];
-  onExpandedChange?: EinoWorkflowDAGVueEmits["expanded-change"];
-  onNodeClick?: EinoWorkflowDAGVueEmits["node-click"];
-  onEdgeClick?: EinoWorkflowDAGVueEmits["edge-click"];
-  onError?: EinoWorkflowDAGVueEmits["error"];
 }
 
 export interface EinoWorkflowDAGVueRef {
   getInstance(): WorkflowDAGInstance | null;
-  render: WorkflowDAGInstance["render"];
-  setData: WorkflowDAGInstance["setData"];
+  update: WorkflowDAGInstance["update"];
   expandAll: WorkflowDAGInstance["expandAll"];
   collapseAll: WorkflowDAGInstance["collapseAll"];
-  togglePath: WorkflowDAGInstance["togglePath"];
+  toggle: WorkflowDAGInstance["toggle"];
   getExpanded: WorkflowDAGInstance["getExpanded"];
   setExpanded: WorkflowDAGInstance["setExpanded"];
-  getActiveNodeId: WorkflowDAGInstance["getActiveNodeId"];
-  setActiveNodeId: WorkflowDAGInstance["setActiveNodeId"];
+  getActiveNodePath: WorkflowDAGInstance["getActiveNodePath"];
+  setActiveNodePath: WorkflowDAGInstance["setActiveNodePath"];
   getDirection: WorkflowDAGInstance["getDirection"];
   setDirection: WorkflowDAGInstance["setDirection"];
   getTheme: WorkflowDAGInstance["getTheme"];

@@ -1,4 +1,5 @@
 import { hasOwnKey, mergePlainRecords } from "./key-map.js";
+import { decodeNodePath } from "./snapshot.js";
 
 export function formatDuration(ms) {
   if (ms === null || ms === undefined) return "-";
@@ -26,6 +27,25 @@ function defaultNodeLabel(node, locale) {
   return `${title}\n${kindLabel(node.kind, locale && locale.kinds)}  ·  ${formatDuration(node.cost_ms)}`;
 }
 
+function publicVisibleNode(node) {
+  return {
+    path: decodeNodePath(node.id),
+    id: node.key || node.id,
+    name: node.name || node.key || node.id,
+    ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
+    kind: node.kind || "",
+    component: node.component || "",
+    metadata: node.metadata || null,
+    status: node.status || "",
+    durationMs: node.cost_ms || 0,
+    metrics: node.metrics || null,
+    errorMessage: node.err_msg || "",
+    expandable: !!node.expandable,
+    subgraph: !!node.subgraph,
+    expanded: !!node.expanded,
+  };
+}
+
 export function toCytoscapeElements(visible, options = {}) {
   const elements = [];
   const formatter = options.nodeLabelFormatter;
@@ -34,7 +54,7 @@ export function toCytoscapeElements(visible, options = {}) {
     let label = "";
     if (!node.expanded || !node.subgraph) {
       const content = formatter
-        ? formatter({ ...node })
+        ? formatter(publicVisibleNode(node))
         : defaultNodeLabel(node, options.locale);
       label = content == null ? "" : String(content);
     }
@@ -44,6 +64,8 @@ export function toCytoscapeElements(visible, options = {}) {
       label,
       title,
       kind: node.kind || "",
+      component: node.component || "",
+      metadata: node.metadata || null,
       status: node.status || "",
       cost_ms: node.cost_ms || 0,
       metrics: node.metrics || null,

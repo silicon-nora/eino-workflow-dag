@@ -1,20 +1,15 @@
 import "./styles.css";
 
-import EinoWorkflowDAG from "./renderer.js";
-
-/** Mount an interactive Eino workflow DAG in a DOM element. */
-export function mountWorkflowDAG(container, options) {
-  return EinoWorkflowDAG.mount(container, options);
-}
-
 export {
-  EinoWorkflowDAG,
+  createWorkflowDAG,
+  listWorkflowDAGThemes,
   registerWorkflowDAGTheme,
-  default,
 } from "./renderer.js";
 export {
-  CURRENT_DAG_VERSION,
-  SUPPORTED_DAG_VERSIONS,
-  assertValidDAG,
-  validateDAG,
+  CURRENT_SCHEMA_VERSION,
+  SUPPORTED_SCHEMA_VERSIONS,
+  WorkflowSnapshotError,
+  parseWorkflowSnapshot,
+  validateWorkflowSnapshot,
 } from "./validation.js";
+export { WorkflowDAGError } from "./workflow-error.js";

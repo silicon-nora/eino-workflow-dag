@@ -30,17 +30,20 @@ to beta follows compatibility testing and feedback from package users.
    packs without lifecycle scripts, extracts that exact artifact, and executes
    its UMD and stylesheet in a static host. `check-packed-consumers.js`
    independently installs the exact tarball into a temporary application,
-   type-checks and bundles its core, Vue, React, data-only, and CSS imports, and
+   type-checks and bundles its core, Vue, React, Cytoscape adapter, data-only,
+   and CSS imports, and
    loads all JavaScript subpaths through CommonJS.
    CI additionally repeats the type and Chromium suites with the minimum
    declared React, React DOM, and Vue peer versions.
+   The separate Go projection matrix must pass against Eino `v0.9.0` and the
+   stable Eino version pinned in `integrations/go/go.mod`.
 6. Run `npm audit --omit=dev --audit-level=high` against the official npm
    registry and review any unresolved advisory.
 7. Confirm the automated exact-tarball consumer build passed; repeat manually
    only when validating a new framework or bundler not covered by that fixture.
 8. Confirm the exact-tarball compatibility fixtures cover every supported
    package entry and framework peer range.
-9. Replace the `0.4.0-alpha.2` candidate's `Unreleased` changelog date with the
+9. Replace the `0.4.0-alpha.3` candidate's `Unreleased` changelog date with the
    release date and confirm that exact version throughout the artifact.
 10. Run `npm run release:dry-run:next`, create a matching `v<version>` tag, and
     publish a GitHub Release. `.github/workflows/publish.yml` re-runs all gates
@@ -103,11 +106,11 @@ checklist before invoking `npm publish`.
 
 ## Upgrade policy
 
-- `0.x` minor releases may contain breaking public API or contract changes;
-  every such change requires a migration section and changelog entry.
+- Prerelease APIs may change while the first contract is being validated; every
+  change requires a changelog entry.
 - `0.x` patch releases are backward compatible bug fixes.
-- After `1.0.0`, public API and DAG contract compatibility follow semantic
-  versioning. A new incompatible DAG contract requires both a new contract
+- After `1.0.0`, public API and snapshot compatibility follow semantic
+  versioning. A new incompatible snapshot schema requires both a new schema
   version and a semver-major package release.
-- Internal Cytoscape access through `instance.cy()` is never covered by the
-  compatibility guarantee.
+- The `eino-workflow-dag/cytoscape` adapter is implementation-specific and has
+  a narrower compatibility promise than the stable root API.

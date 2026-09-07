@@ -1,425 +1,217 @@
 import {
-  CURRENT_DAG_VERSION,
-  SUPPORTED_DAG_VERSIONS,
-  assertValidDAG,
-  validateDAG,
+  CURRENT_SCHEMA_VERSION,
+  SUPPORTED_SCHEMA_VERSIONS,
+  WorkflowSnapshotError,
+  parseWorkflowSnapshot,
+  validateWorkflowSnapshot,
 } from "../src/validation.js";
 
 function assert(condition, message) {
-  if (!condition) {
-    console.error("FAIL:", message);
-    process.exit(1);
-  }
+  if (!condition) throw new Error(`FAIL: ${message}`);
 }
 
 const valid = {
-  version: 2,
-  nodes: [
-    { id: "input" },
-    {
-      id: "nested",
-      kind: "graph",
-      graph: {
-        nodes: [{ id: "work" }],
-        edges: [
-          { from: "START", to: "work" },
-          { from: "work", to: "END" },
-        ],
+  schemaVersion: 1,
+  workflow: {
+    nodes: [
+      { id: "input" },
+      {
+        id: "nested",
+        component: "Workflow",
+        workflow: {
+          nodes: [{ id: "work" }],
+          edges: [
+            { from: "start", to: "work", channels: ["control"] },
+            { from: "work", to: "end", channels: ["control"] },
+          ],
+        },
       },
-    },
-  ],
-  edges: [{ from: "input", to: "nested" }],
+    ],
+    edges: [{
+      from: "input",
+      to: "nested",
+      channels: ["control", "data"],
+      mappings: [{ fromPath: ["content"], toPath: ["query"] }],
+    }],
+    branches: [{ from: "input", targets: ["nested", "end"] }],
+    metadata: { owner: "example" },
+  },
+  execution: {
+    id: "run-1",
+    startedAtMs: 1_700_000_000_000,
+    nodes: [
+      { path: ["input"], status: "success", durationMs: 10 },
+      { path: ["nested", "work"], status: "running", metrics: { tokens: 4 } },
+    ],
+  },
+  metadata: { producer: "example" },
 };
 
-assert(validateDAG(valid).valid, "valid nested DAG is accepted");
-assert(assertValidDAG(valid) === valid, "assertion returns the original value");
-assert(CURRENT_DAG_VERSION === 2, "the current protocol is v2");
-assert(
-  JSON.stringify(SUPPORTED_DAG_VERSIONS) === "[2]",
-  "the package advertises exactly one protocol version",
-);
+assert(validateWorkflowSnapshot(valid).valid, "valid nested snapshot is accepted");
+assert(parseWorkflowSnapshot(valid) === valid, "parse returns the validated value");
+assert(CURRENT_SCHEMA_VERSION === 1, "the first public schema is v1");
+assert(JSON.stringify(SUPPORTED_SCHEMA_VERSIONS) === "[1]", "exactly one schema is supported");
 
-const invalidRoot = {
-  version: 2,
-  nodes: [{ id: "same" }, { id: "same" }, {}, { id: 42 }],
-  edges: [
-    { from: "same", to: "missing" },
-    { from: "same", to: "same" },
-    { from: 1, to: "same" },
-  ],
-};
-const invalid = validateDAG(invalidRoot);
-
-assert(!invalid.valid, "invalid DAG is rejected");
-assert(invalid.errors.some((entry) => entry.code === "duplicate_node_id"), "duplicate id is reported");
-assert(invalid.errors.some((entry) => entry.code === "missing_node_id"), "missing id is reported");
-assert(
-  invalid.errors.some((entry) => entry.code === "invalid_node_id_type"),
-  "non-string ids are reported",
-);
-assert(invalid.errors.some((entry) => entry.code === "unknown_edge_target"), "unknown target is reported");
-assert(invalid.errors.some((entry) => entry.code === "self_edge"), "self edge is reported");
-assert(invalid.errors.some((entry) => entry.code === "missing_edge_endpoint"), "invalid endpoint is reported");
-
-const cyclic = {
-  version: 2,
-  nodes: [{ id: "a" }, { id: "b" }],
-  edges: [
-    { from: "a", to: "b" },
-    { from: "b", to: "a" },
-  ],
-};
-assert(
-  validateDAG(cyclic).errors.some((entry) => entry.code === "directed_cycle"),
-  "directed graph cycles are reported",
-);
-
-const legacyV1 = { version: 1, nodes: [{ id: "flat" }], edges: [] };
-assert(
-  validateDAG(legacyV1).errors.some((entry) => entry.code === "unsupported_version"),
-  "DAG v1 is rejected",
-);
-
-assert(
-  validateDAG({ nodes: [{ id: "implicit" }], edges: [] }).errors.some(
-    (entry) => entry.code === "missing_version" && entry.path === "root.version",
-  ),
-  "the root DAG requires an explicit version",
-);
-
-assert(
-  validateDAG({ version: 2, nodes: [{ key: "legacy" }], edges: [] }).errors.some(
-    (entry) => entry.code === "missing_node_id",
-  ),
-  "legacy key-only nodes are rejected",
-);
-
-for (const partial of [
-  { version: 2, nodes: [{ id: "missing-edges" }] },
-  { version: 2, nodes: [{ id: "null-edges" }], edges: null },
+for (const [input, code] of [
+  [{ workflow: { nodes: [], edges: [] } }, "missing_schema_version"],
+  [{ schemaVersion: 2, workflow: { nodes: [], edges: [] } }, "unsupported_schema_version"],
+  [{ schemaVersion: 1 }, "invalid_workflow"],
+  [{ schemaVersion: 1, workflow: { nodes: [] } }, "invalid_edges"],
 ]) {
-  assert(
-    validateDAG(partial).errors.some((entry) => entry.code === "invalid_edges"),
-    "strict validation requires an edges array",
-  );
+  assert(validateWorkflowSnapshot(input).errors.some((entry) => entry.code === code), `${code} is reported`);
 }
 
-const unsupported = validateDAG({ version: 3, nodes: [{ id: "a/b" }], edges: [] });
-assert(
-  unsupported.errors.some((entry) => entry.code === "unsupported_version"),
-  "unsupported root versions are reported",
-);
-assert(
-  unsupported.errors.some((entry) => entry.code === "invalid_node_id"),
-  "reserved path separators are reported",
-);
-
-const nestedV1 = validateDAG({
-  version: 1,
-  nodes: [{ id: "nested", kind: "graph", graph: { nodes: [], edges: [] } }],
-  edges: [],
-});
-assert(
-  nestedV1.errors.some((entry) => entry.code === "unsupported_version"),
-  "a v1 root is rejected regardless of topology",
-);
-
-const invalidNestedOwner = validateDAG({
-  version: 2,
-  nodes: [{ id: "plain", kind: "cpu", graph: { nodes: [], edges: [] } }],
-  edges: [],
-});
-assert(
-  invalidNestedOwner.errors.some(
-    (entry) => entry.code === "nested_graph_on_non_graph_node",
-  ),
-  "only graph nodes can own nested graphs",
-);
-
-const unsupportedNestedVersion = validateDAG({
-  version: 2,
-  nodes: [
-    {
-      id: "nested",
-      kind: "graph",
-      graph: { version: 99, nodes: [], edges: [] },
-    },
-  ],
-  edges: [],
-});
-assert(
-  unsupportedNestedVersion.errors.some(
-    (entry) =>
-      entry.code === "unsupported_version" && entry.path.endsWith("graph.version"),
-  ),
-  "explicit unsupported versions are reported inside nested graphs",
-);
-
-const nestedExplicitV1 = validateDAG({
-  version: 2,
-  nodes: [
-    {
-      id: "nested",
-      kind: "graph",
-      graph: { version: 1, nodes: [], edges: [] },
-    },
-  ],
-  edges: [],
-});
-assert(
-  nestedExplicitV1.errors.some(
-    (entry) =>
-      entry.code === "unsupported_version" && entry.path.endsWith(".graph.version"),
-  ),
-  "a nested graph cannot declare a second protocol version",
-);
-
-const invalidKnownFields = validateDAG({
-  version: 2,
-  scene: 42,
-  cost_ms: "slow",
-  nodes: [
-    {
-      id: "typed",
-      name: false,
-      status: { custom: true },
-      cost_ms: "unknown",
-      metrics: [],
-    },
-  ],
-  edges: [{ from: "START", to: "typed", kind: 7 }],
-});
-for (const [code, path] of [
-  ["invalid_string_field", "root.scene"],
-  ["invalid_number_field", "root.cost_ms"],
-  ["invalid_string_field", "root.nodes[0].name"],
-  ["invalid_string_field", "root.nodes[0].status"],
-  ["invalid_number_field", "root.nodes[0].cost_ms"],
-  ["invalid_metrics", "root.nodes[0].metrics"],
-  ["invalid_string_field", "root.edges[0].kind"],
-]) {
-  assert(
-    invalidKnownFields.errors.some(
-      (entry) => entry.code === code && entry.path === path,
-    ),
-    `${path} is checked against its declared field type`,
-  );
-}
-
-const invalidCriticalPath = validateDAG({
-  version: 2,
-  nodes: [{ id: "known" }],
-  edges: [],
-  critical_path: ["known", "known", "missing", 42],
-});
-assert(
-  invalidCriticalPath.errors.some(
-    (entry) => entry.code === "duplicate_critical_path_node",
-  ),
-  "duplicate critical-path nodes are reported",
-);
-assert(
-  invalidCriticalPath.errors.some(
-    (entry) => entry.code === "unknown_critical_path_node",
-  ),
-  "unknown critical-path nodes are reported",
-);
-assert(
-  invalidCriticalPath.errors.some(
-    (entry) => entry.code === "invalid_critical_path_node",
-  ),
-  "non-string critical-path nodes are reported",
-);
-assert(
-  validateDAG({
-    version: 2,
-    nodes: [{ id: "known" }],
-    edges: [],
-    critical_path: "known",
-  }).errors.some((entry) => entry.code === "invalid_critical_path"),
-  "critical_path must be an array",
-);
-assert(
-  validateDAG({
-    version: 2,
-    nodes: [{ id: "a" }, { id: "b" }],
-    edges: [],
-    critical_path: ["a", "b"],
-  }).errors.some((entry) => entry.code === "disconnected_critical_path"),
-  "critical_path nodes must be connected in order",
-);
-
-const recursive = { nodes: [], edges: [] };
-recursive.nodes.push({ id: "loop", kind: "graph", graph: recursive });
-assert(
-  validateDAG(recursive).errors.some((entry) => entry.code === "recursive_reference"),
-  "object cycles are reported",
-);
-
-const cyclicMetrics = {};
-cyclicMetrics.self = cyclicMetrics;
-const nonJSON = validateDAG({
-  version: 2,
-  nodes: [
-    {
-      id: "unsafe",
-      metrics: {
-        bigint: 1n,
-        infinite: Infinity,
-        callback: () => {},
-        createdAt: new Date("2026-09-06T00:00:00Z"),
-        cyclic: cyclicMetrics,
-      },
-    },
-  ],
-  edges: [],
+const invalidTopology = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "same" }, { id: "same" }, { id: "start" }, {}],
+    edges: [
+      { from: "same", to: "missing" },
+      { from: "same", to: "same" },
+      { from: "end", to: "same" },
+      { from: "same", to: "start" },
+    ],
+  },
 });
 for (const code of [
-  "non_json_value",
-  "non_json_number",
-  "non_json_object",
-  "recursive_reference",
+  "duplicate_node_id",
+  "invalid_node_id",
+  "missing_node_id",
+  "unknown_edge_target",
+  "unknown_edge_source",
+  "self_edge",
 ]) {
-  assert(
-    nonJSON.errors.some((entry) => entry.code === code),
-    `${code} is reported for non-JSON runtime data`,
-  );
+  assert(invalidTopology.errors.some((entry) => entry.code === code), `${code} is reported`);
 }
-assert(
-  validateDAG({ nodes: [], edges: [], first: null, later: 1n }).errors.some(
-    (entry) => entry.code === "non_json_value" && entry.path === "root.later",
-  ),
-  "a null value does not stop validation of later sibling fields",
-);
 
-const sparseNodes = [];
-sparseNodes.length = 1;
-assert(
-  validateDAG({ nodes: sparseNodes, edges: [] }).errors.some(
-    (entry) => entry.code === "sparse_array",
-  ),
-  "sparse arrays are rejected instead of silently becoming null entries",
-);
-
-const decoratedEdges = [];
-decoratedEdges.note = "not serialized";
-const decorated = { nodes: [], edges: decoratedEdges };
-let getterInvoked = false;
-Object.defineProperty(decorated, "hidden", {
-  enumerable: false,
-  value: "not serialized",
-});
-Object.defineProperty(decorated, "computed", {
-  enumerable: true,
-  get: () => {
-    getterInvoked = true;
-    return "side effect";
-  },
-});
-decorated[Symbol("secret")] = "not serialized";
-assert(
-  validateDAG(decorated).errors.filter(
-    (entry) => entry.code === "non_json_property",
-  ).length === 4,
-  "array properties, hidden values, accessors, and symbols are rejected",
-);
-assert(!getterInvoked, "validation does not invoke extension-field getters");
-
-let knownGetterInvoked = false;
-const getterNode = { id: "safe" };
-Object.defineProperty(getterNode, "status", {
-  enumerable: true,
-  get: () => {
-    knownGetterInvoked = true;
-    return "running";
-  },
-});
-const getterNodes = [];
-Object.defineProperty(getterNodes, "0", {
-  enumerable: true,
-  get: () => {
-    knownGetterInvoked = true;
-    return getterNode;
-  },
-});
-getterNodes.length = 1;
-const getterRoot = { edges: [] };
-Object.defineProperty(getterRoot, "nodes", {
-  enumerable: true,
-  get: () => {
-    knownGetterInvoked = true;
-    return getterNodes;
-  },
-});
-const getterResult = validateDAG(getterRoot);
-const getterElementResult = validateDAG({ nodes: getterNodes, edges: [] });
-const getterFieldResult = validateDAG({ nodes: [getterNode], edges: [] });
-assert(!knownGetterInvoked, "validation never invokes getters on known fields or array elements");
-assert(
-  getterResult.errors.some((entry) => entry.code === "non_json_property") &&
-    getterResult.errors.some((entry) => entry.code === "invalid_nodes") &&
-    getterElementResult.errors.some((entry) => entry.code === "non_json_property") &&
-    getterFieldResult.errors.some((entry) => entry.code === "non_json_property"),
-  "known-field accessors are rejected without evaluation",
-);
-
-const sharedMetrics = { safe: true };
-assert(
-  validateDAG({
-    version: 2,
-    nodes: [
-      { id: "a", metrics: sharedMetrics },
-      { id: "b", metrics: sharedMetrics },
+const cyclic = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a" }, { id: "b" }],
+    edges: [
+      { from: "a", to: "b", channels: ["control"] },
+      { from: "b", to: "a", channels: ["control"] },
     ],
-    edges: [{ from: "a", to: "b" }],
-  }).valid,
-  "shared acyclic objects remain JSON serializable",
-);
+  },
+});
+assert(cyclic.errors.some((entry) => entry.code === "directed_cycle"), "cycles are rejected");
 
-let sharedGraph = { nodes: [{ id: "leaf" }], edges: [] };
-for (let depth = 0; depth < 40; depth += 1) {
-  sharedGraph = {
+const branchCycle = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a" }, { id: "b" }],
+    edges: [{ from: "a", to: "b", channels: ["control"] }],
+    branches: [{ from: "b", targets: ["a"] }],
+  },
+});
+assert(branchCycle.errors.some((entry) => entry.code === "directed_cycle"), "branch relationships participate in cycle detection");
+
+const invalidChannels = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a" }, { id: "b" }],
+    edges: [{ from: "a", to: "b", channels: ["data", "data", "branch"] }],
+  },
+});
+assert(invalidChannels.errors.some((entry) => entry.code === "duplicate_edge_channel"), "duplicate channels are rejected");
+assert(invalidChannels.errors.some((entry) => entry.code === "invalid_edge_channel"), "unknown channels are rejected");
+
+const invalidExecution = validateWorkflowSnapshot({
+  ...valid,
+  execution: {
+    startedAtMs: 1.5,
+    finishedAtMs: 1,
+    durationMs: -1,
     nodes: [
-      { id: "left", kind: "graph", graph: sharedGraph },
-      { id: "right", kind: "graph", graph: sharedGraph },
+      { path: ["missing"], status: false },
+      { path: ["input"], durationMs: 1 },
+      { path: ["input"], durationMs: 2 },
     ],
-    edges: [{ from: "left", to: "right" }],
-  };
+  },
+});
+for (const code of [
+  "invalid_number_field",
+  "invalid_string_field",
+  "unknown_node_path",
+  "duplicate_node_execution",
+]) {
+  assert(invalidExecution.errors.some((entry) => entry.code === code), `${code} is reported for execution state`);
 }
-assert(
-  validateDAG({ version: 2, ...sharedGraph }).valid,
-  "deep diamond-shaped sharing is validated once per unique object",
-);
 
-let deepMetrics = { leaf: true };
-for (let depth = 0; depth < 5000; depth += 1) {
-  deepMetrics = { next: deepMetrics };
-}
-assert(
-  validateDAG({ version: 2, nodes: [{ id: "deep", metrics: deepMetrics }], edges: [] }).valid,
-  "deep JSON values do not consume the JavaScript call stack",
-);
+const invalidRange = validateWorkflowSnapshot({
+  ...valid,
+  execution: { startedAtMs: 10, finishedAtMs: 9 },
+});
+assert(invalidRange.errors.some((entry) => entry.code === "invalid_time_range"), "backward time ranges are rejected");
 
-let deeplyNestedGraph = { nodes: [], edges: [] };
-for (let depth = 0; depth < 2000; depth += 1) {
-  deeplyNestedGraph = {
-    nodes: [
-      { id: "nested", kind: "graph", graph: deeplyNestedGraph },
-    ],
+const invalidMappings = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a" }, { id: "b" }],
+    edges: [{
+      from: "a",
+      to: "b",
+      channels: ["control"],
+      mappings: [
+        { fromPath: ["value"], toPath: ["input"] },
+        { fromPath: [], toPath: [] },
+      ],
+    }],
+  },
+});
+assert(invalidMappings.errors.some((entry) => entry.code === "mapping_without_data_edge"), "field mappings require a data dependency");
+assert(invalidMappings.errors.some((entry) => entry.code === "invalid_field_mapping"), "whole-value mappings are rejected");
+
+const invalidBranches = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "route" }, { id: "a" }],
     edges: [],
-  };
-}
-assert(
-  validateDAG({ version: 2, ...deeplyNestedGraph }).valid,
-  "deep graph nesting does not consume the JavaScript call stack",
-);
+    branches: [{ from: "route", targets: ["a", "a", "missing"] }],
+  },
+});
+assert(invalidBranches.errors.some((entry) => entry.code === "duplicate_branch_target"), "duplicate branch targets are rejected");
+assert(invalidBranches.errors.some((entry) => entry.code === "unknown_branch_target"), "unknown branch targets are rejected");
 
-let threw = false;
+assert(validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "selected" }],
+    edges: [{ from: "selected", to: "end", channels: ["control"] }],
+    branches: [{ from: "start", targets: ["selected", "end"] }],
+  },
+}).valid, "Eino branches may originate at start");
+
+const strict = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: { nodes: [], edges: [], extra: true },
+});
+assert(strict.errors.some((entry) => entry.code === "unknown_field"), "extensions belong in metadata");
+
+const rendererFields = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a", kind: "llm" }],
+    edges: [{ from: "start", to: "a", channels: ["control"], active: true }],
+    highlightedPath: ["a"],
+  },
+});
+assert(rendererFields.errors.filter((entry) => entry.code === "unknown_field").length === 3, "renderer-only fields are outside the Eino projection");
+
+const unsafe = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: { nodes: [], edges: [] },
+  metadata: { value: 1n },
+});
+assert(unsafe.errors.some((entry) => entry.code === "invalid_json_value"), "non-JSON values are rejected");
+
 try {
-  assertValidDAG(invalidRoot);
+  parseWorkflowSnapshot({ schemaVersion: 1, workflow: { nodes: [] } });
+  assert(false, "invalid parsing throws");
 } catch (error) {
-  threw = error instanceof TypeError && error.message.includes("Invalid DAG data");
+  assert(error instanceof WorkflowSnapshotError, "parse throws a typed snapshot error");
+  assert(error.code === "INVALID_WORKFLOW_SNAPSHOT", "typed error has a stable code");
+  assert(error.issues.length > 0, "typed error exposes issues");
 }
-assert(threw, "assertValidDAG throws a useful TypeError");
 
-console.log("OK: DAG validation tests passed");
+console.log("OK: workflow snapshot validation tests passed");

@@ -1,23 +1,10 @@
-/**
- * Eino Workflow DAG — public renderer API.
- */
-import { normalizeDirection } from "./axis-profile.js";
-import {
-  listThemes,
-  normalizeTheme,
-  registerTheme,
-} from "./theme.js";
+/** Public renderer construction and theme API. */
 import { mountRenderer } from "./runtime.js";
+import { listThemes, registerTheme } from "./theme.js";
 
+export function createWorkflowDAG(container, options) {
+  return mountRenderer(container, options);
+}
 
-
-
-export const EinoWorkflowDAG = {
-    mount: mountRenderer,
-    normalizeDirection: normalizeDirection,
-    normalizeTheme: normalizeTheme,
-    listThemes: listThemes,
-    registerTheme: registerTheme,
-};
-export const registerWorkflowDAGTheme = EinoWorkflowDAG.registerTheme;
-export default EinoWorkflowDAG;
+export const registerWorkflowDAGTheme = registerTheme;
+export const listWorkflowDAGThemes = listThemes;

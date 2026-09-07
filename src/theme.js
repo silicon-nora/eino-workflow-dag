@@ -11,7 +11,7 @@ var THEMES = {
         steel: "#3d4f63",
         quiet: "#8b96a3",
         conduit: "#4a5d72",
-        critical: "#d97706",
+        highlighted: "#d97706",
         signal: "#b42318",
         warning: "#9a6700",
         paper: "#ffffff",
@@ -43,10 +43,10 @@ var THEMES = {
       },
       edge: {
         width: 1.75,
-        criticalWidth: 2.25,
+        highlightedWidth: 2.25,
         arrowScale: 0.95,
-        bypassStyle: "dashed",
-        bypassDashPattern: [7, 3.5],
+        secondaryStyle: "dashed",
+        secondaryDashPattern: [7, 3.5],
       },
       overlay: {
         titleBg: "rgba(228, 238, 247, 0.95)",
@@ -66,7 +66,7 @@ var THEMES = {
         steel: "#2c333c",
         quiet: "#6b7280",
         conduit: "#9aa3ad",
-        critical: "#1e3a5f",
+        highlighted: "#1e3a5f",
         signal: "#8f2f2f",
         warning: "#7a5d21",
         paper: "#fbfcfd",
@@ -103,11 +103,11 @@ var THEMES = {
       },
       edge: {
         width: 1.35,
-        criticalWidth: 2.75,
+        highlightedWidth: 2.75,
         arrowScale: 0.9,
-        bypassStyle: "dotted",
-        bypassDashPattern: [1.5, 3.5],
-        criticalUnderlay: false,
+        secondaryStyle: "dotted",
+        secondaryDashPattern: [1.5, 3.5],
+        highlightedUnderlay: false,
       },
       overlay: {
         titleBg: "rgba(251, 252, 253, 0.96)",
@@ -129,7 +129,7 @@ var THEMES = {
         steel: "#8b9aab",
         quiet: "#5c6b7a",
         conduit: "#3d4f5f",
-        critical: "#c4893a",
+        highlighted: "#c4893a",
         signal: "#c45c6a",
         warning: "#d9a441",
         paper: "#121820",
@@ -167,11 +167,11 @@ var THEMES = {
       },
       edge: {
         width: 1.6,
-        criticalWidth: 2.4,
+        highlightedWidth: 2.4,
         arrowScale: 1,
-        bypassStyle: "dashed",
-        bypassDashPattern: [5, 4],
-        criticalUnderlay: true,
+        secondaryStyle: "dashed",
+        secondaryDashPattern: [5, 4],
+        highlightedUnderlay: true,
       },
       overlay: {
         titleBg: "rgba(18, 24, 32, 0.92)",
@@ -275,18 +275,18 @@ export function stylesheet(themeId) {
     if (N.fontFamily) nodeStyle["font-family"] = N.fontFamily;
     if (N.radius != null) nodeStyle["corner-radius"] = N.radius;
 
-    var criticalEdge = {
+    var highlightedEdge = {
       "line-style": "solid",
-      "line-color": C.critical,
-      "target-arrow-color": C.critical,
-      width: E.criticalWidth,
+      "line-color": C.highlighted,
+      "target-arrow-color": C.highlighted,
+      width: E.highlightedWidth,
       "arrow-scale": E.arrowScale >= 1 ? 1.05 : E.arrowScale + 0.1,
       opacity: 1,
     };
-    if (E.criticalUnderlay) {
-      criticalEdge["underlay-color"] = C.critical;
-      criticalEdge["underlay-opacity"] = 0.28;
-      criticalEdge["underlay-padding"] = 3;
+    if (E.highlightedUnderlay) {
+      highlightedEdge["underlay-color"] = C.highlighted;
+      highlightedEdge["underlay-opacity"] = 0.28;
+      highlightedEdge["underlay-padding"] = 3;
     }
 
     return [
@@ -432,8 +432,8 @@ export function stylesheet(themeId) {
           "source-endpoint": "outside-to-node",
           "target-endpoint": "outside-to-node",
           width: E.width,
-          "line-style": E.bypassStyle,
-          "line-dash-pattern": E.bypassDashPattern,
+          "line-style": E.secondaryStyle,
+          "line-dash-pattern": E.secondaryDashPattern,
           "line-color": C.conduit,
           "target-arrow-shape": "triangle",
           "target-arrow-color": C.conduit,
@@ -447,7 +447,7 @@ export function stylesheet(themeId) {
       {
         // level 1：实线主链色（经典主题为橙）
         selector: "edge[level = 1]",
-        style: criticalEdge,
+        style: highlightedEdge,
       },
       {
         selector: 'edge[kind = "no"], edge[level = 0]',

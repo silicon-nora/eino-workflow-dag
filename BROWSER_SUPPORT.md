@@ -2,23 +2,20 @@
 
 ## Supported environments
 
-The automated browser suite runs against Chromium and covers the plain UMD
-build, Vue 3 ESM wrapper, React StrictMode wrapper, and module-worker layout.
-The `1.x` support target is the latest two stable releases of Chrome and Edge.
-CI runs that suite once with the lockfile framework versions and once with the
+The automated browser suite runs against Chromium, Firefox, and WebKit. It
+covers the plain UMD build, Vue 3 ESM wrapper, React StrictMode wrapper,
+packed-package delivery, keyboard behavior, accessibility rules, and visual
+geometry invariants. The `1.x` support target is the latest two stable releases
+of Chrome, Edge, Firefox, and Safari. CI runs Chromium once more with the
 minimum declared peers: React 18.2, React DOM 18.2, and Vue 3.4.
 
-Firefox and Safari are currently best-effort during the pre-release series.
-They become supported only after their Playwright projects are enabled in CI
-and the same interaction suite passes without browser-specific exceptions.
-
 Build tools and data-only imports require Node.js 20 or newer. Renderer entry
-points require a browser DOM; `/model`, `/layout`, `/layout-worker`, and
-`/validation` can be imported without a DOM.
+points require a browser DOM; `/validation` can be imported without a DOM.
 
 Release gates run on the latest available Node.js 20, 22, and 24 patch
-releases. Chromium browser tests run on Node.js 24 with the lockfile peers and
-on Node.js 20 with the minimum framework peers after the package matrix passes.
+releases. The three-browser suite runs on Node.js 24 with the lockfile peers;
+Chromium also runs on Node.js 20 with the minimum framework peers after the
+package matrix passes.
 
 All JavaScript package entries support modern ESM and CommonJS resolution.
 Legacy TypeScript `moduleResolution: "node"`/Node10-style subpath resolution is
@@ -31,9 +28,24 @@ outside the support contract; use `node16`, `nodenext`, or `bundler`.
 - `ResizeObserver` for automatic resizing
 - `Promise`, `Map`, `Set`, and `requestAnimationFrame`
 - `Blob` and `URL.createObjectURL()` for PNG, JPEG, and SVG export workflows
-- Module Workers when the optional `/layout-worker` protocol is used
 
 No compatibility polyfills are bundled.
+
+## Keyboard and assistive technology
+
+The renderer host is one focusable composite graphic. Its accessible name
+summarizes the visible node, edge, status, and subgraph counts. Arrow keys,
+Home, and End move the visual node focus; the accessible name then announces
+the focused node's name, component, and status. Enter or Space activates that
+node through the same callback as a pointer, and Escape clears node focus and
+restores the graph summary.
+
+Individual canvas nodes are not DOM controls and are not exposed as a virtual
+list. Applications that need editable nodes, per-node form controls, or a full
+tabular workflow representation should provide those controls alongside the
+read-only graphic. Automated WCAG A/AA checks cannot certify every
+browser-and-screen-reader combination, so reproducible assistive-technology
+defects remain supported browser defects.
 
 ## Content security and images
 
@@ -48,6 +60,6 @@ CORS settings.
 
 ## Support policy
 
-Browser regressions should include the browser/version, a minimal DAG payload,
+Browser regressions should include the browser/version, a minimal workflow snapshot,
 the package version, and whether the ESM or UMD entry was used. A browser is not
 removed from the supported set in a patch release.

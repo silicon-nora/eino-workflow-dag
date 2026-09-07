@@ -15,5 +15,5 @@ Describe the user-visible behavior and why it belongs in the reusable library.
 
 ## Compatibility
 
-Call out changes to the DAG contract, ESM/CommonJS exports, TypeScript types,
+Call out changes to the workflow snapshot contract, ESM/CommonJS exports, TypeScript types,
 browser support, Vue/React wrappers, or package adoption guidance.

@@ -32,8 +32,14 @@ import {
 import { resolveLocale } from "./locale.js";
 import { exportWorkflowDAGSVG } from "./svg-export.js";
 import { createKeyMap, hasOwnKey, toPlainRecord } from "./key-map.js";
-import { assertValidDAG } from "./validation.js";
-import { normalizeDAGSnapshot } from "./snapshot.js";
+import { parseWorkflowSnapshot } from "./validation.js";
+import {
+  decodeNodePath,
+  encodeNodePath,
+  normalizeDAGSnapshot,
+} from "./snapshot.js";
+import { WorkflowDAGError } from "./workflow-error.js";
+import { attachCytoscapeAccess } from "./cytoscape-access.js";
 import {
   normalizeTheme,
   stylesheet,
@@ -96,12 +102,112 @@ import {
     return normalized;
   }
 
-  function normalizeActiveNodeId(value) {
-    if (value == null || value === "") return null;
-    if (typeof value !== "string") {
-      throw new TypeError("active node id must be a string or null");
+  function normalizeNodePath(value, name) {
+    if (!Array.isArray(value) || !value.length || value.some(function (id) {
+      return typeof id !== "string" || !id;
+    })) {
+      throw new TypeError(name + " must be a non-empty array of node IDs");
     }
-    return value;
+    return value.slice();
+  }
+
+  function expandedPathsToMap(source) {
+    var normalized = createKeyMap();
+    if (!Array.isArray(source)) {
+      throw new TypeError("expanded must be an array of node paths");
+    }
+    source.forEach(function (path) {
+      normalized[encodeNodePath(normalizeNodePath(path, "expanded path"))] = true;
+    });
+    return normalized;
+  }
+
+  function expandedMapToPaths(source) {
+    return Object.keys(source || {}).filter(function (path) {
+      return source[path];
+    }).map(decodeNodePath);
+  }
+
+  function normalizeActiveNodePath(value) {
+    if (value == null) return null;
+    return encodeNodePath(normalizeNodePath(value, "activeNodePath"));
+  }
+
+  function publicNodeData(node) {
+    return {
+      path: decodeNodePath(node.id),
+      id: node.key,
+      label: node.label || "",
+      name: node.title || node.key,
+      kind: node.kind || "",
+      component: node.component || "",
+      metadata: node.metadata || null,
+      status: node.status || "",
+      durationMs: node.cost_ms || 0,
+      metrics: node.metrics || null,
+      errorMessage: node.err_msg || "",
+      expandable: !!node.expandable,
+      subgraph: !!node.subgraph,
+      expanded: !!node.expanded,
+      ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
+    };
+  }
+
+  function edgeChannels(kind) {
+    if (!kind || kind === "no") return [];
+    return kind.split("+").filter(function (channel) {
+      return channel === "control" || channel === "data" || channel === "branch";
+    });
+  }
+
+  function publicEdgeData(edge) {
+    return {
+      id: edge.id,
+      source: decodeNodePath(edge.source),
+      target: decodeNodePath(edge.target),
+      channels: edgeChannels(edge.kind),
+      level: Number(edge.level) || 0,
+      main: !!edge.main,
+    };
+  }
+
+  function publicVisibleGraph(visible) {
+    return {
+      nodes: visible.nodes.map(function (node) {
+        return publicNodeData({
+          ...node,
+          title: node.name,
+          key: node.key,
+          label: "",
+          parent: node.parent,
+        });
+      }),
+      edges: visible.edges.map(function (edge) {
+        return publicEdgeData({ ...edge, source: edge.from, target: edge.to });
+      }),
+      highlightedPath: visible.criticalPath.map(function (id) {
+        return decodeNodePath(id);
+      }),
+      highlightedDurationMs: visible.criticalCostMs,
+    };
+  }
+
+  function listPublicSubgraphs(snapshot) {
+    var result = [];
+    var pending = [{ graph: snapshot.workflow, prefix: [] }];
+    while (pending.length) {
+      var current = pending.pop();
+      var graph = current.graph;
+      var prefix = current.prefix;
+      graph.nodes.forEach(function (node) {
+        var path = prefix.concat(node.id);
+        if (node.workflow !== undefined && node.workflow !== null) {
+          result.push({ path: path, name: node.name || node.id, node: node });
+          pending.push({ graph: node.workflow, prefix: path });
+        }
+      });
+    }
+    return result;
   }
 
   function sameRecord(left, right) {
@@ -162,7 +268,7 @@ import {
 
   /**
    * @param {HTMLElement} container
-   * @param {{ root: object, direction?: 'RIGHT'|'LEFT'|'DOWN'|'UP', onExpandedChange?: Function, onError?: Function }} options
+   * @param {{ snapshot: object, direction?: 'RIGHT'|'LEFT'|'DOWN'|'UP', onExpandedChange?: Function, onError?: Function }} options
    */
 export function mountRenderer(container, options) {
     ensureWorkflowLayoutRegistered();
@@ -170,7 +276,35 @@ export function mountRenderer(container, options) {
     if (!Model) throw new Error("EinoWorkflowDAGModel is unavailable");
     if (!container) throw new Error("A container element is required");
     if (!options) throw new TypeError("options are required");
-    assertValidDAG(options.root);
+    parseWorkflowSnapshot(options.snapshot);
+
+    var publicSnapshot = options.snapshot;
+    var normalizedSnapshot = normalizeDAGSnapshot(publicSnapshot);
+    var root = normalizedSnapshot.root;
+    var profile = axisProfile(normalizeDirection(options.direction));
+    var themeId = normalizeTheme(options.theme);
+    var activeNodeKey = normalizeActiveNodePath(options.activeNodePath);
+    var expanded = options.expanded
+      ? expandedPathsToMap(options.expanded)
+      : Model.defaultExpandedMap
+        ? normalizeExpandedMap(Model.defaultExpandedMap(root))
+        : createKeyMap();
+
+    function assertExpandablePaths(next) {
+      var available = createKeyMap();
+      Model.listSubgraphs(root).forEach(function (subgraph) {
+        available[subgraph.path] = true;
+      });
+      Object.keys(next).forEach(function (path) {
+        if (!available[path]) {
+          throw new RangeError(
+            "Unknown expandable workflow path " + JSON.stringify(decodeNodePath(path)),
+          );
+        }
+      });
+    }
+
+    assertExpandablePaths(expanded);
 
     var hostElement = container.parentElement;
     var addedHostClass = false;
@@ -206,21 +340,9 @@ export function mountRenderer(container, options) {
     var MAX_ZOOM = 2.0;
     var FIT_PADDING = 28;
 
-    var root = options.root;
-    var normalizedSnapshot = normalizeDAGSnapshot(root);
-    var profile = axisProfile(normalizeDirection(options && options.direction));
-    var themeId = normalizeTheme(options && options.theme);
-    var activeNodeId = normalizeActiveNodeId(options && options.activeNodeId);
-    // 主路子 Graph 默认展开；旁路 / skipped 收起（可由 options.expanded 覆盖）
-    var expanded =
-      options && options.expanded
-        ? normalizeExpandedMap(options.expanded)
-        : Model.defaultExpandedMap
-          ? normalizeExpandedMap(Model.defaultExpandedMap(root))
-          : createKeyMap();
     var cy = null;
     var locale = resolveLocale(options.locale);
-    var overlay = createSubgraphOverlay(container, togglePath, {
+    var overlay = createSubgraphOverlay(container, toggleEncodedPath, {
       collapseSubgraphTitle: locale.collapseSubgraphTitle,
     });
     var listeners = {
@@ -251,7 +373,15 @@ export function mountRenderer(container, options) {
       : [];
     var accessibility = createAccessibilityPresenter(container, {
       ariaLabel: options.ariaLabel,
-      labelFormatter: options.accessibilityLabelFormatter,
+      labelFormatter:
+        typeof options.accessibilityLabelFormatter === "function"
+          ? function (summary, visible) {
+              return options.accessibilityLabelFormatter(
+                summary,
+                publicVisibleGraph(visible),
+              );
+            }
+          : null,
     });
     var layoutCache = createLayoutCache(options.layoutCacheSize);
     var diagnostics = {
@@ -268,8 +398,13 @@ export function mountRenderer(container, options) {
     }
 
     function reportError(error) {
-      var normalized =
-        error instanceof Error ? error : new Error(String(error));
+      var normalized = error instanceof WorkflowDAGError
+        ? error
+        : new WorkflowDAGError(
+            "RENDERER_RECOVERED",
+            error instanceof Error ? error.message : String(error),
+            { recoverable: true, cause: error },
+          );
       try {
         listeners.onError(normalized);
       } catch (listenerError) {
@@ -363,12 +498,13 @@ export function mountRenderer(container, options) {
     }
 
     function getExpanded() {
-      return toPlainRecord(expanded);
+      return expandedMapToPaths(expanded);
     }
 
     function setExpanded(next) {
       assertActive();
-      var normalized = normalizeExpandedMap(next);
+      var normalized = expandedPathsToMap(next);
+      assertExpandablePaths(normalized);
       if (sameExpandedMap(expanded, normalized)) return;
       expanded = normalized;
       listeners.onExpandedChange(getExpanded());
@@ -376,13 +512,10 @@ export function mountRenderer(container, options) {
     }
 
     function resolveActiveNode() {
-      if (!cy || !activeNodeId) return null;
-      var exact = cy.getElementById(activeNodeId);
+      if (!cy || !activeNodeKey) return null;
+      var exact = cy.getElementById(activeNodeKey);
       if (exact && exact.length === 1 && exact.isNode()) return exact;
-      var matches = cy.nodes().filter(function (node) {
-        return node.data("key") === activeNodeId;
-      });
-      return matches.length === 1 ? matches : null;
+      return null;
     }
 
     function syncActiveNode() {
@@ -392,23 +525,24 @@ export function mountRenderer(container, options) {
       if (active) active.addClass("active-node");
     }
 
-    function getActiveNodeId() {
-      return activeNodeId;
+    function getActiveNodePath() {
+      return activeNodeKey ? decodeNodePath(activeNodeKey) : null;
     }
 
-    function setActiveNodeId(next) {
+    function setActiveNodePath(next) {
       assertActive();
-      next = normalizeActiveNodeId(next);
-      if (next === activeNodeId) return;
-      activeNodeId = next;
+      next = normalizeActiveNodePath(next);
+      if (next === activeNodeKey) return;
+      activeNodeKey = next;
       syncActiveNode();
     }
 
     /** Replace runtime DAG data while keeping the current interaction state. */
-    function setData(nextRoot, updateOptions) {
+    function update(nextPublicSnapshot, updateOptions) {
       assertActive();
-      assertValidDAG(nextRoot);
-      var nextSnapshot = normalizeDAGSnapshot(nextRoot);
+      parseWorkflowSnapshot(nextPublicSnapshot);
+      var nextSnapshot = normalizeDAGSnapshot(nextPublicSnapshot);
+      var nextRoot = nextSnapshot.root;
 
       var previousExpanded = expanded;
       var keepExpanded = !updateOptions || updateOptions.preserveExpanded !== false;
@@ -429,26 +563,39 @@ export function mountRenderer(container, options) {
       }
 
       root = nextRoot;
+      publicSnapshot = nextPublicSnapshot;
       var canPatchRuntime =
         normalizedSnapshot.layoutKey === nextSnapshot.layoutKey;
       normalizedSnapshot = nextSnapshot;
       if (!sameExpandedMap(previousExpanded, expanded)) {
         listeners.onExpandedChange(getExpanded());
       }
-      return render({
+      render({
         fit: !!(updateOptions && updateOptions.fit),
         patchData: canPatchRuntime,
       });
     }
 
-    function togglePath(path) {
+    function toggleEncodedPath(path) {
       var next = createKeyMap();
       Object.keys(expanded).forEach(function (k) {
         next[k] = expanded[k];
       });
       if (next[path]) delete next[path];
       else next[path] = true;
-      setExpanded(next);
+      if (sameExpandedMap(expanded, next)) return;
+      expanded = next;
+      listeners.onExpandedChange(getExpanded());
+      render();
+    }
+
+    function toggle(path) {
+      assertActive();
+      var encoded = encodeNodePath(normalizeNodePath(path, "node path"));
+      var candidate = createKeyMap();
+      candidate[encoded] = true;
+      assertExpandablePaths(candidate);
+      toggleEncodedPath(encoded);
     }
 
     function expandAll() {
@@ -456,11 +603,14 @@ export function mountRenderer(container, options) {
       Model.listSubgraphs(root).forEach(function (s) {
         next[s.path] = true;
       });
-      setExpanded(next);
+      if (sameExpandedMap(expanded, next)) return;
+      expanded = next;
+      listeners.onExpandedChange(getExpanded());
+      render();
     }
 
     function collapseAll() {
-      setExpanded({});
+      setExpanded([]);
     }
 
     function clearOverlays() {
@@ -471,7 +621,14 @@ export function mountRenderer(container, options) {
       formatDuration: formatDuration,
       formatter:
         typeof options.tooltipFormatter === "function"
-          ? options.tooltipFormatter
+          ? function (node) {
+              return options.tooltipFormatter(publicNodeData({
+                ...node,
+                key: node.key || decodeNodePath(node.id).at(-1) || "",
+                label: "",
+                title: node.title,
+              }));
+            }
           : null,
       pinning: options.pinNodeTip !== false,
       locale: locale,
@@ -556,6 +713,7 @@ export function mountRenderer(container, options) {
         if (renderOptions.fit) cy.fit(undefined, FIT_PADDING);
         viewport.afterViewSettled();
         tooltip.refresh(cy);
+        if (interaction) interaction.refreshKeyboardFocus();
         return visible;
       }
       accessibility.update(visible);
@@ -587,11 +745,16 @@ export function mountRenderer(container, options) {
         });
         interaction = bindGraphInteractions(cy, container, {
           clearEdgeHighlight: edgeState.clear,
-          onEdgeClick: listeners.onEdgeClick,
-          onNodeClick: listeners.onNodeClick,
+          onEdgeClick: function (edge) {
+            listeners.onEdgeClick(publicEdgeData(edge));
+          },
+          onKeyboardFocus: accessibility.focusNode,
+          onNodeClick: function (node) {
+            listeners.onNodeClick(publicNodeData(node));
+          },
           onViewport: viewport.onViewport,
           setEdgeHighlight: edgeState.set,
-          togglePath: togglePath,
+          togglePath: toggleEncodedPath,
           tooltip: tooltip,
           keyboardNavigation: options.keyboardNavigation !== false,
         });
@@ -600,6 +763,7 @@ export function mountRenderer(container, options) {
         var syncResult = syncCytoscapeElements(cy, elements);
         if (syncResult.topologyChanged) diagnostics.topologySyncs += 1;
       }
+      if (interaction) interaction.refreshKeyboardFocus();
       syncActiveNode();
       runLayout(
         visible,
@@ -714,16 +878,15 @@ export function mountRenderer(container, options) {
       });
     }
 
-    return {
-      render: render,
-      setData: setData,
+    return attachCytoscapeAccess({
+      update: update,
       expandAll: expandAll,
       collapseAll: collapseAll,
-      togglePath: togglePath,
+      toggle: toggle,
       getExpanded: getExpanded,
       setExpanded: setExpanded,
-      getActiveNodeId: getActiveNodeId,
-      setActiveNodeId: setActiveNodeId,
+      getActiveNodePath: getActiveNodePath,
+      setActiveNodePath: setActiveNodePath,
       getDirection: function () {
         return profile.direction;
       },
@@ -745,7 +908,7 @@ export function mountRenderer(container, options) {
         viewport.resetView();
       },
       listSubgraphs: function () {
-        return Model.listSubgraphs(root);
+        return listPublicSubgraphs(publicSnapshot);
       },
       resize: resize,
       exportImage: exportImage,
@@ -753,8 +916,5 @@ export function mountRenderer(container, options) {
         return Object.assign({ cachedLayouts: layoutCache.size() }, diagnostics);
       },
       destroy: destroy,
-      cy: function () {
-        return cy;
-      },
-    };
+    }, function () { return cy; });
   }

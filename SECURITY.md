@@ -11,7 +11,7 @@ metrics, and errors as text, and SVG export XML-escapes element content and
 style attributes. Consumers must still avoid sending secrets or sensitive
 model data to the browser.
 
-Use `validateDAG()` at API and persistence boundaries. Its strict JSON-data
+Use `validateWorkflowSnapshot()` at API and persistence boundaries. Its strict JSON-data
 check rejects executable values, class instances, non-finite numbers, sparse
 arrays, and recursive references throughout known fields and extensions, and
 does not invoke getters while inspecting unknown properties.

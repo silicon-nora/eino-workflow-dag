@@ -6,7 +6,8 @@ import {
   useRef,
 } from "react";
 import "./styles.css";
-import { EinoWorkflowDAG } from "./renderer.js";
+import { createWorkflowDAG } from "./renderer.js";
+import { WorkflowDAGError } from "./workflow-error.js";
 
 function joinClassNames(...values) {
   return values.filter(Boolean).join(" ");
@@ -17,15 +18,14 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
   ref,
 ) {
   const {
-    root,
+    snapshot,
     direction = "RIGHT",
     theme = "classic",
     expanded,
-    activeNodeId = null,
+    activeNodePath = null,
     pinNodeTip = true,
     autoResize = true,
     debug = false,
-    additionalStyles,
     ariaLabel,
     accessibilityLabelFormatter,
     keyboardNavigation = true,
@@ -48,16 +48,23 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
   const containerRef = useRef(null);
   const instanceRef = useRef(null);
   const latestPropsRef = useRef(props);
-  const mountedRootRef = useRef(null);
+  const mountedSnapshotRef = useRef(null);
   const mountedDirectionRef = useRef(direction);
   const mountedThemeRef = useRef(theme);
   const mountedLocaleRef = useRef(locale);
   const mountedExpandedRef = useRef(expanded);
-  const mountedActiveNodeIdRef = useRef(activeNodeId);
+  const mountedActiveNodePathRef = useRef(activeNodePath);
   latestPropsRef.current = props;
 
   function reportError(error) {
-    const normalized = error instanceof Error ? error : new Error(String(error));
+    const normalized =
+      error?.code === "INVALID_WORKFLOW_SNAPSHOT" || error instanceof WorkflowDAGError
+        ? error
+        : new WorkflowDAGError(
+            "REACT_ADAPTER_UPDATE_FAILED",
+            error instanceof Error ? error.message : String(error),
+            { cause: error },
+          );
     latestPropsRef.current.onError?.(normalized);
   }
 
@@ -71,16 +78,15 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
     if (!containerRef.current || instanceRef.current) return undefined;
     try {
       const latest = latestPropsRef.current;
-      const instance = EinoWorkflowDAG.mount(containerRef.current, {
-        root: latest.root,
+      const instance = createWorkflowDAG(containerRef.current, {
+        snapshot: latest.snapshot,
         direction: latest.direction,
         theme: latest.theme,
         expanded: latest.expanded,
-        activeNodeId: latest.activeNodeId,
+        activeNodePath: latest.activeNodePath,
         pinNodeTip: latest.pinNodeTip,
         autoResize: latest.autoResize,
         debug: latest.debug,
-        additionalStyles: latest.additionalStyles,
         ariaLabel: latest.ariaLabel,
         accessibilityLabelFormatter: latest.accessibilityLabelFormatter,
         keyboardNavigation: latest.keyboardNavigation,
@@ -95,12 +101,12 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
         onError: (error) => latestPropsRef.current.onError?.(error),
       });
       instanceRef.current = instance;
-      mountedRootRef.current = latest.root;
+      mountedSnapshotRef.current = latest.snapshot;
       mountedDirectionRef.current = instance.getDirection();
       mountedThemeRef.current = instance.getTheme();
       mountedLocaleRef.current = latest.locale;
       mountedExpandedRef.current = latest.expanded;
-      mountedActiveNodeIdRef.current = latest.activeNodeId ?? null;
+      mountedActiveNodePathRef.current = latest.activeNodePath ?? null;
       latest.onReady?.(instance);
     } catch (error) {
       reportError(error);
@@ -113,14 +119,14 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
   }, []);
 
   useEffect(() => {
-    if (!instanceRef.current || mountedRootRef.current === root) return;
+    if (!instanceRef.current || mountedSnapshotRef.current === snapshot) return;
     try {
-      invoke("setData", root, { preserveExpanded, fit: fitOnUpdate });
-      mountedRootRef.current = root;
+      invoke("update", snapshot, { preserveExpanded, fit: fitOnUpdate });
+      mountedSnapshotRef.current = snapshot;
     } catch (error) {
       reportError(error);
     }
-  }, [root, preserveExpanded, fitOnUpdate]);
+  }, [snapshot, preserveExpanded, fitOnUpdate]);
 
   useEffect(() => {
     if (!instanceRef.current || mountedDirectionRef.current === direction) return;
@@ -171,31 +177,30 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
   useEffect(() => {
     if (
       !instanceRef.current ||
-      mountedActiveNodeIdRef.current === activeNodeId
+      mountedActiveNodePathRef.current === activeNodePath
     ) {
       return;
     }
     try {
-      invoke("setActiveNodeId", activeNodeId);
-      mountedActiveNodeIdRef.current = activeNodeId;
+      invoke("setActiveNodePath", activeNodePath);
+      mountedActiveNodePathRef.current = activeNodePath;
     } catch (error) {
       reportError(error);
     }
-  }, [activeNodeId]);
+  }, [activeNodePath]);
 
   useImperativeHandle(
     ref,
     () => ({
       getInstance: () => instanceRef.current,
-      render: (...args) => invoke("render", ...args),
-      setData: (...args) => invoke("setData", ...args),
+      update: (...args) => invoke("update", ...args),
       expandAll: () => invoke("expandAll"),
       collapseAll: () => invoke("collapseAll"),
-      togglePath: (...args) => invoke("togglePath", ...args),
+      toggle: (...args) => invoke("toggle", ...args),
       getExpanded: () => invoke("getExpanded"),
       setExpanded: (...args) => invoke("setExpanded", ...args),
-      getActiveNodeId: () => invoke("getActiveNodeId"),
-      setActiveNodeId: (...args) => invoke("setActiveNodeId", ...args),
+      getActiveNodePath: () => invoke("getActiveNodePath"),
+      setActiveNodePath: (...args) => invoke("setActiveNodePath", ...args),
       getDirection: () => invoke("getDirection"),
       setDirection: (...args) => invoke("setDirection", ...args),
       getTheme: () => invoke("getTheme"),

@@ -38,53 +38,60 @@
 
     <script src="../../dist/eino-workflow-dag.umd.cjs"></script>
     <script>
-      const root = {
-        version: 2,
-        nodes: [
-          { id: "input", name: "Input", kind: "io", status: "success", cost_ms: 8 },
+      const snapshot = {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [
+          { id: "input", name: "Input", component: "Lambda" },
           {
             id: "research",
             name: "Research",
-            kind: "graph",
-            status: "success",
-            cost_ms: 180,
-            graph: {
+            component: "Workflow",
+            workflow: {
               nodes: [
-                { id: "search", name: "Search", kind: "io", status: "success", cost_ms: 50 },
-                { id: "rank", name: "Rank", kind: "cpu", status: "success", cost_ms: 30 },
-                { id: "summarize", name: "Summarize", kind: "llm", status: "success", cost_ms: 100 },
+                { id: "search", name: "Search", component: "Retriever" },
+                { id: "rank", name: "Rank", component: "Lambda" },
+                { id: "summarize", name: "Summarize", component: "ChatModel" },
               ],
               edges: [
-                { from: "search", to: "rank" },
-                { from: "rank", to: "summarize" },
+                { from: "search", to: "rank", channels: ["control", "data"] },
+                { from: "rank", to: "summarize", channels: ["control", "data"] },
               ],
             },
           },
-          { id: "answer", name: "Answer", kind: "llm", status: "success", cost_ms: 240 },
+          { id: "answer", name: "Answer", component: "ChatModel" },
         ],
         edges: [
-          { from: "input", to: "research" },
-          { from: "research", to: "answer" },
-        ],
+          { from: "input", to: "research", channels: ["control", "data"] },
+          { from: "research", to: "answer", channels: ["control", "data"] },
+          ],
+        },
+        execution: {
+          nodes: [
+            { path: ["input"], status: "success", durationMs: 8 },
+            { path: ["research"], status: "success", durationMs: 180 },
+            { path: ["research", "search"], status: "success", durationMs: 50 },
+            { path: ["research", "rank"], status: "success", durationMs: 30 },
+            { path: ["research", "summarize"], status: "success", durationMs: 100 },
+            { path: ["answer"], status: "success", durationMs: 240 },
+          ],
+        },
       };
 
-      window.dagRoot = root;
+      window.dagSnapshot = snapshot;
       window.dagEvents = [];
       window.dagExpansionEvents = [];
 
-      window.dagInstance = EinoWorkflowDAG.mountWorkflowDAG(document.querySelector("#dag"), {
-        root,
+      window.dagInstance = EinoWorkflowDAG.createWorkflowDAG(document.querySelector("#dag"), {
+        snapshot,
         direction: "RIGHT",
         pinNodeTip: false,
-        additionalStyles: [
-          { selector: 'node[kind = "cpu"]', style: { 'border-width': 4 } },
-        ],
         onExpandedChange(expanded) {
           window.dagExpansionEvents.push(expanded);
         },
         onNodeClick(node) {
           window.lastDagNodeClick = node;
-          window.dagEvents.push({ type: "node", id: node.id });
+          window.dagEvents.push({ type: "node", path: node.path });
         },
         onEdgeClick(edge) {
           window.dagEvents.push({ type: "edge", id: edge.id });

@@ -8,10 +8,8 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const names = [
   "index",
-  "model",
-  "layout",
-  "layout-worker",
   "validation",
+  "cytoscape",
   "vue",
   "react",
 ];

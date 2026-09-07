@@ -7,15 +7,15 @@ import {
 /**
  * Eino Workflow DAG — visible graph model (framework agnostic).
  *
- * Protocol: recursive runtime DAG metrics.
- * - 子图：仅 kind === "graph"（graph 可空）
- * - 边：仅同层 from / to / kind?；忽略 toParent / to_parent / entry / component
- * - 节点主键：仅使用 v2 协议的 id
+ * Private projection consumed by the layout and Cytoscape adapter.
+ * - Nested graphs use kind === "graph".
+ * - Edges connect nodes within one graph layer.
+ * - Public node paths are encoded before they become renderer IDs.
  * - 展开后外部边仍锚子图包装节点，内部只画 graph.edges
  *
  * Minimal protocol fixture:
  * {
- *   version: 2, nodes: [
+ *   version: 1, nodes: [
  *     { id: "a", kind: "io", name: "A", status: "success", cost_ms: 10 },
  *     { id: "g", kind: "graph", name: "G", status: "success", cost_ms: 50,
  *       graph: { nodes: [
@@ -31,10 +31,14 @@ import {
  */
 const runtime = {};
 
+function appendPath(prefix, id) {
+  return prefix ? prefix + '/' + id : id;
+}
+
 (function (global) {
   'use strict';
 
-  /** 节点主键：v2 输入协议只认 id */
+  /** Return the graph-local node ID. */
   function nodeRef(n) {
     if (!n) return '';
     if (n.id != null && n.id !== '') return String(n.id);
@@ -50,9 +54,9 @@ const runtime = {};
     (graph.nodes || []).forEach(function (n) {
       var id = nodeRef(n);
       if (!id) return;
-      var path = prefix ? prefix + '/' + id : id;
+      var path = appendPath(prefix, id);
       if (isGraphNode(n)) {
-        out.push({ path: path, name: n.name || id, node: n });
+        out.push({ path: path, name: n.name || n.original_id || id, node: n });
         if (n.graph) listSubgraphs(n.graph, path, out);
       }
     });
@@ -74,7 +78,6 @@ const runtime = {};
     var seq = 0;
     (rawEdges || []).forEach(function (e) {
       if (!e || !e.from || !e.to || e.from === e.to) return;
-      // 防御：旧跨层字段不应进入 rawEdges
       if (e.toParent || e.to_parent) return;
       if (!nodeById(nodes, e.from) || !nodeById(nodes, e.to)) return;
       out.push({
@@ -419,16 +422,21 @@ const runtime = {};
     function walkLayer(graph, prefix, collectRoot) {
       var peeled = assignLayerRailLevels(graph || { nodes: [], edges: [] });
       if (collectRoot) {
-        rootInfo = { path: peeled.path || [], costMs: peeled.costMs || 0 };
+        rootInfo = {
+          path: (peeled.path || []).map(function (localId) {
+            return appendPath(prefix, localId);
+          }),
+          costMs: peeled.costMs || 0
+        };
       }
       Object.keys(peeled.nodeLevel).forEach(function (localId) {
-        var abs = prefix ? prefix + '/' + localId : localId;
+        var abs = appendPath(prefix, localId);
         nodeLevelAbs[abs] = peeled.nodeLevel[localId];
       });
       Object.keys(peeled.edgeLevel).forEach(function (key) {
         var parts = JSON.parse(key);
-        var a = prefix ? prefix + '/' + parts[0] : parts[0];
-        var b = prefix ? prefix + '/' + parts[1] : parts[1];
+        var a = appendPath(prefix, parts[0]);
+        var b = appendPath(prefix, parts[1]);
         edgeLevelAbs[edgeKey(a, b)] = peeled.edgeLevel[key];
       });
       var list = (graph && graph.nodes) || [];
@@ -437,7 +445,7 @@ const runtime = {};
         if (!isGraphNode(node)) continue;
         var localId = nodeRef(node);
         if (!localId) continue;
-        var gpath = prefix ? prefix + '/' + localId : localId;
+        var gpath = appendPath(prefix, localId);
         if (!hasOwnKey(expanded, gpath) || !expanded[gpath]) continue;
         walkLayer(node.graph || { nodes: [], edges: [] }, gpath, false);
       }
@@ -479,7 +487,7 @@ const runtime = {};
   }
 
   /**
-   * @param {object} root DAG Snapshot v2 root
+   * @param {object} root private renderer projection
    * @param {object} expanded path -> true
    * @returns {{ nodes: object[], edges: object[], criticalPath: string[], criticalCostMs: number }}
    */
@@ -495,17 +503,19 @@ const runtime = {};
       (graph.nodes || []).forEach(function (n) {
         var localId = nodeRef(n);
         if (!localId) return;
-        var path = prefix ? prefix + '/' + localId : localId;
+        var path = appendPath(prefix, localId);
         idOf[localId] = path;
 
         var isSub = isGraphNode(n);
         if (isSub && hasOwnKey(expanded, path) && expanded[path]) {
           nodes.push({
             id: path,
-            key: localId,
-            name: n.name || localId,
+            key: n.original_id || localId,
+            name: n.name || n.original_id || localId,
             parent: parentId || null,
             kind: n.kind || 'graph',
+            component: n.component || '',
+            metadata: n.metadata || null,
             status: n.status || 'success',
             cost_ms: n.cost_ms || 0,
             metrics: n.metrics || null,
@@ -519,10 +529,12 @@ const runtime = {};
         } else {
           nodes.push({
             id: path,
-            key: localId,
-            name: n.name || localId,
+            key: n.original_id || localId,
+            name: n.name || n.original_id || localId,
             parent: parentId || null,
             kind: n.kind || (isSub ? 'graph' : 'io'),
+            component: n.component || '',
+            metadata: n.metadata || null,
             status: n.status || 'success',
             cost_ms: n.cost_ms || 0,
             metrics: n.metrics || null,
@@ -536,7 +548,6 @@ const runtime = {};
 
       (graph.edges || []).forEach(function (e) {
         if (!e) return;
-        // 忽略旧跨层 / 钉内部点字段（不报错）
         if (e.toParent || e.to_parent) return;
         var from = e.from;
         var to = e.to;

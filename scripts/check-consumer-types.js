@@ -13,7 +13,7 @@ import ts from "typescript";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 const sourcePath = process.argv[2] ? resolve(process.argv[2]) : null;
-const rootTypeName = process.argv[3] || "DAGMetrics";
+const rootTypeName = process.argv[3] || "ApplicationWorkflowSnapshot";
 
 function fail(message) {
   throw new Error(`Consumer type check failed: ${message}`);
@@ -90,10 +90,10 @@ try {
   writeFileSync(
     resolve(work, "check.ts"),
     [
-      'import type { DAGData } from "./library.js";',
+      'import type { EinoWorkflowSnapshot } from "./library.js";',
       `import type { ${rootTypeName} } from "./consumer.js";`,
-      `declare const consumerDAG: ${rootTypeName};`,
-      "const acceptedByRenderer: DAGData = consumerDAG;",
+      `declare const consumerSnapshot: ${rootTypeName};`,
+      "const acceptedByRenderer: EinoWorkflowSnapshot = consumerSnapshot;",
       "void acceptedByRenderer;",
       "",
     ].join("\n"),
@@ -119,10 +119,10 @@ try {
   if (result.status !== 0) {
     process.stdout.write(result.stdout || "");
     process.stderr.write(result.stderr || "");
-    fail(`${rootTypeName} is not assignable to DAGData`);
+    fail(`${rootTypeName} is not assignable to EinoWorkflowSnapshot`);
   }
   console.log(
-    `OK: ${rootTypeName} from ${basename(sourcePath)} is assignable to DAGData`,
+    `OK: ${rootTypeName} from ${basename(sourcePath)} is assignable to EinoWorkflowSnapshot`,
   );
 } finally {
   rmSync(work, { recursive: true, force: true });

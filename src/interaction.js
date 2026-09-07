@@ -36,11 +36,13 @@ export function bindGraphInteractions(cy, container, handlers) {
     if (!node || node.empty()) {
       keyboardNodeId = null;
       handlers.tooltip.scheduleHide();
+      if (handlers.onKeyboardFocus) handlers.onKeyboardFocus(null);
       return;
     }
     keyboardNodeId = node.id();
     node.addClass("keyboard-focus");
     handlers.tooltip.show(node);
+    if (handlers.onKeyboardFocus) handlers.onKeyboardFocus(eventData(node));
   }
 
   function onKeyDown(event) {
@@ -129,6 +131,10 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("viewport", handlers.onViewport);
 
   return {
+    refreshKeyboardFocus() {
+      if (!keyboardNodeId) return;
+      focusKeyboardNode(cy.getElementById(keyboardNodeId));
+    },
     destroy() {
       if (expandTimer) clearTimeout(expandTimer);
       expandTimer = null;

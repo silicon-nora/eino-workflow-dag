@@ -19,14 +19,10 @@ const umdBytes = requireFile("eino-workflow-dag.umd.cjs");
 const cssBytes = requireFile("eino-workflow-dag.css");
 requireFile("eino-workflow-dag.js");
 requireFile("eino-workflow-dag.cjs");
-requireFile("model.js");
-requireFile("model.cjs");
-requireFile("layout.js");
-requireFile("layout.cjs");
-requireFile("layout-worker.js");
-requireFile("layout-worker.cjs");
 requireFile("validation.js");
 requireFile("validation.cjs");
+requireFile("cytoscape.js");
+requireFile("cytoscape.cjs");
 requireFile("vue.js");
 requireFile("vue.cjs");
 requireFile("react.js");
@@ -66,22 +62,18 @@ if (cssBytes > 20 * 1024) {
 
 const require = createRequire(import.meta.url);
 const umd = require(resolve(dist, "eino-workflow-dag.umd.cjs"));
-if (typeof umd.mountWorkflowDAG !== "function" || umd.CURRENT_DAG_VERSION !== 2) {
+if (typeof umd.createWorkflowDAG !== "function" || umd.CURRENT_SCHEMA_VERSION !== 1) {
   throw new Error("CommonJS/UMD entry does not expose the expected public API");
 }
 const commonjs = require(manifest.name);
-const cjsModel = require(`${manifest.name}/model`);
-const cjsLayout = require(`${manifest.name}/layout`);
-const cjsLayoutWorker = require(`${manifest.name}/layout-worker`);
 const cjsValidation = require(`${manifest.name}/validation`);
+const cjsCytoscape = require(`${manifest.name}/cytoscape`);
 const cjsVue = require(`${manifest.name}/vue`);
 const cjsReact = require(`${manifest.name}/react`);
 if (
-  typeof commonjs.mountWorkflowDAG !== "function" ||
-  typeof cjsModel.buildVisibleGraph !== "function" ||
-  typeof cjsLayout.layoutVisibleGraph !== "function" ||
-  typeof cjsValidation.validateDAG !== "function" ||
-  typeof cjsLayoutWorker.createLayoutWorkerClient !== "function" ||
+  typeof commonjs.createWorkflowDAG !== "function" ||
+  typeof cjsValidation.validateWorkflowSnapshot !== "function" ||
+  typeof cjsCytoscape.getCytoscape !== "function" ||
   !cjsVue.EinoWorkflowDAGVue ||
   !cjsReact.EinoWorkflowDAGReact
 ) {
@@ -89,19 +81,14 @@ if (
 }
 
 const esm = await import(manifest.name);
-const model = await import(`${manifest.name}/model`);
-const layout = await import(`${manifest.name}/layout`);
 const validation = await import(`${manifest.name}/validation`);
-const layoutWorker = await import(`${manifest.name}/layout-worker`);
+const cytoscapeEntry = await import(`${manifest.name}/cytoscape`);
 const vue = await import(`${manifest.name}/vue`);
 const react = await import(`${manifest.name}/react`);
 if (
-  typeof esm.mountWorkflowDAG !== "function" ||
-  typeof model.buildVisibleGraph !== "function" ||
-  typeof layout.layoutVisibleGraph !== "function" ||
-  typeof validation.validateDAG !== "function" ||
-  typeof layoutWorker.createLayoutWorkerClient !== "function" ||
-  typeof layoutWorker.attachLayoutWorker !== "function" ||
+  typeof esm.createWorkflowDAG !== "function" ||
+  typeof validation.validateWorkflowSnapshot !== "function" ||
+  typeof cytoscapeEntry.getCytoscape !== "function" ||
   !vue.EinoWorkflowDAGVue ||
   !react.EinoWorkflowDAGReact
 ) {
@@ -124,10 +111,8 @@ function assertExportParity(label, left, right) {
 
 for (const [label, cjsEntry, esmEntry] of [
   ["root", commonjs, esm],
-  ["model", cjsModel, model],
-  ["layout", cjsLayout, layout],
-  ["layout-worker", cjsLayoutWorker, layoutWorker],
   ["validation", cjsValidation, validation],
+  ["cytoscape", cjsCytoscape, cytoscapeEntry],
   ["vue", cjsVue, vue],
   ["react", cjsReact, react],
 ]) {
@@ -137,10 +122,8 @@ assertExportParity("root UMD", umd, esm);
 
 const runtimeEntries = new Map([
   [".", esm],
-  ["./model", model],
-  ["./layout", layout],
-  ["./layout-worker", layoutWorker],
   ["./validation", validation],
+  ["./cytoscape", cytoscapeEntry],
   ["./vue", vue],
   ["./react", react],
 ]);

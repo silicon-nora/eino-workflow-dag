@@ -26,18 +26,18 @@ assert(
 const elements = toCytoscapeElements(
   {
     nodes: [
-      { id: "a", name: "A", kind: "cpu", status: "success", cost_ms: 10 },
+      { id: "a", name: "A", kind: "cpu", component: "Lambda", metadata: { owner: "team" }, status: "success", cost_ms: 10 },
       { id: "g", name: "G", kind: "graph", subgraph: true, expanded: true },
     ],
     edges: [{ id: "e", from: "a", to: "g", level: 1 }],
   },
-  { nodeLabelFormatter: (node) => `${node.name}:${node.status}` },
+  { nodeLabelFormatter: (node) => `${node.name}:${node.component}:${node.metadata.owner}:${node.status}:${node.durationMs}` },
 );
 
 const a = elements.find((element) => element.data.id === "a");
 const g = elements.find((element) => element.data.id === "g");
 assert(a.data.key === "a", "rendered nodes preserve their graph-local key");
-assert(a.data.label === "A:success", "custom label formatter is used");
+assert(a.data.label === "A:Lambda:team:success:10", "custom label formatter receives public Eino node data");
 assert(g.data.label === "", "expanded graph title remains an HTML overlay");
 assert(elements.some((element) => element.group === "edges"), "edges are converted");
 

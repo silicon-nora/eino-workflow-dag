@@ -2,17 +2,25 @@ import { StrictMode, createElement, createRef } from "react";
 import { createRoot } from "react-dom/client";
 import { EinoWorkflowDAGReact } from "../../dist/react.js";
 
-let dagRoot = {
-  version: 2,
-  nodes: [
-    { id: "input", name: "Input", kind: "io", status: "success", cost_ms: 5 },
-    { id: "answer", name: "Answer", kind: "llm", status: "running", cost_ms: 30 },
-  ],
-  edges: [{ from: "input", to: "answer" }],
+let dagSnapshot = {
+  schemaVersion: 1,
+  workflow: {
+    nodes: [
+      { id: "input", name: "Input", component: "Lambda" },
+      { id: "answer", name: "Answer", component: "ChatModel" },
+    ],
+    edges: [{ from: "input", to: "answer", channels: ["control", "data"] }],
+  },
+  execution: {
+    nodes: [
+      { path: ["input"], status: "success", durationMs: 5 },
+      { path: ["answer"], status: "running", durationMs: 30 },
+    ],
+  },
 };
 let direction = "RIGHT";
 let locale;
-let activeNodeId = "answer";
+let activeNodePath = ["answer"];
 const dagRef = createRef();
 const events = [];
 const root = createRoot(document.querySelector("#app"));
@@ -28,17 +36,17 @@ function render() {
         createElement("h1", null, "Eino Workflow DAG — React"),
         createElement(EinoWorkflowDAGReact, {
           ref: dagRef,
-          root: dagRoot,
+          snapshot: dagSnapshot,
           direction,
           locale,
-          activeNodeId,
+          activeNodePath,
           style: { height: "420px" },
           pinNodeTip: false,
           onReady(instance) {
             window.reactDagInstance = instance;
           },
           onNodeClick(node) {
-            events.push({ type: "node", id: node.id });
+            events.push({ type: "node", path: node.path });
           },
           onError(error) {
             events.push({ type: "error", message: error.message });
@@ -52,7 +60,7 @@ function render() {
 window.reactDagEvents = events;
 window.reactDagRef = dagRef;
 window.setReactDagRoot = (next) => {
-  dagRoot = next;
+  dagSnapshot = next;
   render();
 };
 window.setReactDagDirection = (next) => {
@@ -64,7 +72,7 @@ window.setReactDagLocale = (next) => {
   render();
 };
 window.setReactDagActiveNodeId = (next) => {
-  activeNodeId = next;
+  activeNodePath = next;
   render();
 };
 window.unmountReactDag = () => root.unmount();

@@ -9,19 +9,19 @@ import {
   watch,
 } from "vue";
 import "./styles.css";
-import { EinoWorkflowDAG } from "./renderer.js";
+import { createWorkflowDAG } from "./renderer.js";
+import { WorkflowDAGError } from "./workflow-error.js";
 
 function forwardedOptions(props, emit) {
   return {
-    root: props.root,
+    snapshot: props.snapshot,
     direction: props.direction,
     theme: props.theme,
     expanded: props.expanded,
-    activeNodeId: props.activeNodeId,
+    activeNodePath: props.activeNodePath,
     pinNodeTip: props.pinNodeTip,
     autoResize: props.autoResize,
     debug: props.debug,
-    additionalStyles: props.additionalStyles,
     ariaLabel: props.ariaLabel,
     accessibilityLabelFormatter: props.accessibilityLabelFormatter,
     keyboardNavigation: props.keyboardNavigation,
@@ -48,15 +48,14 @@ export const EinoWorkflowDAGVue = defineComponent({
   name: "EinoWorkflowDAG",
   inheritAttrs: false,
   props: {
-    root: { type: Object, required: true },
+    snapshot: { type: Object, required: true },
     direction: { type: String, default: "RIGHT" },
     theme: { type: String, default: "classic" },
-    expanded: { type: Object, default: undefined },
-    activeNodeId: { type: String, default: null },
+    expanded: { type: Array, default: undefined },
+    activeNodePath: { type: Array, default: null },
     pinNodeTip: { type: Boolean, default: true },
     autoResize: { type: Boolean, default: true },
     debug: { type: Boolean, default: false },
-    additionalStyles: { type: Array, default: undefined },
     ariaLabel: { type: String, default: undefined },
     accessibilityLabelFormatter: { type: Function, default: undefined },
     keyboardNavigation: { type: Boolean, default: true },
@@ -73,13 +72,21 @@ export const EinoWorkflowDAGVue = defineComponent({
     const instance = shallowRef(null);
 
     function reportError(error) {
-      emit("error", error instanceof Error ? error : new Error(String(error)));
+      const normalized =
+        error?.code === "INVALID_WORKFLOW_SNAPSHOT" || error instanceof WorkflowDAGError
+          ? error
+          : new WorkflowDAGError(
+              "VUE_ADAPTER_UPDATE_FAILED",
+              error instanceof Error ? error.message : String(error),
+              { cause: error },
+            );
+      emit("error", normalized);
     }
 
     function mount() {
       if (!container.value || instance.value) return;
       try {
-        instance.value = EinoWorkflowDAG.mount(
+        instance.value = createWorkflowDAG(
           container.value,
           forwardedOptions(props, emit),
         );
@@ -111,9 +118,9 @@ export const EinoWorkflowDAGVue = defineComponent({
     }
 
     watch(
-      () => props.root,
-      (root) => {
-        invokeAndReport("setData", root, {
+      () => props.snapshot,
+      (snapshot) => {
+        invokeAndReport("update", snapshot, {
           preserveExpanded: props.preserveExpanded,
           fit: props.fitOnUpdate,
         });
@@ -135,8 +142,8 @@ export const EinoWorkflowDAGVue = defineComponent({
       },
       { deep: true },
     );
-    watch(() => props.activeNodeId, (activeNodeId) =>
-      invokeAndReport("setActiveNodeId", activeNodeId),
+    watch(() => props.activeNodePath, (activeNodePath) =>
+      invokeAndReport("setActiveNodePath", activeNodePath),
     );
 
     onMounted(mount);
@@ -144,15 +151,14 @@ export const EinoWorkflowDAGVue = defineComponent({
 
     expose({
       getInstance: () => instance.value,
-      render: (...args) => invoke("render", ...args),
-      setData: (...args) => invoke("setData", ...args),
+      update: (...args) => invoke("update", ...args),
       expandAll: () => invoke("expandAll"),
       collapseAll: () => invoke("collapseAll"),
-      togglePath: (...args) => invoke("togglePath", ...args),
+      toggle: (...args) => invoke("toggle", ...args),
       getExpanded: () => invoke("getExpanded"),
       setExpanded: (...args) => invoke("setExpanded", ...args),
-      getActiveNodeId: () => invoke("getActiveNodeId"),
-      setActiveNodeId: (...args) => invoke("setActiveNodeId", ...args),
+      getActiveNodePath: () => invoke("getActiveNodePath"),
+      setActiveNodePath: (...args) => invoke("setActiveNodePath", ...args),
       getDirection: () => invoke("getDirection"),
       setDirection: (...args) => invoke("setDirection", ...args),
       getTheme: () => invoke("getTheme"),

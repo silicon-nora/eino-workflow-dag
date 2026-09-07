@@ -1,6 +1,6 @@
 {
   "name": "eino-workflow-dag",
-  "version": "0.4.0-alpha.2",
+  "version": "0.4.0-alpha.3",
   "description": "Framework-agnostic visualization for nested Eino workflow DAGs and execution traces.",
   "type": "module",
   "license": "Apache-2.0",
@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/silicon-nora/eino-workflow-dag/issues"
   },
-  "main": "./dist/eino-workflow-dag.umd.cjs",
+  "main": "./dist/eino-workflow-dag.cjs",
   "module": "./dist/eino-workflow-dag.js",
   "types": "./src/index.d.ts",
   "exports": {
@@ -26,36 +26,6 @@
         "default": "./dist/eino-workflow-dag.cjs"
       }
     },
-    "./model": {
-      "import": {
-        "types": "./src/model.d.ts",
-        "default": "./dist/model.js"
-      },
-      "require": {
-        "types": "./src/model.d.cts",
-        "default": "./dist/model.cjs"
-      }
-    },
-    "./layout": {
-      "import": {
-        "types": "./src/layout.d.ts",
-        "default": "./dist/layout.js"
-      },
-      "require": {
-        "types": "./src/layout.d.cts",
-        "default": "./dist/layout.cjs"
-      }
-    },
-    "./layout-worker": {
-      "import": {
-        "types": "./src/layout-worker.d.ts",
-        "default": "./dist/layout-worker.js"
-      },
-      "require": {
-        "types": "./src/layout-worker.d.cts",
-        "default": "./dist/layout-worker.cjs"
-      }
-    },
     "./validation": {
       "import": {
         "types": "./src/validation.d.ts",
@@ -64,6 +34,16 @@
       "require": {
         "types": "./src/validation.d.cts",
         "default": "./dist/validation.cjs"
+      }
+    },
+    "./cytoscape": {
+      "import": {
+        "types": "./src/cytoscape.d.ts",
+        "default": "./dist/cytoscape.js"
+      },
+      "require": {
+        "types": "./src/cytoscape.d.cts",
+        "default": "./dist/cytoscape.cjs"
       }
     },
     "./vue": {
@@ -97,6 +77,9 @@
     "TYPE_SURFACE.json",
     "README.md",
     "CONTRACT.md",
+    "COMPATIBILITY.md",
+    "SUPPORT.md",
+    "BROWSER_SUPPORT.md",
     "SECURITY.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
@@ -121,7 +104,7 @@
     "typecheck": "node scripts/sync-cjs-types.js --check && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json",
     "types:cjs": "node scripts/sync-cjs-types.js",
     "types:surface": "node scripts/check-type-surface.js --write",
-    "test": "node tests/validation.test.js && node tests/snapshot.test.js && node tests/snapshot-cli.test.js && node tests/accessibility.test.js && node tests/elements.test.js && node tests/tooltip.test.js && node tests/layout-cache.test.js && node tests/layout-engine.test.js && node tests/layout-worker.test.js && node tests/svg-export.test.js && node tests/theme.test.js && node tests/model.test.js && node tests/layout.test.js && node tests/model-layout-fuzz.test.js && node tests/align-critical.test.js && node tests/port-planner.test.js && node tests/axis-profile.test.js && node tests/release-metadata.test.js && node tests/release-readiness.test.js && node tests/sensitive-content.test.js && node tests/public-assets.test.js && node tests/type-surface.test.js && node tests/document-links.test.js && node tests/source-map-contract.test.js && node tests/package-contract.test.js && node tests/consumer-types.test.js",
+    "test": "node tests/validation.test.js && node tests/eino-go-fixture.test.js && node tests/snapshot.test.js && node tests/snapshot-cli.test.js && node tests/accessibility.test.js && node tests/elements.test.js && node tests/tooltip.test.js && node tests/layout-cache.test.js && node tests/layout-engine.test.js && node tests/layout-worker.test.js && node tests/svg-export.test.js && node tests/theme.test.js && node tests/model.test.js && node tests/layout.test.js && node tests/model-layout-fuzz.test.js && node tests/align-critical.test.js && node tests/port-planner.test.js && node tests/axis-profile.test.js && node tests/release-metadata.test.js && node tests/release-readiness.test.js && node tests/sensitive-content.test.js && node tests/public-assets.test.js && node tests/type-surface.test.js && node tests/document-links.test.js && node tests/source-map-contract.test.js && node tests/package-contract.test.js && node tests/consumer-types.test.js",
     "validate:snapshot": "node scripts/check-snapshot.js",
     "test:browser": "npm run build && npm run build:react-example && playwright test",
     "build:react-example": "vite build --config vite.react-example.config.js",

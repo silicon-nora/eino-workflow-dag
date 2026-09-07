@@ -1,201 +1,89 @@
-# Roadmap
+# Roadmap to 1.0
 
-This roadmap records completed library milestones and the remaining path to a
-first public release. It is directional rather than a promise of release dates.
+The `1.0.0` target is a small, read-only, Eino-specific workflow renderer with
+one portable snapshot protocol. Version 1 does not execute or edit workflows,
+provide a general graph editor, or support non-Eino producer protocols.
 
-## Current target — 0.4.0-alpha.2
+External application adoption is useful feedback but is not a release gate.
+Repository tests built with the real Go Eino module are the reproducible
+integration gate: they compile and execute representative workflows, project
+their topology and execution state, and validate the resulting JSON with the
+JavaScript contract.
 
-This iteration hardens the architecture before beta. The product remains an
-Eino-specific, read-only, embeddable DAG renderer; it is not expanding into a
-generic graph protocol, workflow editor, execution engine, or debugger.
+## 1.0 acceptance target
 
-- [x] Make DAG Snapshot v2 the only browser input protocol
-- [x] Remove the public GraphInfo projection and lifecycle-event alias inputs
-- [x] Validate the same strict contract in `mount()` and `setData()`
-- [x] Document support for Eino Workflow and DAG-mode Graph, while rejecting
-  cyclic Pregel Graph output
-- [x] Make producer `critical_path` authoritative when present and compute a
-  fallback only when it is omitted
-- [x] Narrow the root entry to renderer, theme, and validation APIs
-- [x] Separate topology definition and runtime state during internal
-  normalization without introducing another public protocol
-- [x] Introduce an internal layout-engine boundary while retaining the current
-  lightweight engine as the default
-- [x] Keep advanced model, layout, validation, and experimental worker entry
-  points isolated from the stable root API
-- [x] Reduce the exact npm tarball to 350 KiB or less while retaining ESM,
-  CommonJS, UMD, declarations, contract, and license records; source remains
-  inspectable in the open repository
-- [x] Complete unit, type, browser, package, reproducibility, and exact-tarball
-  compatibility checks against the `0.4.0-alpha.2` artifact
-- [x] Confirm code provenance, naming, and open-source release authority
-- [ ] Add final GitHub metadata, run the official-registry audit, and publish
-  under the npm `next` dist-tag after authorization
+### Protocol and Eino interoperability
 
-## Release order
+- [x] Keep `EinoWorkflowSnapshot` schema version 1 as the only input protocol
+- [x] Keep workflow topology, execution state, and application metadata semantically separate
+- [x] Represent nested graphs, control/data dependencies, branches, and field mappings
+- [x] Use path arrays for nested node identity and JSON-safe metadata boundaries
+- [x] Project topology from a compiled Go Eino Workflow into a shared JavaScript fixture
+- [x] Collect execution state from real Eino callbacks into the same snapshot contract
+- [x] Test Eino `>=0.9.0 <0.10.0` and publish the exact compatibility policy
+- [x] Freeze schema terminology and validation issue-code semantics
 
-The release owner should complete these steps in order:
+### Public library surface
 
-1. Obtain the source-release and npm/GitHub approvals recorded in
-   `PROVENANCE.md`.
-2. Create the public GitHub repository, fill in the final package metadata, and
-   rerun every release gate against the resulting artifact.
-3. Publish `0.4.0-alpha.2` under npm's `next` dist-tag, never `latest`.
-4. Verify a clean installation from the registry and collect prerelease
-   compatibility feedback.
-5. Promote to `0.4.0-beta.1` only after the release gates and reviewed
-   compatibility checks pass.
+- [x] Expose one framework-independent `createWorkflowDAG()` lifecycle
+- [x] Keep React and Vue as optional adapters with equivalent behavior
+- [x] Keep rendering-engine access in the explicit `/cytoscape` adapter
+- [x] Keep internal model, layout, routing, and worker APIs out of package exports
+- [x] Freeze instance lifecycle, callback payloads, and adapter stability promises
+
+### Portability and quality
+
+- [x] Ship and test ESM, CommonJS, UMD, CSS, React, Vue, validation, and Cytoscape entries
+- [x] Enforce deterministic builds, strict types, package consumers, and license checks
+- [x] Enforce measured 100- and 500-node layout budgets
+- [x] Keep the exact npm tarball below 350 KiB
+- [x] Run the interaction and accessibility suite in Chromium, Firefox, and WebKit
+- [x] Complete keyboard behavior and screen-reader review without critical issues
+
+### Release and maintenance
+
+- [x] Publish support, security, contribution, provenance, and release procedures
+- [x] Publish compatibility, deprecation, custom component/status, and theme policies
+- [ ] Verify React 18/19 and Vue 3 from clean installations of the published package
+- [ ] Publish a release candidate and resolve every release-blocking defect
+- [ ] Publish `1.0.0` under npm's `latest` dist-tag
+
+## Current milestone — 0.4.0-alpha.3
+
+## Alpha.3 — public boundary
+
+- [x] Define one library-owned `EinoWorkflowSnapshot` schema
+- [x] Start the first public schema at `schemaVersion: 1`
+- [x] Separate workflow topology from execution state inside the snapshot
+- [x] Use explicit node-path arrays for expansion, selection, and callbacks
+- [x] Map Eino control edges, data edges, branches, and field mappings
+- [x] Align virtual endpoint values with Eino's `start` and `end`
+- [x] Replace ambiguous mount aliases with `createWorkflowDAG()`
+- [x] Move Cytoscape access and selector styles to a dedicated adapter
+- [x] Remove model, layout, and worker internals from package exports
+- [x] Provide typed parsing, validation issues, and renderer errors
+- [x] Publish a reference Go projection from Eino `GraphInfo`
+- [x] Add a cross-language fixture shared by the Go producer and JavaScript validator
+- [x] Validate nested branches and field mappings from a compiled Eino Workflow
+- [x] Set measured performance budgets for 100- and 500-node visible graphs
+- [x] Replace external-project integration as a gate with real in-repository Eino tests
+- [ ] Publish the alpha under npm's `next` dist-tag
+
+## Next implementation order
+
+1. Publish alpha.3 under npm's `next` dist-tag.
+2. Verify React 18/19 and Vue 3 from clean installations of that published package.
+3. Publish beta and release-candidate packages and resolve release-blocking defects.
+
+Off-main-thread layout is deferred from `1.0.0`. It may return later as an
+optional adapter if measured browser workloads justify the added API and bundle
+surface.
 
 ## Product principles
 
-1. Keep workflow data portable and JSON-safe.
-2. Keep business behavior in host applications.
-3. Preserve readable nested layouts before optimizing for raw graph size.
-4. Avoid framework lock-in; integrations belong in adapters and wrappers.
-5. Make full snapshot updates stable enough for polling; defer a public event
-   protocol until transport ordering and identity semantics are designed.
-6. Measure layout correctness and performance before changing algorithms.
-
-## 0.1 — Foundation
-
-Goal: establish an installable package and validate its core behavior.
-
-- [x] Build the model, layout, renderer, and styles as package modules
-- [x] Add ESM and UMD builds
-- [x] Add TypeScript declarations
-- [x] Add an Eino `GraphInfo` projection adapter
-- [x] Enforce the adapter's JSON-safe output boundary for GraphInfo, traces,
-  costs, and incremental event metrics
-- [x] Add unit tests and a real-browser smoke test
-- [x] Document installation, data contract, API, and architecture
-- [x] Add `setData()` for live workflow replacement
-- [x] Add strict, opt-in DAG validation
-- [x] Enforce JSON-safe values across metrics and extension fields, not only
-  nested graph structure
-- [x] Validate documented known-field types and protocol versions without
-  invoking accessors at the untrusted-data boundary
-- [x] Bound strict-validation traversal by unique objects for deeply shared,
-  acyclic payload structures
-- [x] Make JSON and nested-graph validation iterative so deep untrusted input
-  cannot overflow the JavaScript call stack
-- [x] Exercise the packed artifact in static UMD and Vue 3 browser fixtures
-- [x] Add a repeatable, non-mutating consumer-to-`DAGData` type compatibility
-  check for integration rehearsals
-- [x] Add a reproducible tarball contract gate for exports, files, size, and
-  integrity metadata
-- [x] Execute the exact packed UMD and stylesheet in the browser test suite
-- [x] Type-check and bundle ESM, Vue, React, CSS, data-only, and CommonJS
-  consumers from the exact packed artifact
-- [x] Add guarded GitHub Release automation with release identity checks,
-  prerelease dist-tags, npm provenance, and an OIDC migration path
-- [x] Verify every JavaScript package entry under modern ESM, CommonJS, and
-  bundler resolution with synchronized declarations
-- [x] Enforce an auditable production-license inventory and third-party notice
-  contract
-- [x] Exercise the complete package gate across the supported Node 20, 22, and
-  24 release lines in CI
-- [x] Add structured issue and pull-request intake, support boundaries, and a
-  project code of conduct
-- [x] Pin third-party GitHub Actions to reviewed commit SHAs
-- [x] Enforce public API export parity across ESM, CommonJS, and UMD builds
-- [x] Freeze a machine-readable public export manifest and reject accidental
-  API surface drift
-- [x] Freeze each typed subpath's declaration content and reject unreviewed
-  TypeScript API drift
-- [x] Scan public source files for common credential signatures before packing
-- [x] Inventory public binary and visual assets by provenance, license, review
-  metadata, and content hash before packing
-- [x] Reject broken relative links in the exact npm package documentation
-- [x] Reject GitHub releases whose prerelease state or changelog date disagrees
-  with the package version
-- [x] Publish the exact verified tarball and record its integrity metadata in
-  the release job summary
-- [x] Revalidate the final release tarball's bytes, archive paths, complete file
-  report, exported targets, and all package-level audits before publication
-- [x] Reject non-reproducible distribution builds with per-file SHA-256 checks
-- [x] Make provenance approval and final public repository metadata executable
-  release gates rather than documentation-only checks
-
-## 0.2 — Maintainability and integration
-
-Goal: make routine changes safe and keep module boundaries explicit.
-
-- [x] Extract reusable, animation-frame-throttled subgraph overlays
-- [x] Extract tooltip state and its testable plain-text formatter
-- [x] Extract Cytoscape pointer interactions and delayed expansion lifecycle
-- [x] Extract viewport, pan, zoom, wheel, and responsive resize lifecycle
-- [x] Extract edge highlight, draw order, and skipped-state presentation
-- [x] Isolate direction and axis-profile primitives from renderer assembly
-- [x] Extract the Cytoscape layout adapter and combined port/routing engine
-- [x] Extract renderer lifecycle from the public API assembly
-- [x] Separate port selection from orthogonal route computation
-- [x] Use domain-specific terminology throughout the layout implementation
-- [x] Add node and edge event callbacks without requiring direct Cytoscape access
-- [x] Add controlled active-node highlighting without remounting or relayout
-- [x] Add a tooltip formatter
-- [x] Add a node label formatter
-- [x] Preserve Eino `GraphInfo.Branches` in the JSON-safe graph projection
-- [x] Add runtime direction changes without remounting
-- [x] Add `ResizeObserver`-based responsive resizing
-- [x] Add a first-party JavaScript browser test runner to CI
-- [x] Add browser-level visual geometry checks across all four directions
-- [x] Document package adoption and upgrades
-- [x] Publish original module sources while omitting generated source maps
-- [x] Reject published `.map` files and stale `sourceMappingURL` comments
-
-## 0.3 — Efficient runtime traces
-
-Goal: support long-running and frequently updated Eino executions.
-
-- [x] Patch Cytoscape data when visible topology is unchanged
-- [x] Diff Cytoscape elements when visible topology changes
-- [x] Skip layout when only runtime status or metrics changed
-- [x] Cache layout positions and orthogonal routes by graph topology
-- [x] Define an incremental trace update helper for Eino events
-- [x] Preserve highlights, expansion, and viewport across updates
-- [x] Add cancellation and stale-update protection for overlapping layouts
-
-Target baseline: smooth status updates for a 100-node visible graph on a
-typical developer laptop. The exact frame and latency budgets will be fixed
-after benchmark fixtures exist.
-
-## 0.4 — Extensibility and scale
-
-Goal: support broader applications without putting their business logic in the
-core renderer.
-
-- [x] Theme token extension points
-- [x] Node-style extension points through appended Cytoscape selector rules
-- [x] Custom node kinds and status presentation through locale and style hooks
-- [x] Optional React 18/19 wrapper with StrictMode-safe lifecycle
-- [x] First-party Vue 3 wrapper with incremental prop updates
-- [x] Keep Vue and React refs aligned with the core non-lifecycle instance API
-- [x] Add repeatable layout benchmarks for 10, 100, and 500 visible nodes
-- [x] Define and enforce performance budgets for portable layout fixtures
-- [x] Add deterministic nested-DAG stress coverage across all four directions
-- [x] Optional off-main-thread layout protocol with explicit Worker lifecycle
-- [x] Non-blocking PNG and JPEG image snapshots
-- [x] Dependency-free SVG snapshots with route and theme preservation
-- [x] Keyboard navigation with node activation and visible focus state
-- [x] Accessible graph summaries with host override hooks
-- [x] Locale hooks for built-in node, status, tooltip, and overlay labels
-
-## Future 1.0 — Stability
-
-`1.0.0` requires:
-
-- compatibility evidence from multiple independent package integrations;
-- a documented and versioned DAG contract;
-- stable mount, update, event, theme, and lifecycle APIs;
-- automated unit, type, browser, visual, and performance checks;
-- documented browser support and upgrade policy;
-- no known high-severity accessibility or security issues;
-- a migration guide for every breaking pre-release API change.
-
-## Explicit non-goals
-
-- Workflow editing or authoring
-- Backend workflow execution
-- Application-specific permissions, navigation, or data fetching
-- Persisting traces or graph state
-- Replacing Eino's runtime, debugger, or development tools
+1. Represent Eino workflows, not arbitrary graph applications.
+2. Keep one portable, JSON-safe snapshot protocol.
+3. Keep topology, execution state, and renderer implementation boundaries clear.
+4. Prefer explicit identity and semantics over convenient string conventions.
+5. Keep framework and rendering-engine integrations outside the stable core.
+6. Measure layout behavior before adding scale-oriented complexity.

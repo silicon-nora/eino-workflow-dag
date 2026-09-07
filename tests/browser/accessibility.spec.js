@@ -27,3 +27,44 @@ for (const host of hosts) {
     expect(violations).toEqual([]);
   });
 }
+
+test("keyboard navigation announces and activates workflow nodes", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const dag = page.locator("#dag");
+  await expect(dag).toHaveAttribute("tabindex", "0");
+  await expect(dag).toHaveAttribute("aria-keyshortcuts", /Home.*Enter.*Escape/);
+  const graphLabel = await dag.getAttribute("aria-label");
+
+  await dag.focus();
+  await page.keyboard.press("Home");
+  await expect(dag).toHaveAttribute("aria-label", /Focused workflow node/);
+  const focused = await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    return window.dagInstance[access]()
+      .nodes(".keyboard-focus")
+      .map((node) => node.id());
+  });
+  expect(focused).toHaveLength(1);
+
+  const before = await page.evaluate(() => window.dagEvents.length);
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(() => page.evaluate(() => window.dagEvents.length))
+    .toBe(before + 1);
+  expect(
+    await page.evaluate(() => window.lastDagNodeClick.path.join("/")),
+  ).toBe(focused[0]);
+
+  await page.keyboard.press("Escape");
+  expect(await dag.getAttribute("aria-label")).toBe(graphLabel);
+  expect(
+    await page.evaluate(() => {
+      const access = Symbol.for("eino-workflow-dag.cytoscape");
+      return window.dagInstance[access]().nodes(".keyboard-focus").length;
+    }),
+  ).toBe(0);
+});

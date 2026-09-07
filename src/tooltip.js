@@ -166,7 +166,12 @@ export function createNodeTooltip(container, options = {}) {
     }
     const data = {
       id: node.id(),
+      key: node.data("key"),
       title: node.data("title"),
+      kind: node.data("kind"),
+      component: node.data("component"),
+      metadata: node.data("metadata"),
+      parent: node.data("parent"),
       status: node.data("status"),
       cost_ms: node.data("cost_ms"),
       err_msg: node.data("err_msg"),

@@ -6,6 +6,10 @@ test("preserves visual geometry invariants in every direction", async ({ page })
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/examples/plain/");
   await page.locator("#dag canvas").first().waitFor();
+  await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    window.getDAGCy = (instance) => instance[access]();
+  });
 
   await page.evaluate(() => window.dagInstance.expandAll());
   await expect(page.locator(".cy-subgraph-title")).toHaveCount(1);
@@ -21,7 +25,7 @@ test("preserves visual geometry invariants in every direction", async ({ page })
       .toBe(direction);
 
     const geometry = await page.evaluate(() => {
-      const cy = window.dagInstance.cy();
+      const cy = window.getDAGCy(window.dagInstance);
       const input = cy.getElementById("input").position();
       const answer = cy.getElementById("answer").position();
       const boxes = cy

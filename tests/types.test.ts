@@ -1,19 +1,16 @@
 import {
-  assertValidDAG,
-  mountWorkflowDAG,
-  validateDAG,
-  type DAGData,
+  createWorkflowDAG,
+  parseWorkflowSnapshot,
+  validateWorkflowSnapshot,
   type DAGLocale,
+  type EinoWorkflowSnapshot,
+  type NodePath,
   type ResolvedDAGLocale,
 } from "../src/index.js";
-import { layoutVisibleGraph as layoutFromSubpath } from "../src/layout.js";
 import {
-  attachLayoutWorker,
-  createLayoutWorkerClient,
-  type LayoutWorkerClient,
-} from "../src/layout-worker.js";
-import { buildVisibleGraph as modelFromSubpath } from "../src/model.js";
-import { validateDAG as validateFromSubpath } from "../src/validation.js";
+  createCytoscapeWorkflowDAG,
+  getCytoscape,
+} from "../src/cytoscape.js";
 import {
   EinoWorkflowDAGVue,
   type EinoWorkflowDAGVueProps,
@@ -26,36 +23,28 @@ import {
 } from "../src/react.js";
 import { h } from "vue";
 
-const root: DAGData = {
-  version: 2,
-  scene: "example",
-  nodes: [
-    {
-      id: "model",
-      name: "Generate",
-      kind: "llm",
-      status: "success",
-      cost_ms: 100,
-    },
-  ],
-  edges: [],
-};
-const container = document.createElement("div");
-const instance = mountWorkflowDAG(container, {
-  root,
-  direction: "RIGHT",
-  activeNodeId: "model",
-  autoResize: true,
-  pinNodeTip: false,
-  tooltipFormatter: (node) => `${node.title}: ${node.status}`,
-  nodeLabelFormatter: (node) => `${node.name}: ${node.status}`,
-  onNodeClick: (node) => `${node.id}:${node.key}`,
-  onEdgeClick: (edge) => edge.source,
-  onError: (error) => error.message,
-  locale: {
-    statuses: { running: "运行中" },
-    tooltip: { status: "状态" },
+const snapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "model", name: "Generate", component: "ChatModel" }],
+    edges: [],
   },
+  execution: {
+    nodes: [{ path: ["model"], status: "success", durationMs: 100 }],
+  },
+};
+const activePath: NodePath = ["model"];
+const container = document.createElement("div");
+const instance = createWorkflowDAG(container, {
+  snapshot,
+  direction: "RIGHT",
+  activeNodePath: activePath,
+  expanded: [["research"]],
+  tooltipFormatter: (node) => `${node.name}: ${node.status}`,
+  nodeLabelFormatter: (node) => `${node.name}: ${node.status}`,
+  onNodeClick: (node) => `${node.path.join("/")}:${node.id}`,
+  onEdgeClick: (edge) => edge.source.join("/"),
+  onError: (error) => `${error.code}:${"recoverable" in error ? error.recoverable : false}`,
 });
 
 instance.setTheme("midnight");
@@ -63,88 +52,57 @@ instance.setLocale({ statuses: { success: "完成" } });
 const resolvedLocale: ResolvedDAGLocale = instance.getLocale();
 resolvedLocale.tooltip.metrics;
 instance.setDirection("DOWN");
-instance.setActiveNodeId("model");
-instance.getActiveNodeId();
-instance.setData(root);
-instance.setData(root, { preserveExpanded: false, fit: true });
+instance.setActiveNodePath(["model"]);
+instance.getActiveNodePath();
+instance.update(snapshot);
+instance.update(snapshot, { preserveExpanded: false, fit: true });
+instance.toggle(["research"]);
+instance.setExpanded([["research"]]);
 instance.exportImage({ format: "svg", padding: 32, maxWidth: 1200 });
 
-const validation = validateDAG(root);
-if (validation.valid) assertValidDAG(root);
-layoutFromSubpath(modelFromSubpath(root, {}));
-validateFromSubpath(root);
+const validation = validateWorkflowSnapshot(snapshot);
+if (validation.valid) parseWorkflowSnapshot(snapshot);
 
-const workerClient: LayoutWorkerClient = createLayoutWorkerClient(
-  new Worker(new URL("./layout-worker.js", import.meta.url), { type: "module" }),
-  { terminateOnDestroy: true },
-);
-workerClient.run(modelFromSubpath(root), {
-  direction: "LEFT",
-  signal: new AbortController().signal,
+const advanced = createCytoscapeWorkflowDAG(container, {
+  snapshot,
+  additionalStyles: [{ selector: 'node[kind = "llm"]', style: { "border-width": 4 } }],
 });
-workerClient.destroy();
-void attachLayoutWorker;
+getCytoscape(advanced)?.nodes();
 
 const vueProps: EinoWorkflowDAGVueProps = {
-  root,
+  snapshot,
   direction: "DOWN",
-  activeNodeId: "model",
-  layoutCacheSize: 8,
+  activeNodePath: ["model"],
   preserveExpanded: true,
   onReady: (dag) => dag.getDirection(),
-  onExpandedChange: (value) => Object.keys(value),
-  onNodeClick: (node) => `${node.id}:${node.key}`,
-  onEdgeClick: (edge) => edge.source,
-  onError: (error) => error.message,
+  onExpandedChange: (value) => value.map((path) => path.join("/")),
+  onNodeClick: (node) => node.path.join("/"),
+  onEdgeClick: (edge) => edge.source.join("/"),
+  onError: (error) => error.code,
 };
 declare const vueRef: EinoWorkflowDAGVueRef;
-vueRef.render({ fit: false });
-vueRef.togglePath("research");
+vueRef.update(snapshot);
+vueRef.toggle(["research"]);
 vueRef.getExpanded();
-vueRef.setExpanded({ research: true });
-vueRef.getActiveNodeId();
-vueRef.setActiveNodeId("research/model");
-vueRef.getDirection();
-vueRef.setTheme("midnight");
-vueRef.getTheme();
-vueRef.setDirection("LEFT");
-vueRef.getLocale();
-vueRef.setLocale({ statuses: { success: "完成" } });
-vueRef.zoomIn();
-vueRef.zoomOut();
-vueRef.listSubgraphs();
-vueRef.resize();
+vueRef.setExpanded([["research"]]);
+vueRef.getActiveNodePath();
+vueRef.setActiveNodePath(["research", "model"]);
 vueRef.getDiagnostics();
 declare const vueInstance: InstanceType<typeof EinoWorkflowDAGVue>;
-vueInstance.setData(root);
-vueInstance.setTheme("classic");
+vueInstance.update(snapshot);
 h(EinoWorkflowDAGVue, vueProps);
-void EinoWorkflowDAGVue;
-void vueProps;
 
 const reactProps: EinoWorkflowDAGReactProps = {
-  root,
+  snapshot,
   direction: "UP",
-  activeNodeId: "model",
+  activeNodePath: ["model"],
   preserveExpanded: true,
-  onNodeClick: (node) => `${node.id}:${node.key}`,
+  onNodeClick: (node) => node.path.join("/"),
 };
 declare const reactRef: EinoWorkflowDAGReactRef;
-reactRef.render({ fit: false });
-reactRef.togglePath("research");
-reactRef.getExpanded();
-reactRef.setExpanded({ research: true });
-reactRef.getActiveNodeId();
-reactRef.setActiveNodeId(null);
-reactRef.getDirection();
-reactRef.getTheme();
-reactRef.getLocale();
-reactRef.setLocale({ statuses: { running: "运行中" } });
-reactRef.zoomIn();
-reactRef.zoomOut();
-reactRef.listSubgraphs();
-reactRef.resize();
-reactRef.getDiagnostics();
+reactRef.update(snapshot);
+reactRef.toggle(["research"]);
+reactRef.setActiveNodePath(null);
 void EinoWorkflowDAGReact;
 void reactProps;
 

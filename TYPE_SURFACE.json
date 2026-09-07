@@ -1,30 +1,22 @@
 {
   ".": {
     "path": "src/index.d.ts",
-    "sha256": "15e5a971a80b94b7b3232b3e0bddcfbdbd0829993edbc12ab10d1da846974b9f"
-  },
-  "./model": {
-    "path": "src/model.d.ts",
-    "sha256": "539bc831eebab3da46ec1a8ff85a81915e30378db171a8360981337f9752c556"
-  },
-  "./layout": {
-    "path": "src/layout.d.ts",
-    "sha256": "ca1e938599bc63111c367e7fb3081ad47433b50d4c659862df19d2bb6e727607"
-  },
-  "./layout-worker": {
-    "path": "src/layout-worker.d.ts",
-    "sha256": "248f61635299d0cf434efc9ecf0d0f68afde3b89483ea20c4204e06e5ca2f0b3"
+    "sha256": "dcb3d80db0f2a5e023128d4fbcdeb9b8b021e80c034f55162ef32ea594066481"
   },
   "./validation": {
     "path": "src/validation.d.ts",
-    "sha256": "2a22040eb96ea2cf1f1aeda44e209e6605ec8b46d7309d1b0f77b06d12f50fde"
+    "sha256": "835df91fe2328a0454fa12dcd137882ce4ec3274dd6a77cd301870e23fd378e5"
+  },
+  "./cytoscape": {
+    "path": "src/cytoscape.d.ts",
+    "sha256": "b6f58a6d964eee392fd2cd7f8f0e453157a97ddcfc15599b280180e2db0dc72f"
   },
   "./vue": {
     "path": "src/vue.d.ts",
-    "sha256": "7e1f6f2a21a4798bff914ebd5a75f5fc112528704d3ad153d33c7dd0f5ea8312"
+    "sha256": "1d12869f2533ace4ec8509b6f89b2934cfcdd02f6e55e10c1dda280d72d488eb"
   },
   "./react": {
     "path": "src/react.d.ts",
-    "sha256": "c9c8e370f6aad3aecdab574bbcdbdc6faf55dc59084488a196c0924632f6559c"
+    "sha256": "4b6ee9a1bdf5d19407ba8f2b57e6d28e7dec80c33a1f4c8c70a098a550e1681f"
   }
 }

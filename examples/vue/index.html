@@ -31,22 +31,30 @@
       import { EinoWorkflowDAGVue } from "../../dist/vue.js";
 
       const root = ref({
-        version: 2,
-        nodes: [
-          { id: "input", name: "Input", kind: "io", status: "success", cost_ms: 5 },
-          { id: "answer", name: "Answer", kind: "llm", status: "running", cost_ms: 30 },
-        ],
-        edges: [{ from: "input", to: "answer" }],
+        schemaVersion: 1,
+        workflow: {
+          nodes: [
+            { id: "input", name: "Input", component: "Lambda" },
+            { id: "answer", name: "Answer", component: "ChatModel" },
+          ],
+          edges: [{ from: "input", to: "answer", channels: ["control", "data"] }],
+        },
+        execution: {
+          nodes: [
+            { path: ["input"], status: "success", durationMs: 5 },
+            { path: ["answer"], status: "running", durationMs: 30 },
+          ],
+        },
       });
       const direction = ref("RIGHT");
       const locale = ref();
-      const activeNodeId = ref("answer");
+      const activeNodePath = ref(["answer"]);
       const component = ref();
       window.vueDagEvents = [];
       window.vueDagRoot = root;
       window.vueDagDirection = direction;
       window.vueDagLocale = locale;
-      window.vueDagActiveNodeId = activeNodeId;
+      window.vueDagActiveNodePath = activeNodePath;
       window.vueDagComponent = component;
 
       const app = createApp({
@@ -55,10 +63,10 @@
             h("h1", "Eino Workflow DAG — Vue"),
             h(EinoWorkflowDAGVue, {
               ref: component,
-              root: root.value,
+              snapshot: root.value,
               direction: direction.value,
               locale: locale.value,
-              activeNodeId: activeNodeId.value,
+              activeNodePath: activeNodePath.value,
               style: { height: "420px" },
               pinNodeTip: false,
               layoutCacheSize: 4,
@@ -66,7 +74,7 @@
                 window.vueDagInstance = instance;
               },
               onNodeClick(node) {
-                window.vueDagEvents.push({ type: "node", id: node.id });
+                window.vueDagEvents.push({ type: "node", path: node.path });
               },
               onError(error) {
                 window.vueDagEvents.push({ type: "error", message: error.message });
