@@ -44,7 +44,7 @@ jobs:
         run: node scripts/check-release-readiness.js
       - run: npm run prepublishOnly
       - run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:browser
       - id: artifact
         name: Create the immutable release artifact

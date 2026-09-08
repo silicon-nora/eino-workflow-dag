@@ -49,4 +49,4 @@ published. Do not include confidential ticket or document contents here.
 Approval scope: The code, tests, documentation, examples, and package metadata
 present in `eino-workflow-dag` at the approved revision.
 Approving party: Nora (silicon-nora)
-Approval date: 2026-09-07
+Approval date: 2026-09-08

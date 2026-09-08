@@ -3,7 +3,7 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
-## [0.4.0-alpha.3] - 2026-09-07
+## [0.4.0-alpha.3] - 2026-09-08
 
 ### Changed
 
