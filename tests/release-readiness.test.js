@@ -3,7 +3,7 @@ import { validateReleaseReadiness } from "../scripts/check-release-readiness.js"
 
 const manifest = {
   name: "eino-workflow-dag",
-  version: "0.4.0-alpha.3",
+  version: "0.4.0-beta.1",
   license: "Apache-2.0",
   repository: "https://github.com/example-org/eino-workflow-dag.git",
   homepage: "https://github.com/example-org/eino-workflow-dag#readme",
@@ -18,8 +18,8 @@ const approved = `
 - [x] Review visual assets, fixtures, and example data for confidential or
   third-party material
 - [x] Include the bundled Cytoscape.js MIT notice
-- [x] Verify that the exact npm name was unregistered on 2026-09-05; repeat
-  immediately before publishing because a lookup does not reserve the name
+- [x] Verify npm package ownership and current published metadata immediately
+  before publishing
 - [x] Record the approving party and approval date in the release record
 
 Approving party: Example Open Source Office

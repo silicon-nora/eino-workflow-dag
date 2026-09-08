@@ -21,8 +21,9 @@ supported concurrently.
 1. Confirm that all code, documentation, and visual assets present in this
    repository are authorized for an Apache-2.0 release, then complete the
    checklist and approval record in `PROVENANCE.md`.
-2. Recheck that `eino-workflow-dag` is available on the official npm registry
-   and confirm that `repository`, `homepage`, and `bugs` still point to
+2. Recheck ownership and the current published metadata for
+   `eino-workflow-dag` on the official npm registry, and confirm that
+   `repository`, `homepage`, and `bugs` still point to
    `https://github.com/silicon-nora/eino-workflow-dag`.
 3. Run `npm run release:check`; it must pass before preparing a release tag.
 4. Run `npm ci` from a clean checkout.
@@ -55,8 +56,8 @@ supported concurrently.
    only when validating a new framework or bundler not covered by that fixture.
 8. Confirm the exact-tarball compatibility fixtures cover every supported
    package entry and framework peer range.
-9. Replace the `0.4.0-alpha.3` candidate's `Unreleased` changelog date with the
-   release date and confirm that exact version throughout the artifact.
+9. Replace the candidate's `Unreleased` changelog date with the release date
+   and confirm that exact version throughout the artifact.
 10. Run `npm run release:dry-run:next`, create a matching `v<version>` tag, and
     publish a GitHub Release. `.github/workflows/publish.yml` re-runs all gates
     and publishes prereleases under `next`; stable versions use `latest`. The
@@ -66,9 +67,8 @@ supported concurrently.
     React 19, and Vue 3 consumers and pass type, ESM bundle, CSS, and CommonJS
     entry checks. Do not commit a local tarball or cross-repository `file:`
     dependency.
-12. Review prerelease compatibility reports before preparing
-    `0.4.0-beta.1`. Keep the alpha on `next`; do not assign `latest` during this
-    phase.
+12. Review beta compatibility reports before preparing `0.4.0-rc.1`. Keep all
+    prereleases on `next`; do not assign `latest` during this phase.
 
 The release workflow rejects a missing or invalid changelog date and requires
 the GitHub prerelease checkbox to match whether the package version contains a

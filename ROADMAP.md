@@ -48,7 +48,17 @@ JavaScript contract.
 - [ ] Publish a release candidate and resolve every release-blocking defect
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
-## Current milestone — 0.4.0-alpha.3
+## Current milestone — 0.4.0-beta.1
+
+## Beta.1 — published compatibility
+
+- [x] Publish and verify the alpha package under npm's `next` dist-tag
+- [x] Install the public package into clean React 18, React 19, and Vue 3 consumers
+- [x] Freeze the schema-version-1 protocol and reviewed public API surface
+- [x] Add published-package smoke coverage to every future release
+- [ ] Publish beta.1 under npm's `next` dist-tag
+- [ ] Resolve every defect classified as release-blocking
+- [ ] Publish the first release candidate
 
 ## Alpha.3 — public boundary
 
@@ -71,10 +81,9 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Keep published-package smoke coverage in every release workflow.
-2. Freeze the candidate contract and publish the first beta under npm's `next` dist-tag.
-3. Resolve release-blocking defects, publish a release candidate, and promote the
-   validated stable version to `latest`.
+1. Publish beta.1 under npm's `next` dist-tag.
+2. Resolve release-blocking defects and publish a release candidate.
+3. Promote the validated stable version to `latest`.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
