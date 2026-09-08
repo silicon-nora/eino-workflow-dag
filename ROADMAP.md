@@ -44,7 +44,7 @@ JavaScript contract.
 
 - [x] Publish support, security, contribution, provenance, and release procedures
 - [x] Publish compatibility, deprecation, custom component/status, and theme policies
-- [ ] Verify React 18/19 and Vue 3 from clean installations of the published package
+- [x] Verify React 18/19 and Vue 3 from clean installations of the published package
 - [ ] Publish a release candidate and resolve every release-blocking defect
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
@@ -67,13 +67,14 @@ JavaScript contract.
 - [x] Validate nested branches and field mappings from a compiled Eino Workflow
 - [x] Set measured performance budgets for 100- and 500-node visible graphs
 - [x] Replace external-project integration as a gate with real in-repository Eino tests
-- [ ] Publish the alpha under npm's `next` dist-tag
+- [x] Publish the alpha under npm's `next` dist-tag
 
 ## Next implementation order
 
-1. Publish alpha.3 under npm's `next` dist-tag.
-2. Verify React 18/19 and Vue 3 from clean installations of that published package.
-3. Publish beta and release-candidate packages and resolve release-blocking defects.
+1. Keep published-package smoke coverage in every release workflow.
+2. Freeze the candidate contract and publish the first beta under npm's `next` dist-tag.
+3. Resolve release-blocking defects, publish a release candidate, and promote the
+   validated stable version to `latest`.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
