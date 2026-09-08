@@ -16,6 +16,17 @@ public contract is being validated.
 
 - Added a reusable published-package smoke workflow covering React 18, React
   19, Vue 3, ESM bundling, package CSS, TypeScript, and CommonJS loading.
+- Added browser routing-invariant coverage for fan-in/fan-out graphs across
+  topology updates, all four directions, and layout-cache round trips.
+
+### Fixed
+
+- Committed orthogonal edge styles before the layout completion event, so
+  consumers and the layout cache never observe transient diagonal routes.
+- Restored absolute route points and port assignments together with cached
+  positions and styles.
+- Preferred the workflow direction's primary input/output sides until those
+  sides are actually occupied, instead of treating a reservation as use.
 
 ## [0.4.0-alpha.3] - 2026-09-08
 

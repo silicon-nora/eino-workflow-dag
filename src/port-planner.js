@@ -211,12 +211,22 @@ export function exclusiveSideChoices(
   shareMain,
 ) {
   const owner = hasOwnKey(ownerMap, nodeId) ? ownerMap[nodeId] : null;
-  if ((owner && owner === edge) || shareMain) return [mainSide];
-  if (owner || alreadyTaken) {
+  if (shareMain) return [mainSide];
+  if (alreadyTaken) {
     if (facingCross && profileIsCrossSide(profile, facingCross)) {
       return [facingCross];
     }
     return (profile.crossSides || []).slice();
+  }
+  if (owner && owner !== edge) {
+    const choices = [mainSide];
+    if (facingCross && profileIsCrossSide(profile, facingCross)) {
+      choices.push(facingCross);
+    }
+    for (const side of profile.crossSides || []) {
+      if (!choices.includes(side)) choices.push(side);
+    }
+    return choices;
   }
   return [mainSide];
 }
@@ -240,7 +250,7 @@ export function selectBestPortCandidate(candidates, profile) {
       best = candidate;
       continue;
     }
-    const fields = ["geoWrong", "sideLoad", "bends"];
+    const fields = ["geoWrong"];
     let decided = false;
     for (const field of fields) {
       if (candidate[field] < best[field]) {
@@ -262,6 +272,19 @@ export function selectBestPortCandidate(candidates, profile) {
       continue;
     }
     if (candidateRank > bestRank) continue;
+    const preferenceFields = ["sideLoad", "bends"];
+    for (const field of preferenceFields) {
+      if (candidate[field] < best[field]) {
+        best = candidate;
+        decided = true;
+        break;
+      }
+      if (candidate[field] > best[field]) {
+        decided = true;
+        break;
+      }
+    }
+    if (decided) continue;
     if (candidate.vsBypass < best.vsBypass) {
       best = candidate;
       continue;

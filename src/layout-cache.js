@@ -70,16 +70,30 @@ export function createLayoutCache(limit = 12) {
 
 export function captureCytoscapeLayout(cy) {
   const positions = createKeyMap();
+  const nodeRouting = createKeyMap();
   const routes = createKeyMap();
   cy.nodes().forEach((node) => {
     if (!node.isParent()) positions[node.id()] = Object.assign({}, node.position());
+    const scratch = node.scratch("einoWorkflowDAG") || {};
+    nodeRouting[node.id()] = {
+      ports: (scratch.ports || []).map((port) => Object.assign({}, port)),
+    };
   });
   cy.edges().forEach((edge) => {
     const style = {};
     for (const key of ROUTE_STYLE_KEYS) style[key] = edge.style(key);
-    routes[edge.id()] = style;
+    const scratch = edge.scratch("einoWorkflowDAG") || {};
+    routes[edge.id()] = {
+      points: (scratch._flowAbsRoute || []).map((point) => ({
+        x: point.x,
+        y: point.y,
+      })),
+      sourcePort: scratch.sourcePort || null,
+      style,
+      targetPort: scratch.targetPort || null,
+    };
   });
-  return { positions, routes };
+  return { nodeRouting, positions, routes };
 }
 
 export function restoreCytoscapeLayout(cy, snapshot) {
@@ -88,12 +102,33 @@ export function restoreCytoscapeLayout(cy, snapshot) {
   const edges = cy.edges();
   const complete =
     leafNodes.every((node) => !!snapshot.positions[node.id()]) &&
-    edges.every((edge) => !!snapshot.routes[edge.id()]);
+    edges.every((edge) => {
+      const route = snapshot.routes[edge.id()];
+      return !!route && Array.isArray(route.points) && route.points.length >= 2;
+    });
   if (!complete) return false;
 
   cy.batch(() => {
     leafNodes.forEach((node) => node.position(snapshot.positions[node.id()]));
-    edges.forEach((edge) => edge.style(snapshot.routes[edge.id()]));
+    cy.nodes().forEach((node) => {
+      const cached = snapshot.nodeRouting && snapshot.nodeRouting[node.id()];
+      if (!cached) return;
+      const scratch = node.scratch("einoWorkflowDAG") || {};
+      scratch.ports = (cached.ports || []).map((port) => Object.assign({}, port));
+      node.scratch("einoWorkflowDAG", scratch);
+    });
+    edges.forEach((edge) => {
+      const cached = snapshot.routes[edge.id()];
+      const scratch = edge.scratch("einoWorkflowDAG") || {};
+      scratch._flowAbsRoute = cached.points.map((point) => ({
+        x: point.x,
+        y: point.y,
+      }));
+      scratch.sourcePort = cached.sourcePort;
+      scratch.targetPort = cached.targetPort;
+      edge.scratch("einoWorkflowDAG", scratch);
+      edge.style(cached.style);
+    });
   });
   return true;
 }
