@@ -52,7 +52,7 @@ import {
   // so the title overlay has five extra pixels of breathing room.
   var COMPOUND_PAD = GRAPH_COMPOUND_PAD;
   // Root graph spacing. Leaf nodes remain 220×64.
-  // betweenLayers controls main-axis spacing; nodeNode controls cross-axis spacing.
+  // betweenLayers controls forward-axis spacing; nodeNode controls cross-axis spacing.
   var SPACE_ROOT = {
     nodeNode: 56,
     // Edge-to-node clearance also controls the outer detour channel.
@@ -143,18 +143,19 @@ import {
       component: node.component || "",
       metadata: node.metadata || null,
       status: node.status || "",
-      durationMs: node.cost_ms || 0,
+      ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
       metrics: node.metrics || null,
       errorMessage: node.err_msg || "",
       expandable: !!node.expandable,
       subgraph: !!node.subgraph,
       expanded: !!node.expanded,
+      level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
       ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
     };
   }
 
   function edgeChannels(kind) {
-    if (!kind || kind === "no") return [];
+    if (!kind) return [];
     return kind.split("+").filter(function (channel) {
       return channel === "control" || channel === "data" || channel === "branch";
     });
@@ -166,8 +167,11 @@ import {
       source: decodeNodePath(edge.source),
       target: decodeNodePath(edge.target),
       channels: edgeChannels(edge.kind),
+      mappings: Array.isArray(edge.mappings) ? edge.mappings : [],
+      metadata: edge.metadata == null ? null : edge.metadata,
+      branchMetadata:
+        edge.branchMetadata == null ? null : edge.branchMetadata,
       level: Number(edge.level) || 0,
-      main: !!edge.main,
     };
   }
 
@@ -185,10 +189,10 @@ import {
       edges: visible.edges.map(function (edge) {
         return publicEdgeData({ ...edge, source: edge.from, target: edge.to });
       }),
-      highlightedPath: visible.criticalPath.map(function (id) {
+      levelZeroPath: visible.levelZeroPath.map(function (id) {
         return decodeNodePath(id);
       }),
-      highlightedDurationMs: visible.criticalCostMs,
+      levelZeroDurationMs: visible.levelZeroDurationMs,
     };
   }
 
@@ -650,7 +654,7 @@ export function mountRenderer(container, options) {
       if (activeLayout && typeof activeLayout.stop === "function") {
         activeLayout.stop();
       }
-      // 清掉上次边几何 bypass，避免叠样式
+      // 清掉上次边几何，避免叠样式
       cy.edges().removeStyle();
       clearOverlays();
       var cached = layoutCache.get(cacheKey);

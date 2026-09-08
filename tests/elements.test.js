@@ -26,10 +26,18 @@ assert(
 const elements = toCytoscapeElements(
   {
     nodes: [
-      { id: "a", name: "A", kind: "cpu", component: "Lambda", metadata: { owner: "team" }, status: "success", cost_ms: 10 },
+      { id: "a", name: "A", kind: "cpu", component: "Lambda", metadata: { owner: "team" }, status: "success", cost_ms: 10, level: 0 },
       { id: "g", name: "G", kind: "graph", subgraph: true, expanded: true },
     ],
-    edges: [{ id: "e", from: "a", to: "g", level: 1 }],
+    edges: [{
+      id: "e",
+      from: "a",
+      to: "g",
+      level: 1,
+      mappings: [{ fromPath: ["value"], toPath: ["input"] }],
+      metadata: { transport: "typed" },
+      branchMetadata: { route: "fallback" },
+    }],
   },
   { nodeLabelFormatter: (node) => `${node.name}:${node.component}:${node.metadata.owner}:${node.status}:${node.durationMs}` },
 );
@@ -37,9 +45,33 @@ const elements = toCytoscapeElements(
 const a = elements.find((element) => element.data.id === "a");
 const g = elements.find((element) => element.data.id === "g");
 assert(a.data.key === "a", "rendered nodes preserve their graph-local key");
+assert(a.data.level === 0, "rendered nodes preserve their graph-local Level");
 assert(a.data.label === "A:Lambda:team:success:10", "custom label formatter receives public Eino node data");
 assert(g.data.label === "", "expanded graph title remains an HTML overlay");
-assert(elements.some((element) => element.group === "edges"), "edges are converted");
+const renderedEdge = elements.find((element) => element.group === "edges");
+assert(renderedEdge.data.mappings[0].fromPath[0] === "value", "edge mappings are rendered data");
+assert(renderedEdge.data.metadata.transport === "typed", "edge metadata is rendered data");
+assert(renderedEdge.data.branchMetadata.route === "fallback", "branch metadata is rendered data");
+assert(renderedEdge.data.level === 1, "rendered edges preserve their graph-local Level");
+assert(!("main" in renderedEdge.data), "rendered edges use Level as their only path classification");
+
+const defaultLabels = toCytoscapeElements({
+  nodes: [
+    { id: "timed", name: "Timed", kind: "llm", component: "ChatModel", cost_ms: 0 },
+    { id: "untimed", name: "Untimed", kind: "io", component: "Retriever" },
+    { id: "bare", name: "Bare", kind: "cpu" },
+  ],
+  edges: [],
+});
+assert(defaultLabels[0].data.label === "Timed\nChatModel  ·  0ms", "default labels use Eino components and preserve zero duration");
+assert(defaultLabels[1].data.label === "Untimed\nRetriever", "missing duration is omitted from default labels");
+assert(defaultLabels[2].data.label === "Bare", "missing component and duration leave a title-only label");
+let untimedPublicNode;
+toCytoscapeElements(
+  { nodes: [{ id: "untimed", component: "Retriever" }], edges: [] },
+  { nodeLabelFormatter: (node) => { untimedPublicNode = node; return "Untimed"; } },
+);
+assert(!("durationMs" in untimedPublicNode), "missing duration stays absent in public formatter data");
 
 const cy = cytoscape({ headless: true, elements });
 const updated = structuredClone(elements);
@@ -74,7 +106,7 @@ const reconciled = syncCytoscapeElements(cy, [
   },
   {
     group: "edges",
-    data: { id: "e2", source: "g", target: "b", kind: "", level: 1, main: true },
+    data: { id: "e2", source: "g", target: "b", kind: "", level: 0 },
   },
 ]);
 assert(reconciled.topologyChanged, "topology changes are reported");

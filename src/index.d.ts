@@ -108,12 +108,15 @@ export interface VisibleNode {
   readonly component: string;
   readonly metadata: JsonObject | null;
   readonly status: string;
-  readonly durationMs: number;
+  /** Absent when no execution timing was supplied for this node. */
+  readonly durationMs?: number;
   readonly metrics: JsonObject | null;
   readonly errorMessage: string;
   readonly expandable: boolean;
   readonly subgraph: boolean;
   readonly expanded: boolean;
+  /** Graph-local layout rail, starting at Level 0. */
+  readonly level: number;
 }
 
 export interface RenderedNodeData extends VisibleNode {
@@ -125,8 +128,13 @@ export interface RenderedEdgeData {
   readonly source: NodePath;
   readonly target: NodePath;
   readonly channels: readonly RenderedEdgeChannel[];
+  /** Eino field mappings carried by the rendered data dependency. */
+  readonly mappings: readonly WorkflowFieldMapping[];
+  /** Metadata from the corresponding workflow edge. */
+  readonly metadata: JsonObject | null;
+  /** Metadata from the corresponding branch relationship, when present. */
+  readonly branchMetadata: JsonObject | null;
   readonly level: number;
-  readonly main: boolean;
 }
 
 export interface WorkflowSubgraphInfo {
@@ -227,8 +235,8 @@ export interface DAGAccessibilitySummary {
 export interface VisibleGraph {
   readonly nodes: readonly VisibleNode[];
   readonly edges: readonly RenderedEdgeData[];
-  readonly highlightedPath: readonly NodePath[];
-  readonly highlightedDurationMs: number;
+  readonly levelZeroPath: readonly NodePath[];
+  readonly levelZeroDurationMs: number;
 }
 
 export interface DAGRendererDiagnostics {

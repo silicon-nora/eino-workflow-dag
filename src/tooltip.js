@@ -61,7 +61,9 @@ export function formatNodeTooltip(data, formatDuration = String, locale) {
   const lines = [];
   lines.push(data.title || data.id || "-");
   lines.push(`${labels.tooltip.status}: ${statusLabel(data.status, labels)}`);
-  lines.push(`${labels.tooltip.duration}: ${formatDuration(data.cost_ms)}`);
+  if (data.cost_ms != null) {
+    lines.push(`${labels.tooltip.duration}: ${formatDuration(data.cost_ms)}`);
+  }
   if (data.err_msg) lines.push(`${labels.tooltip.error}: ${data.err_msg}`);
 
   const metrics = data.metrics;

@@ -130,7 +130,7 @@ function badCaseRoot() {
   };
 }
 
-var INNER_CRIT = [
+var INNER_LEVEL_ZERO = [
   "nested_pipeline/source_a",
   "nested_pipeline/stage_a",
   "nested_pipeline/source_b",
@@ -139,16 +139,16 @@ var INNER_CRIT = [
   "nested_pipeline/validate",
   "nested_pipeline/finalize"
 ];
-var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
+var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"];
 
-(function innerCriticalCollinear() {
+(function innerLevelZeroCollinear() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  sameRail(laid, INNER_CRIT, "y", "inner critical Y");
+  sameRail(laid, INNER_LEVEL_ZERO, "y", "inner Level 0 Y");
 })();
 
-(function bypassYieldsRail() {
+(function higherLevelUsesOwnRail() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
@@ -159,11 +159,11 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   assert(
     gapOnCross(topn, llm, "y") + 1e-6 >= minGap ||
       Math.abs(center(llm, "y") - railY) > 1,
-    "bypass llm must leave the inner rail"
+    "higher-Level llm must leave the inner rail"
   );
   assert(
     !almost(center(llm, "y"), railY),
-    "bypass branch_worker must not sit on inner critical rail"
+    "higher-Level branch_worker must not sit on inner Level 0 rail"
   );
   assert(
     almost(center(topn, "y"), railY),
@@ -202,45 +202,38 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   var box = posOf(laid, "nested_pipeline");
   var skipped = posOf(laid, "skipped_branch");
   assert(
-    almost(box.x, skipped.x),
-    "same-layer bypass leaf left-aligns with frozen box"
+    almost(box.x + box.width / 2, skipped.x + skipped.width / 2),
+    "same-column nodes share the column center"
   );
 })();
 
-(function bypassChainLeavesMainRail() {
+(function higherLevelChainUsesOwnRail() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
   var outerRail = center(posOf(laid, "dispatch"), "y");
   assert(
     !almost(center(posOf(laid, "skipped_tail"), "y"), outerRail),
-    "skipped downstream_graph must not sit on outer critical rail"
+    "skipped downstream_graph must not sit on outer Level 0 rail"
   );
 })();
 
-(function optionBWaistNotInnerRail() {
+(function wrapperUsesInnerLevelZeroRail() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
   var dispatch = posOf(laid, "dispatch");
-  var box = posOf(laid, "nested_pipeline");
-  var kids = INNER_CRIT.concat([
-    "nested_pipeline/side_a",
-    "nested_pipeline/side_b",
-    "nested_pipeline/side_c",
-    "nested_pipeline/branch_worker"
-  ]);
-  var minY = Infinity;
-  var maxY = -Infinity;
-  kids.forEach(function (id) {
-    var p = posOf(laid, id);
-    if (p.y < minY) minY = p.y;
-    if (p.y + p.height > maxY) maxY = p.y + p.height;
-  });
-  var waistY = (minY + maxY) / 2;
-  assert(almost(center(dispatch, "y"), waistY), "dispatch center = wrapper content waist");
-  sameRail(laid, OUTER_CRIT, "y", "outer critical Y");
-  assert(almost(center(dispatch, "y"), center(posOf(laid, OUTER_CRIT[0]), "y")), "dispatch on outer rail");
+  var innerLevelZero = posOf(laid, INNER_LEVEL_ZERO[0]);
+  assert(
+    almost(center(dispatch, "y"), center(innerLevelZero, "y")),
+    "parent rail aligns to nested Level 0"
+  );
+  assert(
+    almost(laid.railAnchors.nested_pipeline.y, center(innerLevelZero, "y")),
+    "expanded graph publishes its Level 0 rail anchor"
+  );
+  sameRail(laid, OUTER_LEVEL_ZERO, "y", "outer Level 0 Y");
+  assert(almost(center(dispatch, "y"), center(posOf(laid, OUTER_LEVEL_ZERO[0]), "y")), "dispatch on outer rail");
 })();
 
 (function collapsedIsLeafOnRail() {
@@ -249,15 +242,15 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
   var wg = posOf(laid, "nested_pipeline");
   assert(almost(wg.width, 220) && almost(wg.height, 64), "collapsed wrapper is leaf size");
-  sameRail(laid, OUTER_CRIT.concat(["nested_pipeline"]), "y", "collapsed on outer rail");
+  sameRail(laid, OUTER_LEVEL_ZERO.concat(["nested_pipeline"]), "y", "collapsed on outer rail");
 })();
 
 (function downLocksCrossX() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "DOWN" });
-  sameRail(laid, INNER_CRIT, "x", "DOWN inner critical X");
-  sameRail(laid, OUTER_CRIT, "x", "DOWN outer critical X");
+  sameRail(laid, INNER_LEVEL_ZERO, "x", "DOWN inner Level 0 X");
+  sameRail(laid, OUTER_LEVEL_ZERO, "x", "DOWN outer Level 0 X");
 })();
 
 (function nestedTwoLevels() {
@@ -310,7 +303,7 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   };
   var visible = Model.buildVisibleGraph(root, { mid: true, "mid/inner": true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  sameRail(laid, ["mid/inner/a", "mid/inner/b"], "y", "innermost critical");
+  sameRail(laid, ["mid/inner/a", "mid/inner/b"], "y", "innermost Level 0");
   var left = posOf(laid, "left");
   var midBox = posOf(laid, "mid");
   var m1 = posOf(laid, "mid/m1");
@@ -318,21 +311,11 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   var a = posOf(laid, "mid/inner/a");
   var b = posOf(laid, "mid/inner/b");
   var side = posOf(laid, "mid/inner/side");
-  var innerWaist = (Math.min(a.y, b.y, side.y) + Math.max(a.y + a.height, b.y + b.height, side.y + side.height)) / 2;
-  assert(almost(center(m1, "y"), innerWaist), "mid layer: m1 aligns to inner box waist");
-  var midKidsMin = Math.min(m1.y, innerBox.y, a.y, b.y, side.y);
-  var midKidsMax = Math.max(
-    m1.y + m1.height,
-    innerBox.y + innerBox.height,
-    a.y + a.height,
-    b.y + b.height,
-    side.y + side.height
-  );
-  var midWaist = (midKidsMin + midKidsMax) / 2;
-  assert(almost(center(left, "y"), midWaist), "root: left aligns to mid box waist");
+  assert(almost(center(m1, "y"), center(a, "y")), "mid layer aligns to nested Level 0");
+  assert(almost(center(left, "y"), center(m1, "y")), "root aligns to nested Level 0");
 })();
 
-(function bypassGraphHasOwnInnerRail() {
+(function higherLevelGraphHasOwnInnerRail() {
   var root = {
     nodes: [
       { id: "gate", kind: "cpu", cost_ms: 0, status: "success" },
@@ -362,20 +345,20 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
   };
   var visible = Model.buildVisibleGraph(root, { side_g: true });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  sameRail(laid, ["side_g/a", "side_g/b"], "y", "bypass graph inner main");
+  sameRail(laid, ["side_g/a", "side_g/b"], "y", "nested graph Level 0");
   assert(
     Math.abs(center(posOf(laid, "side_g/a"), "y") - center(posOf(laid, "side_g/side"), "y")) > 1,
-    "bypass graph inner side yields inner rail"
+    "higher-Level graph inner side yields inner rail"
   );
 })();
 
-(function parallelBypassLeftAlignsWithMainBox() {
+(function parallelLevelsShareColumnCenter() {
   var root = {
     version: 2,
     nodes: [
       { id: "dispatch", kind: "cpu", cost_ms: 10, status: "success" },
       {
-        id: "main_graph",
+        id: "level_zero_graph",
         kind: "graph",
         cost_ms: 100,
         status: "success",
@@ -416,46 +399,43 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
           ]
         }
       },
-      { id: "bypass_sink", kind: "io", cost_ms: 0, status: "success" }
+      { id: "higher_level_sink", kind: "io", cost_ms: 0, status: "success" }
     ],
     edges: [
       { from: "START", to: "dispatch" },
-      { from: "dispatch", to: "main_graph" },
-      { from: "main_graph", to: "downstream_graph" },
-      { from: "main_graph", to: "bypass_sink" },
+      { from: "dispatch", to: "level_zero_graph" },
+      { from: "level_zero_graph", to: "downstream_graph" },
+      { from: "level_zero_graph", to: "higher_level_sink" },
       { from: "downstream_graph", to: "END" }
     ]
   };
   var visible = Model.buildVisibleGraph(root, {
-    main_graph: true,
+    level_zero_graph: true,
     downstream_graph: true
   });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
   var rec = posOf(laid, "downstream_graph");
-  var bypass_sink = posOf(laid, "bypass_sink");
+  var higher_level_sink = posOf(laid, "higher_level_sink");
   var gap = Layout.SPACE_ROOT.nodeNode;
   assert(
-    bypass_sink.y + 1e-6 >= rec.y + rec.height + gap,
-    "bypass_sink sits below same-column main box + gap; bypass_sink.y=" +
-      bypass_sink.y +
-      " rec.bottom=" +
-      (rec.y + rec.height)
+    gapOnCross(rec, higher_level_sink, "y") + 1e-6 >= gap,
+    "higher_level_sink clears the same-column Level 0 box on either side"
   );
   assert(
-    almost(bypass_sink.x, rec.x),
-    "bypass leaf left-aligns with same-column main box; bypass_sink.x=" +
-      bypass_sink.x +
-      " rec.x=" +
-      rec.x
+    almost(
+      higher_level_sink.x + higher_level_sink.width / 2,
+      rec.x + rec.width / 2
+    ),
+    "same-column nodes share the column center"
   );
 })();
 
-(function bypassPrefersClearSideOfPredColumn() {
+(function levelsStayGloballyOrdered() {
   var root = {
     version: 2,
     nodes: [
       { id: "dispatch", kind: "cpu", cost_ms: 10, status: "success" },
-      { id: "main_graph", kind: "io", cost_ms: 100, status: "success" },
+      { id: "level_zero_graph", kind: "io", cost_ms: 100, status: "success" },
       { id: "nested_pipeline", kind: "io", cost_ms: 1, status: "success" },
       {
         id: "downstream_graph",
@@ -476,50 +456,46 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
           ]
         }
       },
-      { id: "bypass_sink", kind: "io", cost_ms: 0, status: "success" }
+      { id: "higher_level_sink", kind: "io", cost_ms: 0, status: "success" }
     ],
     edges: [
       { from: "START", to: "dispatch" },
-      { from: "dispatch", to: "main_graph" },
+      { from: "dispatch", to: "level_zero_graph" },
       { from: "dispatch", to: "nested_pipeline" },
-      { from: "main_graph", to: "downstream_graph" },
-      { from: "main_graph", to: "bypass_sink" },
+      { from: "level_zero_graph", to: "downstream_graph" },
+      { from: "level_zero_graph", to: "higher_level_sink" },
       { from: "downstream_graph", to: "END" }
     ]
   };
   var visible = Model.buildVisibleGraph(root, { downstream_graph: true });
-  var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  var items = posOf(laid, "main_graph");
-  var sideNode = posOf(laid, "nested_pipeline");
-  var rec = posOf(laid, "downstream_graph");
-  var bypass_sink = posOf(laid, "bypass_sink");
-  assert(
-    center(sideNode, "y") > center(items, "y"),
-    "pred-column bypass still yields below the rail"
-  );
-  assert(
-    center(bypass_sink, "y") < center(rec, "y"),
-    "bypass_sink goes above because pred column already occupies below; bypass_sink.y=" +
-      bypass_sink.y +
-      " rec.y=" +
-      rec.y
-  );
-  var gap = Layout.SPACE_ROOT.nodeNode;
-  assert(
-    almost(rec.y, bypass_sink.y + bypass_sink.height + gap),
-    "bypass_sink snaps to occupied edge + gap, not k * leaf; rec.y=" +
-      rec.y +
-      " expected=" +
-      (bypass_sink.y + bypass_sink.height + gap)
-  );
+  ["RIGHT", "LEFT", "DOWN", "UP"].forEach(function (direction) {
+    var laid = Layout.layoutVisibleGraph(visible, { direction: direction });
+    var axis = direction === "RIGHT" || direction === "LEFT" ? "y" : "x";
+    var items = posOf(laid, "level_zero_graph");
+    var sideNode = posOf(laid, "nested_pipeline");
+    var rec = posOf(laid, "downstream_graph");
+    var higher_level_sink = posOf(laid, "higher_level_sink");
+    var levelZeroRail = center(items, axis);
+    assert(
+      (center(sideNode, axis) - levelZeroRail) *
+          (center(higher_level_sink, axis) - levelZeroRail) <
+        0,
+      direction + " distributes higher Levels across both sides of Level 0"
+    );
+    var gap = Layout.SPACE_ROOT.nodeNode;
+    assert(
+      gapOnCross(rec, higher_level_sink, axis) + 1e-6 >= gap,
+      direction + " preserves the configured gap between Level bands"
+    );
+  });
 })();
 
-(function bypassPrefersClearSideWhenPredColumnHasFrozenBox() {
+(function levelsStayOrderedWithFrozenBox() {
   var root = {
     version: 2,
     nodes: [
       { id: "dispatch", kind: "cpu", cost_ms: 10, status: "success" },
-      { id: "main_graph", kind: "io", cost_ms: 100, status: "success" },
+      { id: "level_zero_graph", kind: "io", cost_ms: 100, status: "success" },
       {
         id: "nested_pipeline",
         kind: "graph",
@@ -556,14 +532,14 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
           ]
         }
       },
-      { id: "bypass_sink", kind: "io", cost_ms: 0, status: "success" }
+      { id: "higher_level_sink", kind: "io", cost_ms: 0, status: "success" }
     ],
     edges: [
       { from: "START", to: "dispatch" },
-      { from: "dispatch", to: "main_graph" },
+      { from: "dispatch", to: "level_zero_graph" },
       { from: "dispatch", to: "nested_pipeline" },
-      { from: "main_graph", to: "downstream_graph" },
-      { from: "main_graph", to: "bypass_sink" },
+      { from: "level_zero_graph", to: "downstream_graph" },
+      { from: "level_zero_graph", to: "higher_level_sink" },
       { from: "downstream_graph", to: "END" }
     ]
   };
@@ -572,22 +548,23 @@ var OUTER_CRIT = ["ingest", "normalize", "prepare", "classify", "dispatch"];
     downstream_graph: true
   });
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  var items = posOf(laid, "main_graph");
+  var items = posOf(laid, "level_zero_graph");
   var sideNode = posOf(laid, "nested_pipeline");
   var rec = posOf(laid, "downstream_graph");
-  var bypass_sink = posOf(laid, "bypass_sink");
+  var higher_level_sink = posOf(laid, "higher_level_sink");
   assert(
-    center(sideNode, "y") > center(items, "y"),
-    "expanded pred-column box still yields below the rail"
+    !almost(center(sideNode, "y"), center(items, "y")),
+    "expanded pred-column box uses a distinct higher-Level rail"
   );
   assert(
-    center(bypass_sink, "y") < center(rec, "y"),
-    "bypass_sink goes above even when pred-column occupant is a frozen box; bypass_sink.y=" +
-      bypass_sink.y +
-      " rec.y=" +
-      rec.y +
-      " sideNode.y=" +
-      sideNode.y
+    !almost(center(higher_level_sink, "y"), center(rec, "y")),
+    "higher Level remains distinct when another column contains a frozen box"
+  );
+  assert(
+    (center(sideNode, "y") - center(items, "y")) *
+        (center(higher_level_sink, "y") - center(rec, "y")) <
+      0,
+    "expanded boxes still allow Level rails on both sides"
   );
 })();
 

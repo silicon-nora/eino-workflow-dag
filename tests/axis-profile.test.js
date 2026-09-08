@@ -4,7 +4,7 @@ import {
   profileIsCrossSide,
 } from "../src/axis-profile.js";
 import {
-  claimMainPortOwners,
+  claimPreferredPortOwners,
   crossEndRatio,
   ensureAllLeafEdgePorts,
   isSameCrossRow,
@@ -12,7 +12,7 @@ import {
   pickInSideByGeometry,
   pickOutSideByGeometry,
   portLocalOnNode,
-  refineBypassSidePorts,
+  refineAdaptiveSidePorts,
   spreadAllFixedPorts,
 } from "../src/routing.js";
 import {
@@ -23,7 +23,7 @@ import {
 
 const Cyto = {
   axisProfile,
-  claimMainPortOwners,
+  claimPreferredPortOwners,
   crossEndRatio,
   ensureAllLeafEdgePorts,
   isSameCrossRow,
@@ -35,7 +35,7 @@ const Cyto = {
   pickOutSideByGeometry,
   portLocalOnNode,
   profileIsCrossSide,
-  refineBypassSidePorts,
+  refineAdaptiveSidePorts,
   registerTheme,
   spreadAllFixedPorts,
 };
@@ -61,7 +61,7 @@ assert(Cyto.normalizeDirection("down") === "RIGHT", "case→RIGHT");
 assert(Cyto.normalizeDirection(null) === "RIGHT", "null→RIGHT");
 
 const removeTheme = Cyto.registerTheme("test-theme", {
-  colors: { critical: "#123456" },
+  colors: { highlighted: "#123456" },
 });
 assert(Cyto.normalizeTheme("test-theme") === "test-theme", "custom theme normalized");
 assert(Cyto.listThemes().includes("test-theme"), "custom theme listed");
@@ -79,19 +79,19 @@ var R = Cyto.axisProfile("RIGHT");
 assert(R.outSide === "EAST" && R.inSide === "WEST", "RIGHT ports");
 assert(R.axis === "x" && R.cross === "y", "RIGHT axes");
 assert(R.crossSides.join(",") === "NORTH,SOUTH", "RIGHT cross");
-assert(R.bypassOutSides.join(",") === "EAST,NORTH,SOUTH", "RIGHT bypassOut");
-assert(R.bypassInSides.join(",") === "WEST,NORTH,SOUTH", "RIGHT bypassIn");
+assert(R.outSides.join(",") === "EAST,NORTH,SOUTH", "RIGHT output sides");
+assert(R.inSides.join(",") === "WEST,NORTH,SOUTH", "RIGHT input sides");
 
 var D = Cyto.axisProfile("DOWN");
 assert(D.outSide === "SOUTH" && D.inSide === "NORTH", "DOWN ports");
 assert(D.axis === "y" && D.cross === "x", "DOWN axes");
 assert(D.crossSides.join(",") === "EAST,WEST", "DOWN cross");
-assert(D.bypassOutSides.join(",") === "SOUTH,EAST,WEST", "DOWN bypassOut");
-assert(D.bypassInSides.join(",") === "NORTH,EAST,WEST", "DOWN bypassIn");
+assert(D.outSides.join(",") === "SOUTH,EAST,WEST", "DOWN output sides");
+assert(D.inSides.join(",") === "NORTH,EAST,WEST", "DOWN input sides");
 
 var L = Cyto.axisProfile("LEFT");
 assert(L.outSide === "WEST" && L.inSide === "EAST", "LEFT ports");
-assert(L.bypassOutSides[0] === "WEST", "LEFT bypassOut main");
+assert(L.outSides[0] === "WEST", "LEFT preferred output");
 
 var U = Cyto.axisProfile("UP");
 assert(U.outSide === "NORTH" && U.inSide === "SOUTH", "UP ports");
@@ -131,28 +131,28 @@ var pickIn = Cyto.pickInSideByGeometry;
 assert(pickOut(box(0, 0), box(100, 0), R) === "EAST", "R out forward EAST");
 assert(pickOut(box(0, 0), box(-100, 0), R) !== "WEST", "R out no WEST");
 assert(
-  R.bypassOutSides.indexOf(pickOut(box(0, 0), box(-100, 20), R)) >= 0,
-  "R out reverse in bypass",
+  R.outSides.indexOf(pickOut(box(0, 0), box(-100, 20), R)) >= 0,
+  "R reverse output stays allowed",
 );
 
 // LEFT: tgt left of src → WEST；永不 EAST
 assert(pickOut(box(100, 0), box(0, 0), L) === "WEST", "L out tgt-left → WEST");
 assert(pickOut(box(0, 0), box(100, 0), L) !== "EAST", "L out no EAST");
 assert(
-  L.bypassOutSides.indexOf(pickOut(box(0, 0), box(100, 10), L)) >= 0,
-  "L out reverse in bypass",
+  L.outSides.indexOf(pickOut(box(0, 0), box(100, 10), L)) >= 0,
+  "L reverse output stays allowed",
 );
 
-// DOWN: tgt above → not NORTH（须在 bypassOut S/E/W）
+// DOWN: tgt above → not NORTH（须在允许的输出侧 S/E/W）。
 var downUp = pickOut(box(0, 100), box(0, 0), D);
 assert(downUp !== "NORTH", "D out tgt-above not NORTH");
-assert(D.bypassOutSides.indexOf(downUp) >= 0, "D out in bypassOut");
+assert(D.outSides.indexOf(downUp) >= 0, "D output is allowed");
 assert(pickOut(box(0, 0), box(0, 100), D) === "SOUTH", "D out forward SOUTH");
 
 // UP: tgt below → not SOUTH
 var upDown = pickOut(box(0, 0), box(0, 100), U);
 assert(upDown !== "SOUTH", "U out tgt-below not SOUTH");
-assert(U.bypassOutSides.indexOf(upDown) >= 0, "U out in bypassOut");
+assert(U.outSides.indexOf(upDown) >= 0, "U output is allowed");
 assert(pickOut(box(0, 100), box(0, 0), U) === "NORTH", "U out forward NORTH");
 
 // In-side：RIGHT 来源在右 → 禁 EAST；LEFT 来源在左 → 禁 WEST
@@ -202,8 +202,7 @@ function cyEle(stroke, flags) {
       return false;
     },
     data: function (key) {
-      if (key === "stroke") return stroke || "";
-      if (key === "main") return !!flags.main;
+      if (key === "level") return flags.level == null ? 0 : flags.level;
       return "";
     },
   };
@@ -228,12 +227,12 @@ function portSide(node, portId) {
   return null;
 }
 
-function assignBypassOuts(token, peers, extraEdges) {
+function assignAdaptiveOutputs(token, peers, extraEdges) {
   token.ports = [
     {
-      id: "token:east-crit",
+      id: "token:east-anchor",
       _end: "out",
-      _critical: true,
+      _railAnchor: true,
       side: "EAST",
     },
   ];
@@ -242,8 +241,8 @@ function assignBypassOuts(token, peers, extraEdges) {
     {
       source: "token",
       target: "topn",
-      sourcePort: "token:east-crit",
-      _cyEle: cyEle("critical"),
+      sourcePort: "token:east-anchor",
+      _cyEle: cyEle("level-zero"),
     },
   ].concat(extraEdges || []);
   var lookup = { token: token };
@@ -262,55 +261,55 @@ function assignBypassOuts(token, peers, extraEdges) {
   return edges;
 }
 
-// 平台规则：主出已占用时优先选择朝向目标的交叉侧。
-(function firstBypassPrefersTargetFacingCrossSide() {
+// 前向输出已占用时，优先选择朝向目标的交叉侧。
+(function firstAdaptiveEdgePrefersTargetFacingCrossSide() {
   var token = leaf("token", 0, 100);
   var topn = leaf("topn", 300, 100);
   var fb = leaf("fb", 300, 250);
-  var edges = assignBypassOuts(token, [topn, fb], [
+  var edges = assignAdaptiveOutputs(token, [topn, fb], [
     {
       source: "token",
       target: "fb",
-      _cyEle: cyEle("bypass"),
+      _cyEle: cyEle("higher-level"),
     },
   ]);
   var fbEdge = edges[1];
-  assert(portSide(token, fbEdge.sourcePort) === "SOUTH", "below-right bypass uses SOUTH");
+  assert(portSide(token, fbEdge.sourcePort) === "SOUTH", "below-right edge uses SOUTH");
 })();
 
-(function twoBypassesKeepFacingCrossSides() {
+(function twoAdaptiveEdgesKeepFacingCrossSides() {
   var token = leaf("token", 0, 100);
   var topn = leaf("topn", 300, 100);
   var fb = leaf("fb", 300, 250);
   var sum = leaf("sum", 300, -50);
-  var edges = assignBypassOuts(token, [topn, fb, sum], [
+  var edges = assignAdaptiveOutputs(token, [topn, fb, sum], [
     {
       source: "token",
       target: "fb",
-      _cyEle: cyEle("bypass"),
+      _cyEle: cyEle("higher-level"),
     },
     {
       source: "token",
       target: "sum",
-      _cyEle: cyEle("bypass"),
+      _cyEle: cyEle("higher-level"),
     },
   ]);
   assert(portSide(token, edges[1].sourcePort) === "SOUTH", "first below → SOUTH");
   assert(portSide(token, edges[2].sourcePort) === "NORTH", "second above → NORTH");
 })();
 
-(function belowRightBypassDoesNotStealEast() {
+(function belowRightEdgeDoesNotStealEast() {
   var token = leaf("token", 0, 100);
   var topn = leaf("topn", 300, 100);
   var profile = leaf("profile", 300, 180);
-  var edges = assignBypassOuts(token, [topn, profile], [
+  var edges = assignAdaptiveOutputs(token, [topn, profile], [
     {
       source: "token",
       target: "profile",
-      _cyEle: cyEle("bypass"),
+      _cyEle: cyEle("higher-level"),
     },
   ]);
-  assert(portSide(token, edges[1].sourcePort) === "SOUTH", "below-right bypass uses SOUTH");
+  assert(portSide(token, edges[1].sourcePort) === "SOUTH", "below-right edge uses SOUTH");
   assert(portSide(token, edges[1].sourcePort) !== "EAST", "below-right must not steal EAST");
 })();
 
@@ -328,71 +327,94 @@ function wrapper(id, x, y, w, h) {
       data: function (key) {
         if (key === "subgraph" || key === "expandable") return true;
         if (key === "stroke") return "";
-        if (key === "main") return false;
         return "";
       },
     },
   };
 }
 
-(function wrapperForwardBypassSharesEastWithMain() {
-  var mainGraph = wrapper("main_graph", 1778, 29, 1328, 451);
-  var downstream = wrapper("downstream", 3612, 221, 1051, 68);
-  var bypassSink = leaf("bypassSink", 4028, 463);
-  mainGraph.ports = [
+(function wrapperRailAnchorUsesInnerLevelZero() {
+  var box = wrapper("wg", 200, 100, 800, 360);
+  box._levelZeroAnchor = { x: 110, y: 72 };
+  box.ports = [
     {
-      id: "main_graph:east-crit",
+      id: "wg:west-anchor",
+      _end: "in",
+      _railAnchor: true,
+      side: "WEST",
+    },
+  ];
+  var graph = {
+    id: "root",
+    _axisProfile: R,
+    children: [box],
+    edges: [],
+  };
+  Cyto.spreadAllFixedPorts(graph, { wg: box });
+  assert(
+    Math.abs(box.ports[0].y - 72) <= 1e-6,
+    "expanded wrapper anchor follows its inner Level 0 rail"
+  );
+})();
+
+(function wrapperForwardEdgeSharesEastWithAnchor() {
+  var railGraph = wrapper("rail_graph", 1778, 29, 1328, 451);
+  var downstream = wrapper("downstream", 3612, 221, 1051, 68);
+  var alternateSink = leaf("alternateSink", 4028, 463);
+  railGraph.ports = [
+    {
+      id: "rail_graph:east-anchor",
       _end: "out",
-      _critical: true,
+      _railAnchor: true,
       side: "EAST",
     },
   ];
   downstream.ports = [
     {
-      id: "downstream:west-crit",
+      id: "downstream:west-anchor",
       _end: "in",
-      _critical: true,
+      _railAnchor: true,
       side: "WEST",
     },
   ];
-  var eMain = {
-    source: "main_graph",
+  var eRail = {
+    source: "rail_graph",
     target: "downstream",
-    sourcePort: "main_graph:east-crit",
-    targetPort: "downstream:west-crit",
-    _cyEle: cyEle("critical"),
+    sourcePort: "rail_graph:east-anchor",
+    targetPort: "downstream:west-anchor",
+    _cyEle: cyEle("level-zero"),
   };
-  var eBypass = {
-    source: "main_graph",
-    target: "bypassSink",
-    _bypassOut: true,
-    _bypassIn: true,
-    _cyEle: cyEle("bypass"),
+  var eAlternate = {
+    source: "rail_graph",
+    target: "alternateSink",
+    _adaptiveOut: true,
+    _adaptiveIn: true,
+    _cyEle: cyEle("higher-level"),
   };
   var lookup = {
-    main_graph: mainGraph,
+    rail_graph: railGraph,
     downstream: downstream,
-    bypassSink: bypassSink,
+    alternateSink: alternateSink,
   };
   var graph = {
     id: "root",
     _axisProfile: R,
-    children: [mainGraph, downstream, bypassSink],
-    edges: [eMain, eBypass],
+    children: [railGraph, downstream, alternateSink],
+    edges: [eRail, eAlternate],
   };
-  Cyto.refineBypassSidePorts(graph, lookup);
+  Cyto.refineAdaptiveSidePorts(graph, lookup);
   Cyto.ensureAllLeafEdgePorts(graph, lookup, lookup);
   assert(
-    portSide(mainGraph, eBypass.sourcePort) === "EAST",
-    "expanded wrapper forward bypass shares EAST with main"
+    portSide(railGraph, eAlternate.sourcePort) === "EAST",
+    "expanded wrapper forward edge shares EAST with the anchor"
   );
   assert(
-    portSide(mainGraph, eBypass.sourcePort) !== "SOUTH",
-    "wrapper must not drop forward bypass to SOUTH"
+    portSide(railGraph, eAlternate.sourcePort) !== "SOUTH",
+    "wrapper must not drop a forward edge to SOUTH"
   );
   assert(
-    portSide(bypassSink, eBypass.targetPort) === "WEST",
-    "bypassSink inbound stays WEST"
+    portSide(alternateSink, eAlternate.targetPort) === "WEST",
+    "alternate sink inbound stays WEST"
   );
   if (!Cyto.spreadAllFixedPorts) {
     console.error("FAIL: spreadAllFixedPorts not exported");
@@ -400,17 +422,17 @@ function wrapper(id, x, y, w, h) {
   }
   Cyto.spreadAllFixedPorts(graph, lookup);
   var bpPort = null;
-  var ports = mainGraph.ports || [];
+  var ports = railGraph.ports || [];
   for (var pi = 0; pi < ports.length; pi++) {
-    if (ports[pi].id === eBypass.sourcePort) bpPort = ports[pi];
+    if (ports[pi].id === eAlternate.sourcePort) bpPort = ports[pi];
   }
-  assert(!!bpPort, "bypass EAST port exists after spread");
-  var peerLocalY = bypassSink.y + bypassSink.height / 2 - mainGraph.y;
-  var maxY = mainGraph.height - 10;
+  assert(!!bpPort, "adaptive EAST port exists after spread");
+  var peerLocalY = alternateSink.y + alternateSink.height / 2 - railGraph.y;
+  var maxY = railGraph.height - 10;
   var expectY = Math.min(maxY, Math.max(10, peerLocalY));
   assert(
     Math.abs(bpPort.y - expectY) <= 2,
-    "wrapper bypass EAST tracks peer Y; y=" +
+    "wrapper adaptive EAST port tracks peer Y; y=" +
       bpPort.y +
       " expect=" +
       expectY
@@ -424,7 +446,7 @@ function wrapper(id, x, y, w, h) {
     {
       id: "wg:west-in",
       _end: "in",
-      _critical: false,
+      _railAnchor: false,
       _peerId: "sourceNode",
       side: "WEST",
     },
@@ -445,12 +467,12 @@ function wrapper(id, x, y, w, h) {
   );
 })();
 
-if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
-  console.error("FAIL: claimMainPortOwners/refineBypassSidePorts not exported");
+if (!Cyto.claimPreferredPortOwners || !Cyto.refineAdaptiveSidePorts) {
+  console.error("FAIL: Level port planning exports are unavailable");
   process.exit(1);
 }
 
-(function claimMainPortOwnersPrefersSameRowThenClosest() {
+(function claimPreferredPortOwnersUsesLevelThenDistance() {
   var behavior = leaf("behavior", 0, 100);
   var summary = leaf("summary", 0, 280);
   var auxiliary = leaf("auxiliary", 0, -80);
@@ -458,17 +480,17 @@ if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
   var eBeh = {
     source: "behavior",
     target: "llm",
-    _cyEle: cyEle("bypass"),
+    _cyEle: cyEle("higher-level"),
   };
   var eSum = {
     source: "summary",
     target: "llm",
-    _cyEle: cyEle("bypass"),
+    _cyEle: cyEle("higher-level"),
   };
   var ePor = {
     source: "auxiliary",
     target: "llm",
-    _cyEle: cyEle("bypass"),
+    _cyEle: cyEle("higher-level"),
   };
   var abs = {
     behavior: behavior,
@@ -476,7 +498,7 @@ if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
     auxiliary: auxiliary,
     llm: llm,
   };
-  var owners = Cyto.claimMainPortOwners([eBeh, eSum, ePor], abs, R);
+  var owners = Cyto.claimPreferredPortOwners([eBeh, eSum, ePor], abs, R);
   assert(owners.inOwner.llm === eBeh, "same-row inbound owns WEST");
   assert(Cyto.isSameCrossRow(behavior, llm, R), "behavior/llm same row");
   assert(!Cyto.isSameCrossRow(summary, llm, R), "summary not same row");
@@ -490,23 +512,23 @@ if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
   var eBeh = {
     source: "behavior",
     target: "llm",
-    _bypassOut: true,
-    _bypassIn: true,
-    _cyEle: cyEle("bypass"),
+    _adaptiveOut: true,
+    _adaptiveIn: true,
+    _cyEle: cyEle("higher-level"),
   };
   var eSum = {
     source: "summary",
     target: "llm",
-    _bypassOut: true,
-    _bypassIn: true,
-    _cyEle: cyEle("bypass"),
+    _adaptiveOut: true,
+    _adaptiveIn: true,
+    _cyEle: cyEle("higher-level"),
   };
   var ePor = {
     source: "auxiliary",
     target: "llm",
-    _bypassOut: true,
-    _bypassIn: true,
-    _cyEle: cyEle("bypass"),
+    _adaptiveOut: true,
+    _adaptiveIn: true,
+    _cyEle: cyEle("higher-level"),
   };
   var lookup = {
     behavior: behavior,
@@ -520,34 +542,43 @@ if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
     children: [behavior, summary, auxiliary, llm],
     edges: [eBeh, eSum, ePor],
   };
-  Cyto.refineBypassSidePorts(graph, lookup);
+  Cyto.refineAdaptiveSidePorts(graph, lookup);
   assert(portSide(llm, eBeh.targetPort) === "WEST", "aligned inbound keeps WEST");
   assert(portSide(llm, eSum.targetPort) === "SOUTH", "below inbound uses SOUTH");
   assert(portSide(llm, ePor.targetPort) === "NORTH", "above inbound uses NORTH");
 })();
 
-(function skippedInnerMainOwnsWest() {
+(function lowerLevelOwnsWest() {
   var behavior = leaf("behavior", 0, 100);
   var summary = leaf("summary", 0, 280);
   var llm = leaf("llm", 360, 100);
   var eBeh = {
     source: "behavior",
     target: "llm",
-    _cyEle: cyEle("inactive", { main: true }),
+    _cyEle: cyEle("inactive", { level: 0 }),
   };
   var eSum = {
     source: "summary",
     target: "llm",
-    _bypassOut: true,
-    _bypassIn: true,
-    _cyEle: cyEle("inactive"),
+    _adaptiveOut: true,
+    _adaptiveIn: true,
+    _cyEle: cyEle("inactive", { level: 1 }),
   };
-  var owners = Cyto.claimMainPortOwners(
+  var owners = Cyto.claimPreferredPortOwners(
     [eBeh, eSum],
     { behavior: behavior, summary: summary, llm: llm },
     R
   );
-  assert(owners.inOwner.llm === eBeh, "inactive+main inbound owns WEST slot");
+  assert(owners.inOwner.llm === eBeh, "lower-Level inbound owns WEST slot");
+  llm.ports = [{
+    id: "llm:west-anchor",
+    x: 0,
+    y: llm.height / 2,
+    side: "WEST",
+    _end: "in",
+    _railAnchor: true,
+  }];
+  eBeh.targetPort = "llm:west-anchor";
   var lookup = { behavior: behavior, summary: summary, llm: llm };
   var graph = {
     id: "root",
@@ -555,8 +586,8 @@ if (!Cyto.claimMainPortOwners || !Cyto.refineBypassSidePorts) {
     children: [behavior, summary, llm],
     edges: [eBeh, eSum],
   };
-  Cyto.refineBypassSidePorts(graph, lookup);
-  assert(portSide(llm, eSum.targetPort) === "SOUTH", "unrun bypass inbound uses SOUTH");
+  Cyto.refineAdaptiveSidePorts(graph, lookup);
+  assert(portSide(llm, eSum.targetPort) === "SOUTH", "higher-Level inbound uses SOUTH");
 })();
 
 console.log("OK eino-workflow-dag-axis-profile.test.js");

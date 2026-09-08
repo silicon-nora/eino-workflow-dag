@@ -191,12 +191,44 @@ const activeNodePath = ref(["model"]);
 Built-in themes are `classic`, `ink`, and `midnight`. Register application
 themes with `registerWorkflowDAGTheme()`. Eino component and execution-status
 values remain open strings. The renderer maps known component categories to
-visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph`; visual kinds and
-statuses can be localized with `locale.kinds` and `locale.statuses`.
+visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph` for styling and
+formatter data. Resolved kind and status labels remain available through
+`locale.kinds` and `locale.statuses`.
 
 `tooltipFormatter` and `nodeLabelFormatter` receive renderer-owned plain data.
 They include the original Eino `component` and node `metadata`; they do not
 expose Cytoscape objects.
+
+The default node label uses the node name followed by its original Eino
+`component`. A duration is appended only when the snapshot contains execution
+timing for that node. The internal visual kind is used for styling, not as a
+replacement for the component identity.
+
+`onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
+`metadata`. When a rendered relationship also represents an Eino branch, its
+metadata is available separately as `branchMetadata`. Node formatter data and
+rendered edges also expose their graph-local numeric `level`.
+
+## Level layout model
+
+Every workflow graph, including each expanded nested workflow, owns an
+independent set of layout rails numbered from Level 0. The renderer derives
+these Levels from the Eino workflow topology and optional execution duration;
+applications do not provide a second path classification.
+
+Nodes at the same Level in the same graph share one cross-axis rail. Expanded
+workflow nodes align their inner Level 0 waist with the parent Level assigned
+to the wrapper. Level 0 is the reference rail; higher Levels may occupy either
+side of it (above or below for horizontal layouts, left or right for vertical
+layouts) according to connectivity and available space. Port ownership and
+edge drawing follow ascending Level order, then route length, so the same rule
+applies consistently to Level 0 through N. An expanded workflow's external
+rail port stays aligned with its inner Level 0 rail. Consequently, adjacent
+same-Level nodes use a straight connection when the corridor is clear; a
+same-Level edge may still bend when it must pass an intervening node or other
+obstacle.
+The visible-graph callback exposes `levelZeroPath` and
+`levelZeroDurationMs` as a summary of the root graph's first rail.
 
 ## Cytoscape-specific integration
 
@@ -233,6 +265,13 @@ upgrades against their selectors and Cytoscape calls.
 
 Both React and Vue are optional peer dependencies. Cytoscape is the only
 production dependency.
+
+For local routing inspection, build the package, serve the repository root,
+and open the interactive
+[routing preview](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples/routing-preview).
+It contains serial, fan-in, diamond, nested-workflow, production-scale, and
+stress cases in all four layout directions. The same matrix is exercised by the
+browser test suite.
 
 ## Support and licensing
 

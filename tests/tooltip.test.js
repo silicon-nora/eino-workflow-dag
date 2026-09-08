@@ -34,6 +34,9 @@ assert(text.includes("cached_tokens: 4"), "nested cache tokens are included");
 assert(text.includes("reasoning_tokens: 2"), "reasoning tokens are included");
 assert(text.includes("retries: 1"), "other metrics are included");
 
+const untimed = formatNodeTooltip({ id: "untimed", status: "pending" });
+assert(!untimed.includes("Duration:"), "missing duration is omitted from the tooltip");
+
 const circular = {};
 circular.self = circular;
 const safe = formatNodeTooltip({ id: "safe", metrics: { circular } });

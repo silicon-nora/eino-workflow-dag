@@ -56,6 +56,23 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
     durationMs: 50,
   });
 
+  await page.evaluate(() => {
+    const edge = window.getDAGCy(window.dagInstance)
+      .edges()
+      .filter((candidate) =>
+        candidate.source().id() === "input" && candidate.target().id() === "research")
+      .first();
+    edge.emit("tap");
+  });
+  await expect.poll(() => page.evaluate(() => window.lastDagEdgeClick)).toMatchObject({
+    source: ["input"],
+    target: ["research"],
+    channels: ["control", "data"],
+    mappings: [{ fromPath: ["query"], toPath: ["query"] }],
+    metadata: { transport: "typed" },
+    branchMetadata: null,
+  });
+
   const statePatch = await page.evaluate(() => {
     const next = structuredClone(window.dagSnapshot);
     next.execution.nodes.find((node) => node.path.join("/") === "answer").status = "failed";
@@ -114,6 +131,14 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
   expect(specialPath.selected).toEqual(["group/one", "child/two"]);
   expect(specialPath.ids).toContain("group~1one/child~1two");
   expect(specialPath.active).toEqual(["group~1one/child~1two"]);
+
+  const untimedClick = await page.evaluate(() => {
+    window.getDAGCy(window.dagInstance)
+      .getElementById("group~1one/child~1two")
+      .emit("tap");
+    return window.lastDagNodeClick;
+  });
+  expect(untimedClick).not.toHaveProperty("durationMs");
 
   const invalid = await page.evaluate(() => {
     try {

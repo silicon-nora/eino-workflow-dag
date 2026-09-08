@@ -3,6 +3,38 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
+## [0.4.0-beta.2] - 2026-09-08
+
+### Changed
+
+- Changed default node labels to show the original Eino component and to omit
+  timing when no node execution duration was supplied.
+- Preserved an absent node duration in formatter, click, and visible-graph data
+  instead of reporting it as zero.
+- Replaced the dual path classification with graph-local numeric Levels. Each
+  graph now starts at Level 0, assigns one global rail per Level, and exposes
+  node and edge Levels through the public renderer data.
+- Renamed visible-graph path summaries to `levelZeroPath` and
+  `levelZeroDurationMs` and removed the redundant edge `main` flag.
+
+### Added
+
+- Exposed field mappings, edge metadata, and branch metadata in rendered-edge
+  data, including edge-click callbacks.
+- Added an interactive routing preview with multiple topology cases, including
+  an anonymized production-scale nested workflow, and
+  browser coverage across every supported layout direction.
+
+### Fixed
+
+- Kept every same-graph, same-Level node on one cross-axis rail, including
+  expanded workflows whose content waist is aligned to a parent Level.
+- Allowed higher-Level rails to expand on either side of Level 0, selecting the
+  side from connected-rail distance and the occupied layout envelope.
+- Aligned expanded-workflow boundary ports with the workflow's inner Level 0
+  rail, keeping unobstructed same-Level connections straight without disabling
+  obstacle detours.
+
 ## [0.4.0-beta.1] - 2026-09-08
 
 ### Changed

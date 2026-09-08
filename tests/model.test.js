@@ -47,7 +47,14 @@ var fixture = {
     { id: "b", kind: "io", name: "B", status: "success", cost_ms: 5 }
   ],
   edges: [
-    { from: "a", to: "g" },
+    {
+      from: "a",
+      to: "g",
+      kind: "data",
+      mappings: [{ fromPath: ["value"], toPath: ["input"] }],
+      metadata: { transport: "typed" },
+      branchMetadata: { route: "fallback" }
+    },
     { from: "g", to: "b" },
     { from: "a", to: "b", entry: "pin_internal" },
     { from: "g", toParent: "b" }
@@ -72,6 +79,9 @@ var c1 = expanded.nodes.filter(function (n) { return n.id === "g/c1"; })[0];
 assert(c1 && c1.metrics && c1.metrics.is_cached === true, "nested metrics passthrough");
 var outerToG = expanded.edges.filter(function (e) { return e.from === "a" && e.to === "g"; });
 assert(outerToG.length === 1, "external edge anchors wrapper g");
+assert(outerToG[0].mappings[0].toPath[0] === "input", "field mappings survive visible-edge materialization");
+assert(outerToG[0].metadata.transport === "typed", "edge metadata survives visible-edge materialization");
+assert(outerToG[0].branchMetadata.route === "fallback", "branch metadata survives visible-edge materialization");
 var inner = expanded.edges.filter(function (e) { return e.from === "g/c1" && e.to === "g/c2"; });
 assert(inner.length === 1, "internal edge from graph.edges");
 assert(!expanded.edges.some(function (e) { return e.toParent || e.entry; }), "no legacy fields on edges");
@@ -125,7 +135,7 @@ assert(mVis.nodes.some(function (n) { return n.id === "sub/inner"; }), "id→pat
 assert(mVis.edges.some(function (e) { return e.from === "leaf" && e.to === "sub"; }), "entry ignored, wrapper anchor");
 assert(!mVis.edges.some(function (e) { return e.to === "sub/inner"; }), "forbidden internal pin");
 
-// 主路终点：末跳 cost=0 时 dist 平局，仍应用 >= 把汇点算进 criticalPath
+// Level 0 终点：末跳 cost=0 时仍把汇点纳入路径。
 var zeroSink = {
   nodes: [
     { id: "n1", kind: "io", name: "N1", status: "success", cost_ms: 100 },
@@ -138,14 +148,14 @@ var zeroSink = {
   ]
 };
 var zs = Model.buildVisibleGraph(zeroSink, {});
-assert(zs.criticalPath.indexOf("n3") >= 0, "zero-cost sink on criticalPath");
-assert(zs.criticalPath.indexOf("n2") >= 0, "predecessor on criticalPath");
-var lastCrit = zs.edges.filter(function (e) {
-  return e.from === "n2" && e.to === "n3" && e.level === 1;
+assert(zs.levelZeroPath.indexOf("n3") >= 0, "zero-cost sink on Level 0 path");
+assert(zs.levelZeroPath.indexOf("n2") >= 0, "predecessor on Level 0 path");
+var lastLevelZero = zs.edges.filter(function (e) {
+  return e.from === "n2" && e.to === "n3" && e.level === 0;
 });
-assert(lastCrit.length === 1, "n2→n3 is level 1");
+assert(lastLevelZero.length === 1, "n2→n3 is Level 0");
 
-// skipped 节点不得进入主路（互斥分支未执行臂即使拓扑更长也不能 critical）
+// skipped 节点不得进入 Level 0（未执行臂即使拓扑更长也不参与选择）。
 var skipBranch = {
   nodes: [
     { id: "gate", kind: "cpu", name: "G", status: "success", cost_ms: 10 },
@@ -162,37 +172,37 @@ var skipBranch = {
   ]
 };
 var sb = Model.buildVisibleGraph(skipBranch, {});
-assert(sb.criticalPath.indexOf("silent") >= 0, "executed arm on criticalPath");
-assert(sb.criticalPath.indexOf("a") < 0, "skipped a not on criticalPath");
-assert(sb.criticalPath.indexOf("b") < 0, "skipped b not on criticalPath");
-assert(sb.criticalPath.indexOf("c") < 0, "skipped c not on criticalPath");
+assert(sb.levelZeroPath.indexOf("silent") >= 0, "executed arm on Level 0 path");
+assert(sb.levelZeroPath.indexOf("a") < 0, "skipped a not on Level 0 path");
+assert(sb.levelZeroPath.indexOf("b") < 0, "skipped b not on Level 0 path");
+assert(sb.levelZeroPath.indexOf("c") < 0, "skipped c not on Level 0 path");
 assert(
   sb.edges.some(function (e) {
-    return e.from === "gate" && e.to === "silent" && e.level === 1;
+    return e.from === "gate" && e.to === "silent" && e.level === 0;
   }),
-  "gate→silent level 1"
+  "gate→silent Level 0"
 );
 assert(
   !sb.edges.some(function (e) {
-    return e.level === 1 && (e.to === "a" || e.to === "b" || e.to === "c");
+    return e.level === 0 && (e.to === "a" || e.to === "b" || e.to === "c");
   }),
-  "no level-1 edge into skipped arm"
+  "no Level 0 edge into skipped arm"
 );
 assert(
   sb.edges.filter(function (e) {
     return e.to === "a" || e.from === "a" || e.to === "b" || e.from === "b";
-  }).every(function (e) { return e.level >= 2; }),
-  "skipped-arm edges are level≥2"
+  }).every(function (e) { return e.level >= 1; }),
+  "skipped-arm edges are Level 1 or higher"
 );
 
-// defaultExpandedMap：主路 graph 展开，skipped graph 收起
+// defaultExpandedMap：Level 0 graph 展开，skipped graph 收起。
 var defExpRoot = {
   nodes: [
     { id: "gate", kind: "cpu", name: "G", status: "success", cost_ms: 5 },
     {
-      id: "main_g",
+      id: "chosen_g",
       kind: "graph",
-      name: "Main",
+      name: "Chosen",
       status: "success",
       cost_ms: 100,
       graph: {
@@ -201,9 +211,9 @@ var defExpRoot = {
       }
     },
     {
-      id: "side_g",
+      id: "skipped_g",
       kind: "graph",
-      name: "Side",
+      name: "Skipped",
       status: "skipped",
       cost_ms: 0,
       graph: {
@@ -214,25 +224,25 @@ var defExpRoot = {
     { id: "tail", kind: "cpu", name: "T", status: "success", cost_ms: 1 }
   ],
   edges: [
-    { from: "gate", to: "main_g" },
-    { from: "gate", to: "side_g", kind: "branch" },
-    { from: "main_g", to: "tail" }
+    { from: "gate", to: "chosen_g" },
+    { from: "gate", to: "skipped_g", kind: "branch" },
+    { from: "chosen_g", to: "tail" }
   ]
 };
 var defExp = Model.defaultExpandedMap(defExpRoot);
-assert(defExp.main_g === true, "main path graph default expanded");
-assert(!defExp.side_g, "skipped graph stays collapsed");
+assert(defExp.chosen_g === true, "Level 0 graph is expanded by default");
+assert(!defExp.skipped_g, "skipped graph stays collapsed");
 var defVis = Model.buildVisibleGraph(defExpRoot, defExp);
 assert(
-  defVis.nodes.some(function (n) { return n.id === "main_g/inner"; }),
-  "inner node visible when main_g expanded by default"
+  defVis.nodes.some(function (n) { return n.id === "chosen_g/inner"; }),
+  "inner node visible when chosen_g expanded by default"
 );
 assert(
-  !defVis.nodes.some(function (n) { return n.id === "side_g/x"; }),
+  !defVis.nodes.some(function (n) { return n.id === "skipped_g/x"; }),
   "skipped graph inner not visible"
 );
 
-// 分层主线：展开 Graph 后父链仍 critical；子图内按 START→END 最长 cost
+// 每个展开 Graph 独立计算 Level，父层 Level 不受展开状态影响。
 var hierRoot = {
   version: 2,
   nodes: [
@@ -279,41 +289,41 @@ var hierRoot = {
 };
 var hierCol = Model.buildVisibleGraph(hierRoot, {});
 assert(
-  hierCol.criticalPath.join(",") === "ingest,branch,nested_flow",
-  "collapsed root criticalPath Start→End (virtual)"
+  hierCol.levelZeroPath.join(",") === "ingest,branch,nested_flow",
+  "collapsed root Level 0 path Start→End (virtual)"
 );
 var hierExp = Model.buildVisibleGraph(hierRoot, { nested_flow: true });
 assert(
-  hierExp.criticalPath.join(",") === "ingest,branch,nested_flow",
-  "expanded: root criticalPath still includes nested_flow wrapper"
+  hierExp.levelZeroPath.join(",") === "ingest,branch,nested_flow",
+  "expanded: root Level 0 path still includes nested_flow wrapper"
 );
 assert(
   hierExp.edges.some(function (e) {
-    return e.from === "branch" && e.to === "nested_flow" && e.level === 1;
+    return e.from === "branch" && e.to === "nested_flow" && e.level === 0;
   }),
-  "expanded: parent edge into Graph stays level 1"
+  "expanded: parent edge into Graph stays Level 0"
 );
 assert(
   hierExp.edges.some(function (e) {
-    return e.from === "nested_flow/branch_a" && e.to === "nested_flow/split" && e.level === 1;
+    return e.from === "nested_flow/branch_a" && e.to === "nested_flow/split" && e.level === 0;
   }),
-  "expanded: inner longest branch branch_a→split is level 1"
+  "expanded: inner longest branch branch_a→split is Level 0"
 );
 assert(
   hierExp.edges.some(function (e) {
-    return e.from === "nested_flow/split" && e.to === "nested_flow/long_path" && e.level === 1;
+    return e.from === "nested_flow/split" && e.to === "nested_flow/long_path" && e.level === 0;
   }),
-  "expanded: longer content arm split→long_path is level 1 (not short_path)"
+  "expanded: longer content arm split→long_path is Level 0"
 );
 assert(
   !hierExp.edges.some(function (e) {
-    return e.from === "nested_flow/split" && e.to === "nested_flow/short_path" && e.level === 1;
+    return e.from === "nested_flow/split" && e.to === "nested_flow/short_path" && e.level === 0;
   }),
-  "expanded: shorter summary arm is level≥2"
+  "expanded: shorter summary arm is Level 1 or higher"
 );
 assert(
   hierExp.edges.some(function (e) {
-    return e.from === "nested_flow/execute" && e.to === "nested_flow/output" && e.level === 1;
+    return e.from === "nested_flow/execute" && e.to === "nested_flow/output" && e.level === 0;
   }),
   "expanded: inner path reaches output before END"
 );
@@ -350,33 +360,33 @@ var hopTieRoot = {
 };
 var hopCol = Model.buildVisibleGraph(hopTieRoot, {});
 assert(
-  hopCol.criticalPath.join(",") === "gate,long_g",
-  "collapsed: longer inner main path wins equal-cost tie"
+  hopCol.levelZeroPath.join(",") === "gate,long_g",
+  "collapsed: longer inner Level 0 path wins equal-cost tie"
 );
 assert(
-  hopCol.criticalPath.indexOf("short") < 0,
-  "collapsed: short leaf is not critical"
+  hopCol.levelZeroPath.indexOf("short") < 0,
+  "collapsed: short leaf is outside Level 0"
 );
 var hopExp = Model.buildVisibleGraph(hopTieRoot, { long_g: true });
 assert(
-  hopExp.criticalPath.join(",") === "gate,long_g",
-  "expanded: parent main path unchanged"
+  hopExp.levelZeroPath.join(",") === "gate,long_g",
+  "expanded: parent Level 0 path is unchanged"
 );
 assert(
   hopExp.edges.some(function (e) {
-    return e.from === "long_g/x" && e.to === "long_g/y" && e.level === 1;
+    return e.from === "long_g/x" && e.to === "long_g/y" && e.level === 0;
   }),
-  "inner main x→y level 1"
+  "inner x→y is Level 0"
 );
 assert(
   hopExp.edges.some(function (e) {
-    return e.from === "long_g/y" && e.to === "long_g/z" && e.level === 1;
+    return e.from === "long_g/y" && e.to === "long_g/z" && e.level === 0;
   }),
-  "inner main y→z level 1"
+  "inner y→z is Level 0"
 );
 assert(
   !hopExp.edges.some(function (e) {
-    return e.from === "long_g/x" && e.to === "long_g/side" && e.level === 1;
+    return e.from === "long_g/x" && e.to === "long_g/side" && e.level === 0;
   }),
   "inner side arm not level 1"
 );
@@ -419,17 +429,17 @@ var nestedHopRoot = {
 };
 var nestedCol = Model.buildVisibleGraph(nestedHopRoot, {});
 assert(
-  nestedCol.criticalPath.join(",") === "gate,outer_g",
-  "collapsed nested graph still uses inner main-path hops"
+  nestedCol.levelZeroPath.join(",") === "gate,outer_g",
+  "collapsed nested graph still uses inner Level 0 hops"
 );
 
-// 旁路 Graph 展开后仍有自己的内层主线（选口/锁轨都吃这条 stroke）
-var bypassGraphRoot = {
+// 父层较高 Level 的 Graph 展开后仍独立计算自己的 Level 0。
+var higherLevelGraphRoot = {
   nodes: [
     { id: "gate", kind: "cpu", cost_ms: 0, status: "success" },
-    { id: "main_leaf", kind: "io", cost_ms: 100, status: "success" },
+    { id: "long_leaf", kind: "io", cost_ms: 100, status: "success" },
     {
-      id: "side_g",
+      id: "compact_g",
       kind: "graph",
       cost_ms: 10,
       status: "success",
@@ -447,41 +457,41 @@ var bypassGraphRoot = {
     }
   ],
   edges: [
-    { from: "gate", to: "main_leaf" },
-    { from: "gate", to: "side_g" }
+    { from: "gate", to: "long_leaf" },
+    { from: "gate", to: "compact_g" }
   ]
 };
-var bypassVis = Model.buildVisibleGraph(bypassGraphRoot, { side_g: true });
+var higherLevelVis = Model.buildVisibleGraph(higherLevelGraphRoot, { compact_g: true });
 assert(
-  bypassVis.criticalPath.join(",") === "gate,main_leaf",
-  "root criticalPath stays the parent main path"
+  higherLevelVis.levelZeroPath.join(",") === "gate,long_leaf",
+  "root Level 0 remains independent"
 );
 assert(
-  bypassVis.edges.some(function (e) {
-    return e.from === "gate" && e.to === "side_g" && e.level >= 2;
+  higherLevelVis.edges.some(function (e) {
+    return e.from === "gate" && e.to === "compact_g" && e.level >= 1;
   }),
-  "parent edge into side graph is level≥2"
+  "parent edge into the other graph has a higher Level"
 );
 assert(
-  bypassVis.edges.some(function (e) {
-    return e.from === "side_g/a" && e.to === "side_g/b" && e.level === 1;
+  higherLevelVis.edges.some(function (e) {
+    return e.from === "compact_g/a" && e.to === "compact_g/b" && e.level === 0;
   }),
-  "side graph inner main a→b is level 1"
+  "nested graph computes its own Level 0"
 );
 assert(
-  !bypassVis.edges.some(function (e) {
-    return e.from === "side_g/a" && e.to === "side_g/side" && e.level === 1;
+  !higherLevelVis.edges.some(function (e) {
+    return e.from === "compact_g/a" && e.to === "compact_g/side" && e.level === 0;
   }),
-  "side graph inner side arm is not level 1"
+  "shorter nested route has a higher Level"
 );
 
-// 整图未运行（全部 skipped）：仍要有内层 level 1 供选口/锁轨；视觉不再写 inactive
+// 整图未运行时，仍计算内层 Level 0 供选口和锁轨。
 var skippedGraphRoot = {
   nodes: [
     { id: "gate", kind: "cpu", cost_ms: 10, status: "success" },
-    { id: "main_leaf", kind: "io", cost_ms: 100, status: "success" },
+    { id: "long_leaf", kind: "io", cost_ms: 100, status: "success" },
     {
-      id: "side_g",
+      id: "compact_g",
       kind: "graph",
       cost_ms: 0,
       status: "skipped",
@@ -501,26 +511,24 @@ var skippedGraphRoot = {
     }
   ],
   edges: [
-    { from: "gate", to: "main_leaf" },
-    { from: "gate", to: "side_g" }
+    { from: "gate", to: "long_leaf" },
+    { from: "gate", to: "compact_g" }
   ]
 };
-var skippedVis = Model.buildVisibleGraph(skippedGraphRoot, { side_g: true });
-var skippedMain = skippedVis.edges.filter(function (e) {
-  return e.from === "side_g/a" && e.to === "side_g/b";
+var skippedVis = Model.buildVisibleGraph(skippedGraphRoot, { compact_g: true });
+var skippedLevelZero = skippedVis.edges.filter(function (e) {
+  return e.from === "compact_g/a" && e.to === "compact_g/b";
 })[0];
 var skippedSide = skippedVis.edges.filter(function (e) {
-  return e.from === "side_g/a" && e.to === "side_g/side";
+  return e.from === "compact_g/a" && e.to === "compact_g/side";
 })[0];
-assert(skippedMain && skippedMain.level === 1, "unrun inner main is level 1");
-assert(skippedMain && skippedMain.main === true, "unrun inner main still tagged main");
+assert(skippedLevelZero && skippedLevelZero.level === 0, "unrun inner route is Level 0");
 assert(skippedVis.edges.some(function (e) {
-  return e.from === "side_g/b" && e.to === "side_g/c" && e.main === true;
-}), "unrun inner main continues a→b→c");
-assert(skippedSide && skippedSide.level >= 2, "unrun inner side arm is level≥2");
-assert(!skippedSide.main, "unrun inner shorter arm is not main");
+  return e.from === "compact_g/b" && e.to === "compact_g/c" && e.level === 0;
+}), "unrun inner Level 0 continues a→b→c");
+assert(skippedSide && skippedSide.level >= 1, "unrun inner shorter arm has a higher Level");
 
-// 扇出剥轨：side_input + branch_worker 为 level 2
+// 扇出剥轨按 0…N 连续分配。
 var fanRoot = {
   version: 2,
   nodes: [
@@ -561,20 +569,20 @@ var fan = Model.buildVisibleGraph(fanRoot, { wg: true });
 function fanNode(id) {
   return fan.nodes.filter(function (n) { return n.id === id; })[0];
 }
-assert(fanNode("wg/topn") && fanNode("wg/topn").level === 1, "topn level 1");
-assert(fanNode("wg/split") && fanNode("wg/split").level === 1, "split level 1");
-assert(fanNode("wg/merge") && fanNode("wg/merge").level === 1, "merge level 1");
-assert(fanNode("wg/summary") && fanNode("wg/summary").level === 2, "summary level 2");
-assert(fanNode("wg/llm") && fanNode("wg/llm").level === 2, "llm level 2");
+assert(fanNode("wg/topn") && fanNode("wg/topn").level === 0, "topn Level 0");
+assert(fanNode("wg/split") && fanNode("wg/split").level === 0, "split Level 0");
+assert(fanNode("wg/merge") && fanNode("wg/merge").level === 0, "merge Level 0");
+assert(fanNode("wg/summary") && fanNode("wg/summary").level === 1, "summary Level 1");
+assert(fanNode("wg/llm") && fanNode("wg/llm").level === 1, "llm Level 1");
 assert(
   fan.edges.some(function (e) {
-    return e.from === "wg/summary" && e.to === "wg/llm" && e.level === 2;
+    return e.from === "wg/summary" && e.to === "wg/llm" && e.level === 1;
   }),
   "summary→llm is level 2 edge"
 );
 assert(
   fan.edges.some(function (e) {
-    return e.from === "wg/split" && e.to === "wg/topn" && e.level === 1;
+    return e.from === "wg/split" && e.to === "wg/topn" && e.level === 0;
   }),
   "split→topn is level 1 edge"
 );
@@ -596,31 +604,12 @@ var prototypeKeyVisible = Model.buildVisibleGraph(prototypeKeyRoot, {});
 assert(prototypeKeyVisible.nodes.length === 3, "prototype-like node IDs are retained");
 assert(prototypeKeyVisible.edges.length === 2, "prototype-like edge endpoints resolve");
 assert(
-  prototypeKeyVisible.criticalPath.join(",") === "__proto__,constructor,toString",
-  "prototype-like IDs participate in the critical path"
+  prototypeKeyVisible.levelZeroPath.join(",") === "__proto__,constructor,toString",
+  "prototype-like IDs participate in the Level 0 path"
 );
 assert(
-  prototypeKeyVisible.nodes.every(function (node) { return node.level === 1; }),
+  prototypeKeyVisible.nodes.every(function (node) { return node.level === 0; }),
   "prototype-like IDs receive numeric rail levels"
-);
-
-var producerCritical = Model.buildVisibleGraph({
-  version: 2,
-  nodes: [
-    { id: "producer", cost_ms: 1 },
-    { id: "computed", cost_ms: 100 },
-  ],
-  edges: [
-    { from: "START", to: "producer" },
-    { from: "producer", to: "END" },
-    { from: "START", to: "computed" },
-    { from: "computed", to: "END" },
-  ],
-  critical_path: ["producer"],
-}, {});
-assert(
-  producerCritical.criticalPath.join(",") === "producer",
-  "producer critical_path is authoritative when present",
 );
 
 console.log("OK: eino-workflow-dag-model protocol tests passed");

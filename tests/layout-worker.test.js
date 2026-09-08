@@ -80,11 +80,11 @@ const graph = {
       from: "input",
       to: "answer",
       kind: "",
-      stroke: "critical",
+      level: 0,
     },
   ],
-  criticalPath: ["input", "answer"],
-  criticalCostMs: 10,
+  levelZeroPath: ["input", "answer"],
+  levelZeroDurationMs: 10,
 };
 
 const linked = new LinkedWorker();
@@ -94,6 +94,7 @@ const result = await client.run(graph, { direction: "DOWN" });
 assert.equal(result.profile.direction, "DOWN");
 assert.ok(result.positions.input);
 assert.ok(result.positions.answer.y > result.positions.input.y);
+assert.deepEqual(result.railAnchors, {});
 assert.equal(client.pendingCount(), 0);
 
 const controller = new AbortController();

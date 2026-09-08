@@ -62,7 +62,13 @@
           { id: "answer", name: "Answer", component: "ChatModel" },
         ],
         edges: [
-          { from: "input", to: "research", channels: ["control", "data"] },
+          {
+            from: "input",
+            to: "research",
+            channels: ["control", "data"],
+            mappings: [{ fromPath: ["query"], toPath: ["query"] }],
+            metadata: { transport: "typed" },
+          },
           { from: "research", to: "answer", channels: ["control", "data"] },
           ],
         },
@@ -94,6 +100,7 @@
           window.dagEvents.push({ type: "node", path: node.path });
         },
         onEdgeClick(edge) {
+          window.lastDagEdgeClick = edge;
           window.dagEvents.push({ type: "edge", id: edge.id });
         },
         onError(error) {

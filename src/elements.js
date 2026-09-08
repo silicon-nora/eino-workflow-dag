@@ -24,7 +24,11 @@ export function kindLabel(kind, localeKinds) {
 
 function defaultNodeLabel(node, locale) {
   const title = node.name || node.key || node.id;
-  return `${title}\n${kindLabel(node.kind, locale && locale.kinds)}  ·  ${formatDuration(node.cost_ms)}`;
+  const detail = [
+    node.component || "",
+    node.cost_ms == null ? "" : formatDuration(node.cost_ms),
+  ].filter(Boolean).join("  ·  ");
+  return detail ? `${title}\n${detail}` : title;
 }
 
 function publicVisibleNode(node) {
@@ -37,12 +41,13 @@ function publicVisibleNode(node) {
     component: node.component || "",
     metadata: node.metadata || null,
     status: node.status || "",
-    durationMs: node.cost_ms || 0,
+    ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
     metrics: node.metrics || null,
     errorMessage: node.err_msg || "",
     expandable: !!node.expandable,
     subgraph: !!node.subgraph,
     expanded: !!node.expanded,
+    level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
   };
 }
 
@@ -67,12 +72,13 @@ export function toCytoscapeElements(visible, options = {}) {
       component: node.component || "",
       metadata: node.metadata || null,
       status: node.status || "",
-      cost_ms: node.cost_ms || 0,
+      cost_ms: node.cost_ms,
       metrics: node.metrics || null,
       err_msg: node.err_msg || "",
       expandable: !!node.expandable,
       subgraph: !!node.subgraph,
       expanded: !!node.expanded,
+      level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
     };
     if (node.parent) data.parent = node.parent;
     elements.push({ group: "nodes", data });
@@ -84,10 +90,12 @@ export function toCytoscapeElements(visible, options = {}) {
       source: edge.from,
       target: edge.to,
       kind: edge.kind || "",
-      level: edge.level != null ? edge.level : edge.main ? 1 : 2,
-      main: !!edge.main,
+      mappings: Array.isArray(edge.mappings) ? edge.mappings : [],
+      metadata: edge.metadata == null ? null : edge.metadata,
+      branchMetadata:
+        edge.branchMetadata == null ? null : edge.branchMetadata,
+      level: Number.isInteger(edge.level) && edge.level >= 0 ? edge.level : 0,
     };
-    if (edge.kind === "no") data.level = 0;
     elements.push({ group: "edges", data });
   }
   return elements;
@@ -108,7 +116,6 @@ export function patchCytoscapeElements(cy, elements) {
     } else if (
       element.source().id() !== spec.data.source ||
       element.target().id() !== spec.data.target ||
-      !!element.data("main") !== !!spec.data.main ||
       Number(element.data("level")) !== Number(spec.data.level)
     ) {
       return false;

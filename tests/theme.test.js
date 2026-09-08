@@ -24,7 +24,7 @@ assert.equal(themeTokens("test-brand").node.fontSize, 17);
 
 const rules = stylesheet("test-brand");
 const nodeRule = rules.find((rule) => rule.selector === "node");
-const highlightedRule = rules.find((rule) => rule.selector === "edge[level = 1]");
+const highlightedRule = rules.find((rule) => rule.selector === "edge[level = 0]");
 const degradedRule = rules.find(
   (rule) => rule.selector === 'node[status = "degraded"]',
 );

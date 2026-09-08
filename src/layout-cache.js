@@ -32,7 +32,6 @@ export function layoutCacheKey(direction, elements, includeRuntimeData = false) 
         data.target,
         data.kind || "",
         data.level,
-        data.main ? 1 : 0,
       ]);
     }
   }
