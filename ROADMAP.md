@@ -54,7 +54,7 @@ JavaScript contract.
 - [x] Keep branch geometry stable across nested-workflow expansion
 - [x] Finalize node execution as `success`, `failed`, or `skipped` outcomes
 - [x] Treat missing execution records as unknown instead of inventing a state
-- [ ] Publish beta.3 under npm's `next` dist-tag
+- [x] Publish beta.3 under npm's `next` dist-tag
 - [ ] Resolve every defect classified as release-blocking
 - [ ] Publish the first release candidate
 
@@ -79,8 +79,8 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Publish beta.3 under npm's `next` dist-tag.
-2. Resolve release-blocking defects and publish a release candidate.
+1. Review beta.3 compatibility results and resolve release-blocking defects.
+2. Publish `0.4.0-rc.1` under npm's `next` dist-tag.
 3. Promote the validated stable version to `latest`.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
