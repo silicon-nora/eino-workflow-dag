@@ -130,7 +130,7 @@ import "${packageName}/styles.css";
 const snapshot: EinoWorkflowSnapshot = {
   schemaVersion: 1,
   workflow: { nodes: [{ id: "input" }], edges: [] },
-  execution: { nodes: [{ path: ["input"], status: "degraded" }] },
+  execution: { nodes: [{ path: ["input"], status: "skipped", durationMs: null }] },
 };
 validateWorkflowSnapshot(snapshot);
 

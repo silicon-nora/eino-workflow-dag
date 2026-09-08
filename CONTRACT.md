@@ -149,10 +149,10 @@ interface WorkflowExecution {
 
 interface WorkflowNodeExecution {
   path: string[];
-  status?: string;
+  status: "success" | "failed" | "skipped";
   startedAtMs?: number;
   finishedAtMs?: number;
-  durationMs?: number;
+  durationMs: number | null;
   metrics?: JsonObject | null;
   errorMessage?: string;
 }
@@ -164,12 +164,28 @@ or an observability system.
 
 Every execution `path` must identify an existing node from outermost to
 innermost, for example `['research', 'model']`. A snapshot may contain at most
-one execution record for each path.
+one execution record for each path. Each record is a final node outcome:
+
+- `success`: the node completed successfully.
+- `failed`: the node finished with an error.
+- `skipped`: an authoritative Eino routing or dependency decision did not
+  invoke the node.
+
+Nodes without a final outcome have no execution record. The renderer does not
+infer `skipped` from an absent record, because absence can also mean that the
+run stopped early or that the producer did not provide execution information.
 
 Timestamps are non-negative Unix epoch milliseconds and safe integers. A
 `finishedAtMs` value cannot precede its corresponding `startedAtMs`.
-Durations are non-negative finite milliseconds. Status strings are extensible;
-consumers must provide a fallback for values they do not know.
+Node duration is required and is either a non-negative finite number of
+milliseconds or `null` when no measurement is available. A measured zero is
+distinct from `null`. A `skipped` node must use `durationMs: null` and therefore
+does not contribute duration to Level selection.
+
+The status enum belongs to this visualization protocol. Eino exposes callback
+lifecycle events rather than a public node-status field: producers normally map
+`OnEnd` to `success`, `OnError` to `failed`, and add `skipped` only from routing
+or observability information they can authoritatively identify.
 
 The renderer computes visual route emphasis from the topology and execution
 state. Renderer-only concepts such as a manually highlighted path or an

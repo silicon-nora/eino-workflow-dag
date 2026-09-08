@@ -41,7 +41,7 @@ const valid = {
     startedAtMs: 1_700_000_000_000,
     nodes: [
       { path: ["input"], status: "success", durationMs: 10 },
-      { path: ["nested", "work"], status: "running", metrics: { tokens: 4 } },
+      { path: ["nested", "work"], status: "success", durationMs: null, metrics: { tokens: 4 } },
     ],
   },
   metadata: { producer: "example" },
@@ -51,6 +51,12 @@ assert(validateWorkflowSnapshot(valid).valid, "valid nested snapshot is accepted
 assert(parseWorkflowSnapshot(valid) === valid, "parse returns the validated value");
 assert(CURRENT_SCHEMA_VERSION === 1, "the first public schema is v1");
 assert(JSON.stringify(SUPPORTED_SCHEMA_VERSIONS) === "[1]", "exactly one schema is supported");
+
+for (const [status, durationMs] of [["success", 0], ["failed", null], ["skipped", null]]) {
+  const outcome = structuredClone(valid);
+  outcome.execution.nodes = [{ path: ["input"], status, durationMs }];
+  assert(validateWorkflowSnapshot(outcome).valid, `${status} is a valid final outcome`);
+}
 
 for (const [input, code] of [
   [{ workflow: { nodes: [], edges: [] } }, "missing_schema_version"],
@@ -125,17 +131,43 @@ const invalidExecution = validateWorkflowSnapshot({
     nodes: [
       { path: ["missing"], status: false },
       { path: ["input"], durationMs: 1 },
-      { path: ["input"], durationMs: 2 },
+      { path: ["input"], status: "success", durationMs: 2 },
     ],
   },
 });
 for (const code of [
   "invalid_number_field",
-  "invalid_string_field",
+  "invalid_node_status",
+  "missing_node_status",
+  "missing_node_duration",
   "unknown_node_path",
   "duplicate_node_execution",
 ]) {
   assert(invalidExecution.errors.some((entry) => entry.code === code), `${code} is reported for execution state`);
+}
+
+const invalidSkippedDuration = validateWorkflowSnapshot({
+  ...valid,
+  execution: {
+    nodes: [{ path: ["input"], status: "skipped", durationMs: 0 }],
+  },
+});
+assert(
+  invalidSkippedDuration.errors.some((entry) => entry.code === "invalid_skipped_duration"),
+  "skipped nodes require a null duration",
+);
+
+for (const status of ["pending", "running", "degraded", "unknown"]) {
+  const invalidOpenStatus = validateWorkflowSnapshot({
+    ...valid,
+    execution: {
+      nodes: [{ path: ["input"], status, durationMs: null }],
+    },
+  });
+  assert(
+    invalidOpenStatus.errors.some((entry) => entry.code === "invalid_node_status"),
+    `${status} is rejected by the closed final-outcome enum`,
+  );
 }
 
 const invalidRange = validateWorkflowSnapshot({

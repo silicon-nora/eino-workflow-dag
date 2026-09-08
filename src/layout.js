@@ -166,9 +166,9 @@ const runtime = {};
   }
 
   /**
-   * 为一个 Graph 层计算全局 Level 轨道。
-   * 每个 Level 的所有节点共享同一腰线；Level 0 为原点，其余 Level 可向交叉轴
-   * 正向或负向扩展，并依据相邻轨道距离与两侧占用选择更合适的位置。
+   * Compute graph-local Level rails around Level 0. Topology-only slots choose
+   * a stable side for every higher Level; measured bounds then determine the
+   * collision-free distance on that side.
    */
   function packByRailLevels(items, edges, nested, profile, spacing) {
     var gap = spacing.nodeNode;
@@ -193,6 +193,7 @@ const runtime = {};
       });
 
     var rails = createKeyMap();
+    var railSlots = createKeyMap();
     var occupiedMin = 0;
     var occupiedMax = 0;
     var positiveLevels = 0;
@@ -214,40 +215,49 @@ const runtime = {};
       if (li === 0) {
         occupiedMin = minOffset;
         occupiedMax = maxOffset;
+        railSlots[level] = 0;
       } else {
         var positiveRail = occupiedMax + gap - minOffset;
         var negativeRail = occupiedMin - gap - maxOffset;
-        var connectedRails = [];
+        var connectedSlots = [];
         for (var ei = 0; ei < edges.length; ei++) {
           var edge = edges[ei];
           var source = itemById[edge.from];
           var target = itemById[edge.to];
           if (!source || !target) continue;
-          if (source.level === level && rails[target.level] != null) {
-            connectedRails.push(rails[target.level]);
-          } else if (target.level === level && rails[source.level] != null) {
-            connectedRails.push(rails[source.level]);
+          if (source.level === level && railSlots[target.level] != null) {
+            connectedSlots.push(railSlots[target.level]);
+          } else if (
+            target.level === level &&
+            railSlots[source.level] != null
+          ) {
+            connectedSlots.push(railSlots[source.level]);
           }
         }
+        var positiveSlot = positiveLevels + 1;
+        var negativeSlot = -(negativeLevels + 1);
         var score = function score(candidate) {
           var distance = 0;
-          for (var ri = 0; ri < connectedRails.length; ri++) {
-            distance += Math.abs(candidate - connectedRails[ri]);
+          for (var ri = 0; ri < connectedSlots.length; ri++) {
+            distance += Math.abs(candidate - connectedSlots[ri]);
           }
-          var nextMin = Math.min(occupiedMin, candidate + minOffset);
-          var nextMax = Math.max(occupiedMax, candidate + maxOffset);
+          var nextMin = Math.min(-negativeLevels, candidate);
+          var nextMax = Math.max(positiveLevels, candidate);
           return distance + (nextMax - nextMin) * 0.5;
         };
-        var positiveScore = score(positiveRail);
-        var negativeScore = score(negativeRail);
+        var positiveScore = score(positiveSlot);
+        var negativeScore = score(negativeSlot);
+        var slot;
         if (negativeScore < positiveScore - 1e-6) {
-          rail = negativeRail;
+          slot = negativeSlot;
         } else if (positiveScore < negativeScore - 1e-6) {
-          rail = positiveRail;
+          slot = positiveSlot;
         } else {
-          rail = negativeLevels < positiveLevels ? negativeRail : positiveRail;
+          slot = negativeLevels < positiveLevels ? negativeSlot : positiveSlot;
         }
-        if (rail < 0) negativeLevels += 1;
+        railSlots[level] = slot;
+        rail = slot < 0 ? negativeRail : positiveRail;
+        if (slot < 0) negativeLevels += 1;
         else positiveLevels += 1;
         occupiedMin = Math.min(occupiedMin, rail + minOffset);
         occupiedMax = Math.max(occupiedMax, rail + maxOffset);
@@ -268,30 +278,44 @@ const runtime = {};
   function placeFlatLayer(items, edges, nested, profile, spacing) {
     if (!items.length) return;
     var layerOf = assignLayers(items, edges);
-    var maxL = 0;
+    var incoming = createKeyMap();
+    var itemById = createKeyMap();
     var i;
     for (i = 0; i < items.length; i++) {
       items[i]._layer = layerOf[items[i].id] || 0;
-      if (items[i]._layer > maxL) maxL = items[i]._layer;
+      items[i]._order = i;
+      incoming[items[i].id] = [];
+      itemById[items[i].id] = items[i];
     }
-    var span = [];
-    for (i = 0; i <= maxL; i++) span[i] = 0;
-    for (i = 0; i < items.length; i++) {
-      var Lay = items[i]._layer;
-      var ms = mainSize(items[i], profile);
-      if (ms > span[Lay]) span[Lay] = ms;
+    for (i = 0; i < edges.length; i++) {
+      var edge = edges[i];
+      if (!itemById[edge.from] || !incoming[edge.to]) continue;
+      incoming[edge.to].push(edge.from);
     }
-    var orig = [0];
-    for (i = 1; i <= maxL; i++) {
-      orig[i] = orig[i - 1] + span[i - 1] + spacing.betweenLayers;
-    }
-    for (i = 0; i < items.length; i++) {
-      var extra = span[items[i]._layer] - mainSize(items[i], profile);
-      setMainCoord(
-        items[i],
-        profile,
-        orig[items[i]._layer] + extra / 2,
-      );
+
+    /**
+     * Advance each branch from its direct predecessors. Complete cross-axis
+     * bounds are separated by packByRailLevels, so different Levels may share
+     * main-axis space without inheriting the widest Graph in a topology layer.
+     */
+    var ordered = items.slice().sort(function (a, b) {
+      return a._layer - b._layer || a._order - b._order;
+    });
+    for (i = 0; i < ordered.length; i++) {
+      var item = ordered[i];
+      var start = 0;
+      var predecessors = incoming[item.id] || [];
+      for (var pi = 0; pi < predecessors.length; pi++) {
+        var predecessor = itemById[predecessors[pi]];
+        if (!predecessor) continue;
+        start = Math.max(
+          start,
+          mainCoord(predecessor, profile) +
+            mainSize(predecessor, profile) +
+            spacing.betweenLayers,
+        );
+      }
+      setMainCoord(item, profile, start);
     }
 
     for (i = 0; i < items.length; i++) {

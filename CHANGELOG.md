@@ -3,6 +3,28 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
+## [Unreleased]
+
+## [0.4.0-beta.3] - 2026-09-08
+
+### Changed
+
+- Finalized node execution status as the closed `success`, `failed`, or
+  `skipped` outcome enum. Execution records now require an explicit nullable
+  duration, and nodes without a final outcome are omitted rather than exposed
+  through non-final `pending`, `running`, or `degraded` presentation states.
+- Added explicit skipped-node recording to the Go adapter; generic Eino
+  callbacks continue to supply successful and failed outcomes.
+- Made parallel Level branches advance from their direct predecessors using
+  their own node widths. Expanded workflows no longer stretch shorter sibling
+  branches, while joins still wait for the furthest incoming branch.
+
+### Fixed
+
+- Kept each graph-local Level on a deterministic side of Level 0 when nested
+  workflows expand or collapse. Measured bounds may push a rail outward for
+  clearance, but no longer make it jump across the Level 0 rail.
+
 ## [0.4.0-beta.2] - 2026-09-08
 
 ### Changed

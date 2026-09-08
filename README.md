@@ -47,7 +47,7 @@ const snapshot = {
     id: "run-42",
     nodes: [
       { path: ["input"], status: "success", durationMs: 12 },
-      { path: ["model"], status: "running", durationMs: 240 },
+      { path: ["model"], status: "success", durationMs: 240 },
     ],
   },
 };
@@ -91,6 +91,8 @@ interface EinoWorkflowSnapshot {
 - Eino branches remain separate `branches`; they are not edge channels.
 - Eino field mappings are attached to data edges as `fromPath`/`toPath` arrays.
 - `execution` contains run identity, timing, status, errors, and metrics.
+- Node execution status is a closed final-outcome enum: `success`, `failed`, or
+  `skipped`. Nodes without a final outcome have no execution record.
 - Execution nodes use array paths such as `["research", "model"]`, so local IDs
   never become ambiguous.
 - `metadata` is the only extension point for application-specific JSON data.
@@ -189,11 +191,12 @@ const activeNodePath = ref(["model"]);
 ## Themes, locale, and formatting
 
 Built-in themes are `classic`, `ink`, and `midnight`. Register application
-themes with `registerWorkflowDAGTheme()`. Eino component and execution-status
-values remain open strings. The renderer maps known component categories to
-visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph` for styling and
-formatter data. Resolved kind and status labels remain available through
-`locale.kinds` and `locale.statuses`.
+themes with `registerWorkflowDAGTheme()`. Eino component values remain open
+strings, while execution status is the fixed `success`, `failed`, or `skipped`
+outcome. The renderer maps known component categories to visual kinds such as
+`llm`, `io`, `cpu`, `merge`, and `graph` for styling and formatter data.
+Resolved kind and status labels remain available through `locale.kinds` and
+`locale.statuses`.
 
 `tooltipFormatter` and `nodeLabelFormatter` receive renderer-owned plain data.
 They include the original Eino `component` and node `metadata`; they do not
@@ -220,13 +223,20 @@ Nodes at the same Level in the same graph share one cross-axis rail. Expanded
 workflow nodes align their inner Level 0 waist with the parent Level assigned
 to the wrapper. Level 0 is the reference rail; higher Levels may occupy either
 side of it (above or below for horizontal layouts, left or right for vertical
-layouts) according to connectivity and available space. Port ownership and
-edge drawing follow ascending Level order, then route length, so the same rule
-applies consistently to Level 0 through N. An expanded workflow's external
-rail port stays aligned with its inner Level 0 rail. Consequently, adjacent
-same-Level nodes use a straight connection when the corridor is clear; a
-same-Level edge may still bend when it must pass an intervening node or other
-obstacle.
+layouts). A Level's side is derived deterministically from graph-local Level
+connectivity and balance, while measured bounds determine its collision-free
+distance on that side. Expanding a workflow may push an outer rail farther
+away, but does not move that rail across Level 0. Parallel Levels start from
+the same predecessor boundary and advance independently according to the actual
+width of each branch; an expanded workflow does not stretch a shorter parallel
+branch. A join starts after the furthest of its direct predecessors.
+
+Port ownership and edge drawing follow ascending Level order, then route
+length, so the same rule applies consistently to Level 0 through N. An
+expanded workflow's external rail port stays aligned with its inner Level 0
+rail. Consequently, adjacent same-Level nodes use a straight connection when
+the corridor is clear; a same-Level edge may still bend when it must pass an
+intervening node or other obstacle.
 The visible-graph callback exposes `levelZeroPath` and
 `levelZeroDurationMs` as a summary of the root graph's first rail.
 

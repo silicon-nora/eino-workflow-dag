@@ -90,7 +90,7 @@ test("runs the exact packed UMD and CSS", async ({ page }) => {
     window.packedSnapshot = {
       schemaVersion: 1,
       workflow: { nodes: [{ id: "node", name: "Node" }], edges: [] },
-      execution: { nodes: [{ path: ["node"], status: "running" }] },
+      execution: { nodes: [{ path: ["node"], status: "success", durationMs: null }] },
     };
     window.packedDAG = window.EinoWorkflowDAG.createWorkflowDAG(
       document.querySelector("#packed"),

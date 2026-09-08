@@ -95,7 +95,7 @@ const reconciled = syncCytoscapeElements(cy, [
       label: "B",
       title: "B",
       kind: "cpu",
-      status: "pending",
+      status: "skipped",
       cost_ms: 0,
       metrics: null,
       err_msg: "",

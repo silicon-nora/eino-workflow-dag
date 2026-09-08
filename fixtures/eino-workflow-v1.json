@@ -134,25 +134,36 @@
           "answer",
           "invoke"
         ],
-        "status": "success"
+        "status": "success",
+        "durationMs": null
       },
       {
         "path": [
           "answer"
         ],
-        "status": "success"
+        "status": "success",
+        "durationMs": null
+      },
+      {
+        "path": [
+          "fallback"
+        ],
+        "status": "skipped",
+        "durationMs": null
       },
       {
         "path": [
           "prepare"
         ],
-        "status": "success"
+        "status": "success",
+        "durationMs": null
       },
       {
         "path": [
           "route"
         ],
-        "status": "success"
+        "status": "success",
+        "durationMs": null
       }
     ]
   }

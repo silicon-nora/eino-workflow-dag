@@ -9,6 +9,22 @@ async function settleLayout(page) {
   );
 }
 
+async function inspectOuterLevelDeltas(page, direction) {
+  return page.evaluate((activeDirection) => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.routingPreview[access]();
+    const crossAxis =
+      activeDirection === "RIGHT" || activeDirection === "LEFT" ? "y" : "x";
+    const levelZero = cy.getElementById("route_strategy").position(crossAxis);
+    return {
+      levelOne:
+        cy.getElementById("batch_analysis").position(crossAxis) - levelZero,
+      levelTwo:
+        cy.getElementById("update_profile").position(crossAxis) - levelZero,
+    };
+  }, direction);
+}
+
 async function inspectRoutes(page, direction) {
   return page.evaluate((activeDirection) => {
     const access = Symbol.for("eino-workflow-dag.cytoscape");
@@ -200,6 +216,90 @@ test("an expanded graph keeps its external Level 0 edge straight", async ({
       geometry.pointCount,
       `${direction}: unobstructed same-Level route is straight`,
     ).toBe(2);
+  }
+});
+
+test("production branches advance by their own rendered width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/examples/routing-preview/");
+  await page.locator("#dag canvas").first().waitFor();
+  await page.locator("#case").selectOption("production");
+  await settleLayout(page);
+
+  for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+    await page.evaluate(() => window.routingPreview.setExpanded([]));
+    await settleLayout(page);
+    await page.locator(`[data-direction="${direction}"]`).click();
+    await settleLayout(page);
+    const collapsedDeltas = await inspectOuterLevelDeltas(page, direction);
+    await page.evaluate(() =>
+      window.routingPreview.setExpanded([["guided_flow"]]),
+    );
+    await settleLayout(page);
+    const expandedDeltas = await inspectOuterLevelDeltas(page, direction);
+    const geometry = await page.evaluate((activeDirection) => {
+      const access = Symbol.for("eino-workflow-dag.cytoscape");
+      const cy = window.routingPreview[access]();
+      const bounds = (id) =>
+        cy.getElementById(id).boundingBox({
+          includeLabels: false,
+          includeOverlays: false,
+        });
+      const start = (box) => {
+        if (activeDirection === "RIGHT") return box.x1;
+        if (activeDirection === "LEFT") return -box.x2;
+        if (activeDirection === "DOWN") return box.y1;
+        return -box.y2;
+      };
+      const end = (box) => {
+        if (activeDirection === "RIGHT") return box.x2;
+        if (activeDirection === "LEFT") return -box.x1;
+        if (activeDirection === "DOWN") return box.y2;
+        return -box.y1;
+      };
+      const analysis = bounds("batch_analysis");
+      const compose = bounds("batch_compose");
+      const profile = bounds("update_profile");
+      const guided = bounds("guided_flow");
+      return {
+        forkInputDelta: Math.abs(start(analysis) - start(guided)),
+        siblingInputDelta: Math.abs(start(compose) - start(profile)),
+        sideBranchGap: start(compose) - end(analysis),
+        sideBranchRemainingSpan: end(guided) - end(compose),
+      };
+    }, direction);
+
+    expect(
+      Math.sign(expandedDeltas.levelOne),
+      `${direction}: Level 1 keeps its side when Guided Flow expands`,
+    ).toBe(Math.sign(collapsedDeltas.levelOne));
+    expect(
+      Math.sign(expandedDeltas.levelTwo),
+      `${direction}: Level 2 keeps its side when Guided Flow expands`,
+    ).toBe(Math.sign(collapsedDeltas.levelTwo));
+
+    expect(
+      geometry.forkInputDelta,
+      `${direction}: direct branches share an input boundary`,
+    ).toBeLessThan(10);
+    expect(
+      geometry.siblingInputDelta,
+      `${direction}: side-branch siblings share an input boundary`,
+    ).toBeLessThan(2);
+    expect(
+      geometry.sideBranchGap,
+      `${direction}: side branch uses the configured local gap`,
+    ).toBeGreaterThan(30);
+    expect(
+      geometry.sideBranchGap,
+      `${direction}: expanded sibling does not stretch the side branch`,
+    ).toBeLessThan(80);
+    expect(
+      geometry.sideBranchRemainingSpan,
+      `${direction}: short branch remains inside the expanded branch span`,
+    ).toBeGreaterThan(300);
   }
 });
 

@@ -61,11 +61,17 @@ snapshot.Execution = &execution
 ```
 
 The recorder uses Eino's hierarchical execution address to produce node paths,
-including nested paths such as `[]string{"answer", "invoke"}`. It records
-running, success, and failed states plus start, finish, duration, and error
-message fields. Streaming callbacks measure component invocation latency; an
-error raised later while consuming a returned stream is not visible through
-Eino's `OnError` callback and must be added by the stream consumer.
+including nested paths such as `[]string{"answer", "invoke"}`. It emits only
+final `success` and `failed` node records plus start, finish, duration, and error
+message fields. A node that has started but not finished is omitted from the
+returned execution snapshot.
+
+Eino's generic callbacks do not expose skipped nodes. When routing or
+observability data authoritatively identifies one, call
+`recorder.MarkSkipped([]string{"path", "to", "node"})`; it emits `skipped`
+with `durationMs: null`. An error raised later while consuming a returned stream
+is not visible through Eino's `OnError` callback and must be added by the stream
+consumer.
 
 The supported Eino range is `>=0.9.0 <0.10.0`. CI tests the oldest supported
 release and `v0.9.19`, the stable release used by this module. A real compiled

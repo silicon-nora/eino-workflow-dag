@@ -33,6 +33,28 @@ const snapshot: EinoWorkflowSnapshot = {
     nodes: [{ path: ["model"], status: "success", durationMs: 100 }],
   },
 };
+const invalidStatusSnapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: { nodes: [{ id: "model" }], edges: [] },
+  execution: {
+    nodes: [{
+      path: ["model"],
+      // @ts-expect-error execution status is a closed final-outcome enum
+      status: "running",
+      durationMs: null,
+    }],
+  },
+};
+const missingDurationSnapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: { nodes: [{ id: "model" }], edges: [] },
+  execution: {
+    // @ts-expect-error every final node outcome declares measured or null duration
+    nodes: [{ path: ["model"], status: "success" }],
+  },
+};
+void invalidStatusSnapshot;
+void missingDurationSnapshot;
 const activePath: NodePath = ["model"];
 const container = document.createElement("div");
 const instance = createWorkflowDAG(container, {

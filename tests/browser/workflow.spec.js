@@ -93,7 +93,7 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
     const next = structuredClone(window.dagSnapshot);
     next.workflow.nodes.push({ id: "audit", name: "Audit", component: "Lambda" });
     next.workflow.edges.push({ from: "answer", to: "audit", channels: ["control"] });
-    next.execution.nodes.push({ path: ["audit"], status: "pending", durationMs: 0 });
+    next.execution.nodes.push({ path: ["audit"], status: "skipped", durationMs: null });
     window.dagSnapshot = next;
     window.dagInstance.update(next);
   });
@@ -115,7 +115,7 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
         edges: [],
       },
       execution: {
-        nodes: [{ path: ["group/one", "child/two"], status: "running" }],
+        nodes: [{ path: ["group/one", "child/two"], status: "success", durationMs: null }],
       },
     };
     window.dagInstance.update(snapshot, { preserveExpanded: false });

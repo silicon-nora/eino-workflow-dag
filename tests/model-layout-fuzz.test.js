@@ -36,7 +36,7 @@ function makeLayer(random, seed, depth, count) {
       id,
       name: `Node ${seed}/${depth}/${index}`,
       kind: nested ? "graph" : index % 5 === 0 ? "llm" : "cpu",
-      status: index % 9 === 7 ? "skipped" : index % 3 === 0 ? "running" : "success",
+      status: index % 9 === 7 ? "skipped" : index % 5 === 0 ? "failed" : "success",
       cost_ms: Math.floor(random() * 5000),
       ...(nested
         ? { graph: makeLayer(random, seed + index + 1, depth + 1, 3 + (index % 3)) }
