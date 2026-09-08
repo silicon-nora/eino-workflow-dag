@@ -45,10 +45,10 @@ JavaScript contract.
 - [x] Publish support, security, contribution, provenance, and release procedures
 - [x] Publish compatibility, deprecation, component/status, and theme policies
 - [x] Verify React 18/19 and Vue 3 from clean installations of the published package
-- [ ] Publish `1.0.0-rc.1` and resolve every release-blocking defect
+- [x] Publish `1.0.0-rc.1` and resolve every release-blocking defect
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
-## Current milestone — 1.0.0-rc.1 hardening
+## Current milestone — 1.0.0 stabilization
 
 - [x] Use execution duration when assigning graph-local Levels
 - [x] Keep branch geometry stable across nested-workflow expansion
@@ -57,7 +57,9 @@ JavaScript contract.
 - [x] Publish beta.3 under npm's `next` dist-tag
 - [x] Complete the protocol, layout, lifecycle, and package release-blocker audit
 - [x] Resolve every defect classified as release-blocking
-- [ ] Publish `1.0.0-rc.1` under npm's `next` dist-tag
+- [x] Publish `1.0.0-rc.1` under npm's `next` dist-tag
+- [ ] Review RC feedback and resolve any newly discovered release blocker
+- [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
 ## Alpha.3 — public boundary
 
@@ -80,8 +82,8 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Review beta.3 compatibility results and resolve release-blocking defects.
-2. Publish `1.0.0-rc.1` under npm's `next` dist-tag.
+1. Validate `1.0.0-rc.1` in representative integrations and review feedback.
+2. Fix release blockers only; publish another RC if code changes are required.
 3. Publish `1.0.0` under npm's `latest` dist-tag after RC validation.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
