@@ -167,17 +167,20 @@ const runtime = {};
 
   /**
    * 为一个 Graph 层计算全局 Level 轨道。
-   * 每个 Level 的所有节点共享同一腰线；相邻 Level 的完整包围盒保留固定间距。
+   * 每个 Level 的所有节点共享同一腰线；Level 0 为原点，其余 Level 可向交叉轴
+   * 正向或负向扩展，并依据相邻轨道距离与两侧占用选择更合适的位置。
    */
-  function packByRailLevels(items, nested, profile, spacing) {
+  function packByRailLevels(items, edges, nested, profile, spacing) {
     var gap = spacing.nodeNode;
     var groups = createKeyMap();
+    var itemById = createKeyMap();
     var i;
     for (i = 0; i < items.length; i++) {
       var lv = Number.isInteger(items[i].level) && items[i].level >= 0
         ? items[i].level
         : 0;
       items[i].level = lv;
+      itemById[items[i].id] = items[i];
       if (!groups[lv]) groups[lv] = [];
       groups[lv].push(items[i]);
     }
@@ -189,9 +192,13 @@ const runtime = {};
         return a - b;
       });
 
-    var rail = 0;
-    var previousMaxOffset = null;
+    var rails = createKeyMap();
+    var occupiedMin = 0;
+    var occupiedMax = 0;
+    var positiveLevels = 0;
+    var negativeLevels = 0;
     for (var li = 0; li < levels.length; li++) {
+      var level = levels[li];
       var members = groups[levels[li]];
       var minOffset = Infinity;
       var maxOffset = -Infinity;
@@ -203,9 +210,49 @@ const runtime = {};
         minOffset = Math.min(minOffset, -anchor);
         maxOffset = Math.max(maxOffset, crossSize(member, profile) - anchor);
       }
-      if (previousMaxOffset != null) {
-        rail += previousMaxOffset - minOffset + gap;
+      var rail = 0;
+      if (li === 0) {
+        occupiedMin = minOffset;
+        occupiedMax = maxOffset;
+      } else {
+        var positiveRail = occupiedMax + gap - minOffset;
+        var negativeRail = occupiedMin - gap - maxOffset;
+        var connectedRails = [];
+        for (var ei = 0; ei < edges.length; ei++) {
+          var edge = edges[ei];
+          var source = itemById[edge.from];
+          var target = itemById[edge.to];
+          if (!source || !target) continue;
+          if (source.level === level && rails[target.level] != null) {
+            connectedRails.push(rails[target.level]);
+          } else if (target.level === level && rails[source.level] != null) {
+            connectedRails.push(rails[source.level]);
+          }
+        }
+        var score = function score(candidate) {
+          var distance = 0;
+          for (var ri = 0; ri < connectedRails.length; ri++) {
+            distance += Math.abs(candidate - connectedRails[ri]);
+          }
+          var nextMin = Math.min(occupiedMin, candidate + minOffset);
+          var nextMax = Math.max(occupiedMax, candidate + maxOffset);
+          return distance + (nextMax - nextMin) * 0.5;
+        };
+        var positiveScore = score(positiveRail);
+        var negativeScore = score(negativeRail);
+        if (negativeScore < positiveScore - 1e-6) {
+          rail = negativeRail;
+        } else if (positiveScore < negativeScore - 1e-6) {
+          rail = positiveRail;
+        } else {
+          rail = negativeLevels < positiveLevels ? negativeRail : positiveRail;
+        }
+        if (rail < 0) negativeLevels += 1;
+        else positiveLevels += 1;
+        occupiedMin = Math.min(occupiedMin, rail + minOffset);
+        occupiedMax = Math.max(occupiedMax, rail + maxOffset);
       }
+      rails[level] = rail;
       for (j = 0; j < members.length; j++) {
         member = members[j];
         if (member.frozen) {
@@ -215,7 +262,6 @@ const runtime = {};
           setCrossCenter(member, profile, rail);
         }
       }
-      previousMaxOffset = maxOffset;
     }
   }
 
@@ -260,7 +306,7 @@ const runtime = {};
         items[i]._waistC = waistCross(items[i], nested[items[i].id], profile);
       }
     }
-    packByRailLevels(items, nested, profile, spacing);
+    packByRailLevels(items, edges, nested, profile, spacing);
 
     if (profile.forwardSign < 0) {
       var maxEnd = 0;

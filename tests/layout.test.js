@@ -414,11 +414,8 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   var higher_level_sink = posOf(laid, "higher_level_sink");
   var gap = Layout.SPACE_ROOT.nodeNode;
   assert(
-    higher_level_sink.y + 1e-6 >= rec.y + rec.height + gap,
-    "higher_level_sink sits below same-column Level 0 box + gap; higher_level_sink.y=" +
-      higher_level_sink.y +
-      " rec.bottom=" +
-      (rec.y + rec.height)
+    gapOnCross(rec, higher_level_sink, "y") + 1e-6 >= gap,
+    "higher_level_sink clears the same-column Level 0 box on either side"
   );
   assert(
     almost(
@@ -467,24 +464,26 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
     ]
   };
   var visible = Model.buildVisibleGraph(root, { downstream_graph: true });
-  var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  var items = posOf(laid, "level_zero_graph");
-  var sideNode = posOf(laid, "nested_pipeline");
-  var rec = posOf(laid, "downstream_graph");
-  var higher_level_sink = posOf(laid, "higher_level_sink");
-  assert(
-    center(sideNode, "y") > center(items, "y"),
-    "higher-Level node still yields below the rail"
-  );
-  assert(
-    center(higher_level_sink, "y") > center(rec, "y"),
-    "higher Levels are placed after lower Levels on the cross axis"
-  );
-  var gap = Layout.SPACE_ROOT.nodeNode;
-  assert(
-    gapOnCross(rec, higher_level_sink, "y") + 1e-6 >= gap,
-    "Level bands preserve at least the configured gap"
-  );
+  ["RIGHT", "LEFT", "DOWN", "UP"].forEach(function (direction) {
+    var laid = Layout.layoutVisibleGraph(visible, { direction: direction });
+    var axis = direction === "RIGHT" || direction === "LEFT" ? "y" : "x";
+    var items = posOf(laid, "level_zero_graph");
+    var sideNode = posOf(laid, "nested_pipeline");
+    var rec = posOf(laid, "downstream_graph");
+    var higher_level_sink = posOf(laid, "higher_level_sink");
+    var levelZeroRail = center(items, axis);
+    assert(
+      (center(sideNode, axis) - levelZeroRail) *
+          (center(higher_level_sink, axis) - levelZeroRail) <
+        0,
+      direction + " distributes higher Levels across both sides of Level 0"
+    );
+    var gap = Layout.SPACE_ROOT.nodeNode;
+    assert(
+      gapOnCross(rec, higher_level_sink, axis) + 1e-6 >= gap,
+      direction + " preserves the configured gap between Level bands"
+    );
+  });
 })();
 
 (function levelsStayOrderedWithFrozenBox() {
@@ -550,12 +549,18 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   var rec = posOf(laid, "downstream_graph");
   var higher_level_sink = posOf(laid, "higher_level_sink");
   assert(
-    center(sideNode, "y") > center(items, "y"),
-    "expanded pred-column box still yields below the rail"
+    !almost(center(sideNode, "y"), center(items, "y")),
+    "expanded pred-column box uses a distinct higher-Level rail"
   );
   assert(
-    center(higher_level_sink, "y") > center(rec, "y"),
-    "Level ordering remains stable when another column contains a frozen box"
+    !almost(center(higher_level_sink, "y"), center(rec, "y")),
+    "higher Level remains distinct when another column contains a frozen box"
+  );
+  assert(
+    (center(sideNode, "y") - center(items, "y")) *
+        (center(higher_level_sink, "y") - center(rec, "y")) <
+      0,
+    "expanded boxes still allow Level rails on both sides"
   );
 })();
 

@@ -218,8 +218,11 @@ applications do not provide a second path classification.
 
 Nodes at the same Level in the same graph share one cross-axis rail. Expanded
 workflow nodes align their inner Level 0 waist with the parent Level assigned
-to the wrapper. Port ownership and edge drawing follow ascending Level order,
-then route length, so the same rule applies consistently to Level 0 through N.
+to the wrapper. Level 0 is the reference rail; higher Levels may occupy either
+side of it (above or below for horizontal layouts, left or right for vertical
+layouts) according to connectivity and available space. Port ownership and
+edge drawing follow ascending Level order, then route length, so the same rule
+applies consistently to Level 0 through N.
 The visible-graph callback exposes `levelZeroPath` and
 `levelZeroDurationMs` as a summary of the root graph's first rail.
 

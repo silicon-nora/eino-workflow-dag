@@ -43,6 +43,8 @@ public contract is being validated.
   sides are actually occupied, instead of treating a reservation as use.
 - Kept every same-graph, same-Level node on one cross-axis rail, including
   expanded workflows whose content waist is aligned to a parent Level.
+- Allowed higher-Level rails to expand on either side of Level 0, selecting the
+  side from connected-rail distance and the occupied layout envelope.
 
 ## [0.4.0-alpha.3] - 2026-09-08
 
