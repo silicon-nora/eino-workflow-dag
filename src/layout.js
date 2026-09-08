@@ -166,9 +166,9 @@ const runtime = {};
   }
 
   /**
-   * 为一个 Graph 层计算全局 Level 轨道。
-   * 每个 Level 的所有节点共享同一腰线；Level 0 为原点，其余 Level 可向交叉轴
-   * 正向或负向扩展，并依据相邻轨道距离与两侧占用选择更合适的位置。
+   * Compute graph-local Level rails around Level 0. Topology-only slots choose
+   * a stable side for every higher Level; measured bounds then determine the
+   * collision-free distance on that side.
    */
   function packByRailLevels(items, edges, nested, profile, spacing) {
     var gap = spacing.nodeNode;
@@ -193,6 +193,7 @@ const runtime = {};
       });
 
     var rails = createKeyMap();
+    var railSlots = createKeyMap();
     var occupiedMin = 0;
     var occupiedMax = 0;
     var positiveLevels = 0;
@@ -214,40 +215,49 @@ const runtime = {};
       if (li === 0) {
         occupiedMin = minOffset;
         occupiedMax = maxOffset;
+        railSlots[level] = 0;
       } else {
         var positiveRail = occupiedMax + gap - minOffset;
         var negativeRail = occupiedMin - gap - maxOffset;
-        var connectedRails = [];
+        var connectedSlots = [];
         for (var ei = 0; ei < edges.length; ei++) {
           var edge = edges[ei];
           var source = itemById[edge.from];
           var target = itemById[edge.to];
           if (!source || !target) continue;
-          if (source.level === level && rails[target.level] != null) {
-            connectedRails.push(rails[target.level]);
-          } else if (target.level === level && rails[source.level] != null) {
-            connectedRails.push(rails[source.level]);
+          if (source.level === level && railSlots[target.level] != null) {
+            connectedSlots.push(railSlots[target.level]);
+          } else if (
+            target.level === level &&
+            railSlots[source.level] != null
+          ) {
+            connectedSlots.push(railSlots[source.level]);
           }
         }
+        var positiveSlot = positiveLevels + 1;
+        var negativeSlot = -(negativeLevels + 1);
         var score = function score(candidate) {
           var distance = 0;
-          for (var ri = 0; ri < connectedRails.length; ri++) {
-            distance += Math.abs(candidate - connectedRails[ri]);
+          for (var ri = 0; ri < connectedSlots.length; ri++) {
+            distance += Math.abs(candidate - connectedSlots[ri]);
           }
-          var nextMin = Math.min(occupiedMin, candidate + minOffset);
-          var nextMax = Math.max(occupiedMax, candidate + maxOffset);
+          var nextMin = Math.min(-negativeLevels, candidate);
+          var nextMax = Math.max(positiveLevels, candidate);
           return distance + (nextMax - nextMin) * 0.5;
         };
-        var positiveScore = score(positiveRail);
-        var negativeScore = score(negativeRail);
+        var positiveScore = score(positiveSlot);
+        var negativeScore = score(negativeSlot);
+        var slot;
         if (negativeScore < positiveScore - 1e-6) {
-          rail = negativeRail;
+          slot = negativeSlot;
         } else if (positiveScore < negativeScore - 1e-6) {
-          rail = positiveRail;
+          slot = positiveSlot;
         } else {
-          rail = negativeLevels < positiveLevels ? negativeRail : positiveRail;
+          slot = negativeLevels < positiveLevels ? negativeSlot : positiveSlot;
         }
-        if (rail < 0) negativeLevels += 1;
+        railSlots[level] = slot;
+        rail = slot < 0 ? negativeRail : positiveRail;
+        if (slot < 0) negativeLevels += 1;
         else positiveLevels += 1;
         occupiedMin = Math.min(occupiedMin, rail + minOffset);
         occupiedMax = Math.max(occupiedMax, rail + maxOffset);

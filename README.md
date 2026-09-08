@@ -220,10 +220,13 @@ Nodes at the same Level in the same graph share one cross-axis rail. Expanded
 workflow nodes align their inner Level 0 waist with the parent Level assigned
 to the wrapper. Level 0 is the reference rail; higher Levels may occupy either
 side of it (above or below for horizontal layouts, left or right for vertical
-layouts) according to connectivity and available space. Parallel Levels start
-from the same predecessor boundary and advance independently according to the
-actual width of each branch; an expanded workflow does not stretch a shorter
-parallel branch. A join starts after the furthest of its direct predecessors.
+layouts). A Level's side is derived deterministically from graph-local Level
+connectivity and balance, while measured bounds determine its collision-free
+distance on that side. Expanding a workflow may push an outer rail farther
+away, but does not move that rail across Level 0. Parallel Levels start from
+the same predecessor boundary and advance independently according to the actual
+width of each branch; an expanded workflow does not stretch a shorter parallel
+branch. A join starts after the furthest of its direct predecessors.
 
 Port ownership and edge drawing follow ascending Level order, then route
 length, so the same rule applies consistently to Level 0 through N. An

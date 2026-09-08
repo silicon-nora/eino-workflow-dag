@@ -235,6 +235,37 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   });
 })();
 
+(function expansionPreservesOuterLevelSides() {
+  var root = badCaseRoot();
+  var collapsed = Model.buildVisibleGraph(root, {});
+  var expanded = Model.buildVisibleGraph(root, { nested_pipeline: true });
+  ["RIGHT", "LEFT", "DOWN", "UP"].forEach(function (direction) {
+    var collapsedLayout = Layout.layoutVisibleGraph(collapsed, {
+      direction: direction
+    });
+    var expandedLayout = Layout.layoutVisibleGraph(expanded, {
+      direction: direction
+    });
+    var crossAxis = direction === "RIGHT" || direction === "LEFT" ? "y" : "x";
+    ["skipped_branch", "skipped_tail"].forEach(function (id) {
+      var collapsedDelta =
+        center(posOf(collapsedLayout, id), crossAxis) -
+        center(posOf(collapsedLayout, "dispatch"), crossAxis);
+      var expandedDelta =
+        center(posOf(expandedLayout, id), crossAxis) -
+        center(posOf(expandedLayout, "dispatch"), crossAxis);
+      assert(
+        Math.abs(collapsedDelta) > 1 && Math.abs(expandedDelta) > 1,
+        direction + " keeps " + id + " outside the Level 0 rail"
+      );
+      assert(
+        collapsedDelta * expandedDelta > 0,
+        direction + " preserves the side of " + id + " across expansion"
+      );
+    });
+  });
+})();
+
 (function higherLevelChainUsesOwnRail() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });

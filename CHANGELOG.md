@@ -11,6 +11,12 @@ public contract is being validated.
   their own node widths. Expanded workflows no longer stretch shorter sibling
   branches, while joins still wait for the furthest incoming branch.
 
+### Fixed
+
+- Kept each graph-local Level on a deterministic side of Level 0 when nested
+  workflows expand or collapse. Measured bounds may push a rail outward for
+  clearance, but no longer make it jump across the Level 0 rail.
+
 ## [0.4.0-beta.2] - 2026-09-08
 
 ### Changed

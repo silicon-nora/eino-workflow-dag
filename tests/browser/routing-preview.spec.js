@@ -9,6 +9,22 @@ async function settleLayout(page) {
   );
 }
 
+async function inspectOuterLevelDeltas(page, direction) {
+  return page.evaluate((activeDirection) => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.routingPreview[access]();
+    const crossAxis =
+      activeDirection === "RIGHT" || activeDirection === "LEFT" ? "y" : "x";
+    const levelZero = cy.getElementById("route_strategy").position(crossAxis);
+    return {
+      levelOne:
+        cy.getElementById("batch_analysis").position(crossAxis) - levelZero,
+      levelTwo:
+        cy.getElementById("update_profile").position(crossAxis) - levelZero,
+    };
+  }, direction);
+}
+
 async function inspectRoutes(page, direction) {
   return page.evaluate((activeDirection) => {
     const access = Symbol.for("eino-workflow-dag.cytoscape");
@@ -210,12 +226,19 @@ test("production branches advance by their own rendered width", async ({
   await page.goto("/examples/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
   await page.locator("#case").selectOption("production");
-  await page.evaluate(() => window.routingPreview.setExpanded([["guided_flow"]]));
   await settleLayout(page);
 
   for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+    await page.evaluate(() => window.routingPreview.setExpanded([]));
+    await settleLayout(page);
     await page.locator(`[data-direction="${direction}"]`).click();
     await settleLayout(page);
+    const collapsedDeltas = await inspectOuterLevelDeltas(page, direction);
+    await page.evaluate(() =>
+      window.routingPreview.setExpanded([["guided_flow"]]),
+    );
+    await settleLayout(page);
+    const expandedDeltas = await inspectOuterLevelDeltas(page, direction);
     const geometry = await page.evaluate((activeDirection) => {
       const access = Symbol.for("eino-workflow-dag.cytoscape");
       const cy = window.routingPreview[access]();
@@ -247,6 +270,15 @@ test("production branches advance by their own rendered width", async ({
         sideBranchRemainingSpan: end(guided) - end(compose),
       };
     }, direction);
+
+    expect(
+      Math.sign(expandedDeltas.levelOne),
+      `${direction}: Level 1 keeps its side when Guided Flow expands`,
+    ).toBe(Math.sign(collapsedDeltas.levelOne));
+    expect(
+      Math.sign(expandedDeltas.levelTwo),
+      `${direction}: Level 2 keeps its side when Guided Flow expands`,
+    ).toBe(Math.sign(collapsedDeltas.levelTwo));
 
     expect(
       geometry.forkInputDelta,
