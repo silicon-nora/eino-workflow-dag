@@ -228,6 +228,10 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
     almost(center(dispatch, "y"), center(innerLevelZero, "y")),
     "parent rail aligns to nested Level 0"
   );
+  assert(
+    almost(laid.railAnchors.nested_pipeline.y, center(innerLevelZero, "y")),
+    "expanded graph publishes its Level 0 rail anchor"
+  );
   sameRail(laid, OUTER_LEVEL_ZERO, "y", "outer Level 0 Y");
   assert(almost(center(dispatch, "y"), center(posOf(laid, OUTER_LEVEL_ZERO[0]), "y")), "dispatch on outer rail");
 })();

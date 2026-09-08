@@ -333,6 +333,30 @@ function wrapper(id, x, y, w, h) {
   };
 }
 
+(function wrapperRailAnchorUsesInnerLevelZero() {
+  var box = wrapper("wg", 200, 100, 800, 360);
+  box._levelZeroAnchor = { x: 110, y: 72 };
+  box.ports = [
+    {
+      id: "wg:west-anchor",
+      _end: "in",
+      _railAnchor: true,
+      side: "WEST",
+    },
+  ];
+  var graph = {
+    id: "root",
+    _axisProfile: R,
+    children: [box],
+    edges: [],
+  };
+  Cyto.spreadAllFixedPorts(graph, { wg: box });
+  assert(
+    Math.abs(box.ports[0].y - 72) <= 1e-6,
+    "expanded wrapper anchor follows its inner Level 0 rail"
+  );
+})();
+
 (function wrapperForwardEdgeSharesEastWithAnchor() {
   var railGraph = wrapper("rail_graph", 1778, 29, 1328, 451);
   var downstream = wrapper("downstream", 3612, 221, 1051, 68);

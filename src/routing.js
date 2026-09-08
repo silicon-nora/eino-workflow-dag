@@ -306,17 +306,49 @@ export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
     nodeK.height = box.height;
   };
 
-  /** Pin the preferred rail port to the rendered wrapper midpoint. */
-  var pinRailPortsToWrapperCenter = function pinRailPortsToWrapperCenter(
+  /**
+   * Expanded Graph 的外部轨道端口必须与其内部 Level 0 腰线对齐。
+   * Builtin layout 会直接携带该锚点；自定义 layout 缺失时从 Level 0
+   * 子节点递归推导，最后才回退到内容包围盒中点。
+   */
+  var graphWrapperLevelZeroCross = function graphWrapperLevelZeroCross(
+    nodeK,
+    profile,
+  ) {
+    var p = profile || defaultAxisProfile();
+    var explicit = nodeK && nodeK._levelZeroAnchor;
+    if (explicit && Number.isFinite(explicit[p.cross])) {
+      return explicit[p.cross];
+    }
+    var children = (nodeK && nodeK.children) || [];
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      var level =
+        child && child._cyEle && typeof child._cyEle.data === "function"
+          ? Number(child._cyEle.data("level"))
+          : NaN;
+      if (level !== 0) continue;
+      var origin = p.cross === "y" ? child.y || 0 : child.x || 0;
+      if (isGraphWrapper(child)) {
+        return origin + graphWrapperLevelZeroCross(child, p);
+      }
+      var size = p.cross === "y" ? child.height || 0 : child.width || 0;
+      return origin + size / 2;
+    }
+    var bounds = graphWrapperContentBounds(nodeK);
+    return p.cross === "y" ? bounds.midY : bounds.midX;
+  };
+
+  var pinRailPortsToWrapperLevelZero = function pinRailPortsToWrapperLevelZero(
     nodeK,
     profile,
   ) {
     if (!isGraphWrapper(nodeK) || !nodeK.ports || !nodeK.ports.length) return;
     syncGraphWrapperSize(nodeK);
-    var b = graphWrapperContentBounds(nodeK);
     var w = nodeK.width;
     var h = nodeK.height;
     var p = profile || defaultAxisProfile();
+    var railCross = graphWrapperLevelZeroCross(nodeK, p);
     for (var i = 0; i < nodeK.ports.length; i++) {
       var port = nodeK.ports[i];
       if (!port || !port._railAnchor) continue;
@@ -324,9 +356,9 @@ export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
       if (side === p.inSide || side === p.outSide) {
         if (p.axis === "x") {
           port.x = side === "EAST" ? w : 0;
-          port.y = b.midY;
+          port.y = railCross;
         } else {
-          port.x = b.midX;
+          port.x = railCross;
           port.y = side === "SOUTH" ? h : 0;
         }
       }
@@ -2309,7 +2341,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       syncNodeSizeFromAbs(k, absLookup[id]);
       syncGraphWrapperSize(k);
       spreadFixedPortsOnNode(k, absLookup, profile);
-      pinRailPortsToWrapperCenter(k, profile);
+      pinRailPortsToWrapperLevelZero(k, profile);
     });
   };
 

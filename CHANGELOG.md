@@ -45,6 +45,9 @@ public contract is being validated.
   expanded workflows whose content waist is aligned to a parent Level.
 - Allowed higher-Level rails to expand on either side of Level 0, selecting the
   side from connected-rail distance and the occupied layout envelope.
+- Aligned expanded-workflow boundary ports with the workflow's inner Level 0
+  rail, keeping unobstructed same-Level connections straight without disabling
+  obstacle detours.
 
 ## [0.4.0-alpha.3] - 2026-09-08
 

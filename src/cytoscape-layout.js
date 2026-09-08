@@ -184,7 +184,11 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     });
   };
 
-  var applyPositionsToGraph = function applyPositionsToGraph(graph, absPos) {
+  var applyPositionsToGraph = function applyPositionsToGraph(
+    graph,
+    absPos,
+    railAnchors,
+  ) {
     var origin = { x: 0, y: 0 };
     var walk = function (node, parentAbs) {
       var abs = absPos && absPos[node.id];
@@ -193,6 +197,17 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
         node.height = abs.height;
         node.x = abs.x - parentAbs.x;
         node.y = abs.y - parentAbs.y;
+        var anchor = railAnchors && railAnchors[node.id];
+        if (
+          anchor &&
+          Number.isFinite(anchor.x) &&
+          Number.isFinite(anchor.y)
+        ) {
+          node._levelZeroAnchor = {
+            x: anchor.x - abs.x,
+            y: anchor.y - abs.y,
+          };
+        }
       }
       var kids = node.children || [];
       var selfAbs = abs || parentAbs;
@@ -257,7 +272,7 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     var graph = makeGraph(nodes, edges, options);
     graph.layoutOptions = options.layoutConfig;
     graph._axisProfile = profileFromOpts;
-    applyPositionsToGraph(graph, laid.positions);
+    applyPositionsToGraph(graph, laid.positions, laid.railAnchors);
 
     if (typeof rules.onGraphBuilt === "function") {
       rules.onGraphBuilt(graph);

@@ -428,7 +428,7 @@ const runtime = {};
     };
   }
 
-  function flatten(laid, ox, oy, abs) {
+  function flatten(laid, ox, oy, abs, railAnchors) {
     var items = (laid && laid.items) || [];
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
@@ -436,8 +436,15 @@ const runtime = {};
       var y = oy + it.y;
       abs[it.id] = { x: x, y: y, width: it.width, height: it.height };
       if (it.frozen && laid.nested[it.id]) {
-        var p = laid.nested[it.id].pad || ZERO_PAD;
-        flatten(laid.nested[it.id], x + p.left, y + p.top, abs);
+        var inner = laid.nested[it.id];
+        var p = inner.pad || ZERO_PAD;
+        var innerX = x + p.left;
+        var innerY = y + p.top;
+        railAnchors[it.id] = {
+          x: innerX + inner.contentMid.x,
+          y: innerY + inner.contentMid.y,
+        };
+        flatten(inner, innerX, innerY, abs, railAnchors);
       }
     }
   }
@@ -446,8 +453,13 @@ const runtime = {};
     var profile = axisProfile(opts && opts.direction);
     var laid = layoutLayer(visible, null, profile, SPACE_ROOT, false);
     var abs = createKeyMap();
-    flatten(laid, 0, 0, abs);
-    return { positions: toPlainRecord(abs), profile: profile };
+    var railAnchors = createKeyMap();
+    flatten(laid, 0, 0, abs, railAnchors);
+    return {
+      positions: toPlainRecord(abs),
+      railAnchors: toPlainRecord(railAnchors),
+      profile: profile,
+    };
   }
 
   global.WorkflowDAGLayout = {

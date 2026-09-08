@@ -143,3 +143,115 @@ test("routing preview covers every case and direction", async ({ page }) => {
     }
   }
 });
+
+test("an expanded graph keeps its external Level 0 edge straight", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/examples/routing-preview/");
+  await page.locator("#dag canvas").first().waitFor();
+  await page.locator("#case").selectOption("production");
+  await page.evaluate(() => window.routingPreview.setExpanded([["guided_flow"]]));
+  await settleLayout(page);
+
+  for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+    await page.locator(`[data-direction="${direction}"]`).click();
+    await settleLayout(page);
+    const geometry = await page.evaluate((activeDirection) => {
+      const access = Symbol.for("eino-workflow-dag.cytoscape");
+      const cy = window.routingPreview[access]();
+      const edge = cy.edges().filter(
+        (candidate) =>
+          candidate.source().id() === "route_strategy" &&
+          candidate.target().id() === "guided_flow",
+      )[0];
+      const route = edge?.scratch("einoWorkflowDAG")?._flowAbsRoute || [];
+      const crossAxis =
+        activeDirection === "RIGHT" || activeDirection === "LEFT" ? "y" : "x";
+      const levelZeroChild = edge
+        ?.target()
+        .children()
+        .filter((child) => Number(child.data("level")) === 0)[0];
+      return {
+        sourceLevel: Number(edge?.source().data("level")),
+        targetLevel: Number(edge?.target().data("level")),
+        pointCount: route.length,
+        endpointCrossDelta:
+          route.length >= 2
+            ? Math.abs(route[0][crossAxis] - route.at(-1)[crossAxis])
+            : Infinity,
+        targetRailDelta:
+          route.length >= 2 && levelZeroChild
+            ? Math.abs(route.at(-1)[crossAxis] - levelZeroChild.position(crossAxis))
+            : Infinity,
+      };
+    }, direction);
+    expect(geometry.sourceLevel, `${direction}: source Level`).toBe(0);
+    expect(geometry.targetLevel, `${direction}: target Level`).toBe(0);
+    expect(
+      geometry.targetRailDelta,
+      `${direction}: wrapper port follows inner Level 0`,
+    ).toBeLessThanOrEqual(2);
+    expect(
+      geometry.endpointCrossDelta,
+      `${direction}: endpoints are collinear`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      geometry.pointCount,
+      `${direction}: unobstructed same-Level route is straight`,
+    ).toBe(2);
+  }
+});
+
+test("a same-Level edge may bend when its direct corridor is blocked", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/examples/routing-preview/");
+  await page.locator("#dag canvas").first().waitFor();
+  await page.evaluate(() => {
+    window.routingPreview.update({
+      schemaVersion: 1,
+      workflow: {
+        nodes: [
+          { id: "a", name: "A", component: "Lambda" },
+          { id: "b", name: "B", component: "Lambda" },
+          { id: "c", name: "C", component: "Lambda" },
+        ],
+        edges: [
+          { from: "a", to: "b", channels: ["data"] },
+          { from: "b", to: "c", channels: ["data"] },
+          { from: "a", to: "c", channels: ["data"] },
+        ],
+      },
+      execution: {
+        nodes: [
+          { path: ["a"], status: "success", durationMs: 10 },
+          { path: ["b"], status: "success", durationMs: 100 },
+          { path: ["c"], status: "success", durationMs: 10 },
+        ],
+      },
+    });
+  });
+  await settleLayout(page);
+  const geometry = await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.routingPreview[access]();
+    const edge = cy.edges().filter(
+      (candidate) =>
+        candidate.source().id() === "a" && candidate.target().id() === "c",
+    )[0];
+    const route = edge?.scratch("einoWorkflowDAG")?._flowAbsRoute || [];
+    return {
+      sourceLevel: Number(edge?.source().data("level")),
+      targetLevel: Number(edge?.target().data("level")),
+      edgeLevel: Number(edge?.data("level")),
+      pointCount: route.length,
+    };
+  });
+  expect(geometry.sourceLevel).toBe(0);
+  expect(geometry.targetLevel).toBe(0);
+  expect(geometry.edgeLevel).toBe(0);
+  expect(
+    geometry.pointCount,
+    "the route detours around the intervening node",
+  ).toBeGreaterThan(2);
+});

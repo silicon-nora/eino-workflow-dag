@@ -94,6 +94,7 @@ const result = await client.run(graph, { direction: "DOWN" });
 assert.equal(result.profile.direction, "DOWN");
 assert.ok(result.positions.input);
 assert.ok(result.positions.answer.y > result.positions.input.y);
+assert.deepEqual(result.railAnchors, {});
 assert.equal(client.pendingCount(), 0);
 
 const controller = new AbortController();
