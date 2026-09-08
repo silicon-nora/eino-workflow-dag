@@ -11,6 +11,10 @@ public contract is being validated.
   compatibility validation.
 - Extended every npm release with clean Registry consumer builds for the
   supported React and Vue peer ranges.
+- Changed default node labels to show the original Eino component and to omit
+  timing when no node execution duration was supplied.
+- Preserved an absent node duration in formatter, click, and visible-graph data
+  instead of reporting it as zero.
 
 ### Added
 
@@ -18,6 +22,10 @@ public contract is being validated.
   19, Vue 3, ESM bundling, package CSS, TypeScript, and CommonJS loading.
 - Added browser routing-invariant coverage for fan-in/fan-out graphs across
   topology updates, all four directions, and layout-cache round trips.
+- Exposed field mappings, edge metadata, and branch metadata in rendered-edge
+  data, including edge-click callbacks.
+- Added an interactive routing preview with multiple topology cases and
+  browser coverage across every supported layout direction.
 
 ### Fixed
 

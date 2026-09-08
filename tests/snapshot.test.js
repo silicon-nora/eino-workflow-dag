@@ -23,8 +23,14 @@ const snapshot = {
         },
       },
     ],
-    edges: [{ from: "input", to: "work/flow", channels: ["control"] }],
-    branches: [{ from: "input", targets: ["end"] }],
+    edges: [{
+      from: "input",
+      to: "work/flow",
+      channels: ["control", "data"],
+      mappings: [{ fromPath: ["content"], toPath: ["prompt"] }],
+      metadata: { transport: "typed" },
+    }],
+    branches: [{ from: "input", targets: ["end"], metadata: { route: "fallback" } }],
   },
   execution: {
     nodes: [
@@ -47,8 +53,20 @@ for (const path of [["START"], ["END"], ["tilde~slash/"], ["\ud800"]]) {
     `path ${JSON.stringify(path)} round trips without endpoint collisions`,
   );
 }
-assert(normalized.root.edges[0].kind === "control", "edge channels project to renderer semantics");
+assert(normalized.root.edges[0].kind === "control+data", "edge channels project to renderer semantics");
+assert(
+  normalized.root.edges[0].mappings[0].toPath[0] === "prompt",
+  "Eino field mappings survive renderer projection",
+);
+assert(
+  normalized.definition.edges[0].metadata.transport === "typed",
+  "edge metadata survives structural normalization",
+);
 assert(normalized.root.edges[1].kind === "branch", "Eino branches project to renderer edges");
+assert(
+  normalized.root.edges[1].branchMetadata.route === "fallback",
+  "branch metadata survives renderer projection",
+);
 assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");
 assert(normalized.definition.nodes[1].graph.nodes[0].kind === "llm", "Eino components map to visual kinds");
 

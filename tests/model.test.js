@@ -47,7 +47,14 @@ var fixture = {
     { id: "b", kind: "io", name: "B", status: "success", cost_ms: 5 }
   ],
   edges: [
-    { from: "a", to: "g" },
+    {
+      from: "a",
+      to: "g",
+      kind: "data",
+      mappings: [{ fromPath: ["value"], toPath: ["input"] }],
+      metadata: { transport: "typed" },
+      branchMetadata: { route: "fallback" }
+    },
     { from: "g", to: "b" },
     { from: "a", to: "b", entry: "pin_internal" },
     { from: "g", toParent: "b" }
@@ -72,6 +79,9 @@ var c1 = expanded.nodes.filter(function (n) { return n.id === "g/c1"; })[0];
 assert(c1 && c1.metrics && c1.metrics.is_cached === true, "nested metrics passthrough");
 var outerToG = expanded.edges.filter(function (e) { return e.from === "a" && e.to === "g"; });
 assert(outerToG.length === 1, "external edge anchors wrapper g");
+assert(outerToG[0].mappings[0].toPath[0] === "input", "field mappings survive visible-edge materialization");
+assert(outerToG[0].metadata.transport === "typed", "edge metadata survives visible-edge materialization");
+assert(outerToG[0].branchMetadata.route === "fallback", "branch metadata survives visible-edge materialization");
 var inner = expanded.edges.filter(function (e) { return e.from === "g/c1" && e.to === "g/c2"; });
 assert(inner.length === 1, "internal edge from graph.edges");
 assert(!expanded.edges.some(function (e) { return e.toParent || e.entry; }), "no legacy fields on edges");

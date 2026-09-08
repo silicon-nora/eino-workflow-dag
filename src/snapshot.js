@@ -50,7 +50,7 @@ function visualKind(component) {
 function graphEdges(workflow) {
   const byPair = new Map();
 
-  function add(from, to, channels) {
+  function add(from, to, channels, details = {}) {
     const key = JSON.stringify([from, to]);
     let entry = byPair.get(key);
     if (!entry) {
@@ -58,11 +58,25 @@ function graphEdges(workflow) {
       byPair.set(key, entry);
     }
     for (const channel of channels) entry.channels.add(channel);
+    if (details.mappings !== undefined) entry.mappings = details.mappings;
+    if (details.metadata !== undefined) entry.metadata = details.metadata;
+    if (details.branchMetadata !== undefined) {
+      entry.branchMetadata = details.branchMetadata;
+    }
   }
 
-  for (const edge of workflow.edges) add(edge.from, edge.to, edge.channels);
+  for (const edge of workflow.edges) {
+    add(edge.from, edge.to, edge.channels, {
+      mappings: edge.mappings,
+      metadata: edge.metadata,
+    });
+  }
   for (const branch of workflow.branches || []) {
-    for (const target of branch.targets) add(branch.from, target, ["branch"]);
+    for (const target of branch.targets) {
+      add(branch.from, target, ["branch"], {
+        branchMetadata: branch.metadata,
+      });
+    }
   }
 
   const order = ["control", "data", "branch"];
@@ -70,6 +84,11 @@ function graphEdges(workflow) {
     from: internalEndpoint(edge.from),
     to: internalEndpoint(edge.to),
     kind: order.filter((channel) => edge.channels.has(channel)).join("+"),
+    ...(edge.mappings === undefined ? {} : { mappings: edge.mappings }),
+    ...(edge.metadata === undefined ? {} : { metadata: edge.metadata }),
+    ...(edge.branchMetadata === undefined
+      ? {}
+      : { branchMetadata: edge.branchMetadata }),
   }));
 }
 
@@ -155,6 +174,11 @@ export function normalizeDAGSnapshot(snapshot) {
       from: edge.from,
       to: edge.to,
       ...(edge.kind === undefined ? {} : { kind: edge.kind }),
+      ...(edge.mappings === undefined ? {} : { mappings: edge.mappings }),
+      ...(edge.metadata === undefined ? {} : { metadata: edge.metadata }),
+      ...(edge.branchMetadata === undefined
+        ? {}
+        : { branchMetadata: edge.branchMetadata }),
     }));
 
     target.nodes = source.nodes.map((node) => {

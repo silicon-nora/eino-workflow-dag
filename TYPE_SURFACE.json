@@ -1,7 +1,7 @@
 {
   ".": {
     "path": "src/index.d.ts",
-    "sha256": "dcb3d80db0f2a5e023128d4fbcdeb9b8b021e80c034f55162ef32ea594066481"
+    "sha256": "33ad21df6a6de519374843aa84b3e080a5dc25dc40b7f1ca59ab856eafc28a90"
   },
   "./validation": {
     "path": "src/validation.d.ts",

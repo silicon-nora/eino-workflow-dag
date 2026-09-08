@@ -143,7 +143,7 @@ import {
       component: node.component || "",
       metadata: node.metadata || null,
       status: node.status || "",
-      durationMs: node.cost_ms || 0,
+      ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
       metrics: node.metrics || null,
       errorMessage: node.err_msg || "",
       expandable: !!node.expandable,
@@ -166,6 +166,10 @@ import {
       source: decodeNodePath(edge.source),
       target: decodeNodePath(edge.target),
       channels: edgeChannels(edge.kind),
+      mappings: Array.isArray(edge.mappings) ? edge.mappings : [],
+      metadata: edge.metadata == null ? null : edge.metadata,
+      branchMetadata:
+        edge.branchMetadata == null ? null : edge.branchMetadata,
       level: Number(edge.level) || 0,
       main: !!edge.main,
     };

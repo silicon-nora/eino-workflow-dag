@@ -24,7 +24,11 @@ export function kindLabel(kind, localeKinds) {
 
 function defaultNodeLabel(node, locale) {
   const title = node.name || node.key || node.id;
-  return `${title}\n${kindLabel(node.kind, locale && locale.kinds)}  ·  ${formatDuration(node.cost_ms)}`;
+  const detail = [
+    node.component || "",
+    node.cost_ms == null ? "" : formatDuration(node.cost_ms),
+  ].filter(Boolean).join("  ·  ");
+  return detail ? `${title}\n${detail}` : title;
 }
 
 function publicVisibleNode(node) {
@@ -37,7 +41,7 @@ function publicVisibleNode(node) {
     component: node.component || "",
     metadata: node.metadata || null,
     status: node.status || "",
-    durationMs: node.cost_ms || 0,
+    ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
     metrics: node.metrics || null,
     errorMessage: node.err_msg || "",
     expandable: !!node.expandable,
@@ -67,7 +71,7 @@ export function toCytoscapeElements(visible, options = {}) {
       component: node.component || "",
       metadata: node.metadata || null,
       status: node.status || "",
-      cost_ms: node.cost_ms || 0,
+      cost_ms: node.cost_ms,
       metrics: node.metrics || null,
       err_msg: node.err_msg || "",
       expandable: !!node.expandable,
@@ -84,6 +88,10 @@ export function toCytoscapeElements(visible, options = {}) {
       source: edge.from,
       target: edge.to,
       kind: edge.kind || "",
+      mappings: Array.isArray(edge.mappings) ? edge.mappings : [],
+      metadata: edge.metadata == null ? null : edge.metadata,
+      branchMetadata:
+        edge.branchMetadata == null ? null : edge.branchMetadata,
       level: edge.level != null ? edge.level : edge.main ? 1 : 2,
       main: !!edge.main,
     };

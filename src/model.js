@@ -84,7 +84,10 @@ function appendPath(prefix, id) {
         id: 'e' + (seq++) + '_' + e.from + '__' + e.to,
         from: e.from,
         to: e.to,
-        kind: e.kind || ''
+        kind: e.kind || '',
+        mappings: Array.isArray(e.mappings) ? e.mappings : [],
+        metadata: e.metadata == null ? null : e.metadata,
+        branchMetadata: e.branchMetadata == null ? null : e.branchMetadata
       });
     });
     return out;
@@ -517,7 +520,7 @@ function appendPath(prefix, id) {
             component: n.component || '',
             metadata: n.metadata || null,
             status: n.status || 'success',
-            cost_ms: n.cost_ms || 0,
+            cost_ms: n.cost_ms,
             metrics: n.metrics || null,
             err_msg: n.err_msg || '',
             expandable: true,
@@ -536,7 +539,7 @@ function appendPath(prefix, id) {
             component: n.component || '',
             metadata: n.metadata || null,
             status: n.status || 'success',
-            cost_ms: n.cost_ms || 0,
+            cost_ms: n.cost_ms,
             metrics: n.metrics || null,
             err_msg: n.err_msg || '',
             expandable: isSub,
@@ -562,7 +565,10 @@ function appendPath(prefix, id) {
         rawEdges.push({
           from: fromPath,
           to: toPath,
-          kind: e.kind || ''
+          kind: e.kind || '',
+          mappings: Array.isArray(e.mappings) ? e.mappings : [],
+          metadata: e.metadata == null ? null : e.metadata,
+          branchMetadata: e.branchMetadata == null ? null : e.branchMetadata
         });
       });
     }

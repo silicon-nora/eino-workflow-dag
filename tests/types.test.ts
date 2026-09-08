@@ -42,8 +42,8 @@ const instance = createWorkflowDAG(container, {
   expanded: [["research"]],
   tooltipFormatter: (node) => `${node.name}: ${node.status}`,
   nodeLabelFormatter: (node) => `${node.name}: ${node.status}`,
-  onNodeClick: (node) => `${node.path.join("/")}:${node.id}`,
-  onEdgeClick: (edge) => edge.source.join("/"),
+  onNodeClick: (node) => `${node.path.join("/")}:${node.id}:${node.durationMs ?? "untimed"}`,
+  onEdgeClick: (edge) => `${edge.source.join("/")}:${edge.mappings.length}:${edge.metadata?.owner ?? ""}:${edge.branchMetadata?.route ?? ""}`,
   onError: (error) => `${error.code}:${"recoverable" in error ? error.recoverable : false}`,
 });
 

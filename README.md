@@ -191,12 +191,22 @@ const activeNodePath = ref(["model"]);
 Built-in themes are `classic`, `ink`, and `midnight`. Register application
 themes with `registerWorkflowDAGTheme()`. Eino component and execution-status
 values remain open strings. The renderer maps known component categories to
-visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph`; visual kinds and
-statuses can be localized with `locale.kinds` and `locale.statuses`.
+visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph` for styling and
+formatter data. Resolved kind and status labels remain available through
+`locale.kinds` and `locale.statuses`.
 
 `tooltipFormatter` and `nodeLabelFormatter` receive renderer-owned plain data.
 They include the original Eino `component` and node `metadata`; they do not
 expose Cytoscape objects.
+
+The default node label uses the node name followed by its original Eino
+`component`. A duration is appended only when the snapshot contains execution
+timing for that node. The internal visual kind is used for styling, not as a
+replacement for the component identity.
+
+`onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
+`metadata`. When a rendered relationship also represents an Eino branch, its
+metadata is available separately as `branchMetadata`.
 
 ## Cytoscape-specific integration
 
@@ -233,6 +243,12 @@ upgrades against their selectors and Cytoscape calls.
 
 Both React and Vue are optional peer dependencies. Cytoscape is the only
 production dependency.
+
+For local routing inspection, build the package, serve the repository root,
+and open the interactive
+[routing preview](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples/routing-preview).
+It contains serial, fan-in, diamond, nested-workflow, and stress cases in all
+four layout directions. The same matrix is exercised by the browser test suite.
 
 ## Support and licensing
 
