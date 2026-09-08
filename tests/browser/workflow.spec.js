@@ -158,23 +158,42 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
     const cyBefore = window.getDAGCy(window.dagInstance);
     window.dagInstance.destroy();
     window.dagInstance.destroy();
-    let message = "";
-    try {
-      window.dagInstance.setTheme("ink");
-    } catch (error) {
-      message = error.message;
-    }
+    const mutations = [
+      () => window.dagInstance.update(window.dagSnapshot),
+      () => window.dagInstance.expandAll(),
+      () => window.dagInstance.collapseAll(),
+      () => window.dagInstance.toggle(["group/one"]),
+      () => window.dagInstance.setExpanded([]),
+      () => window.dagInstance.setActiveNodePath(null),
+      () => window.dagInstance.setDirection("LEFT"),
+      () => window.dagInstance.setTheme("ink"),
+      () => window.dagInstance.setLocale(),
+      () => window.dagInstance.zoomIn(),
+      () => window.dagInstance.zoomOut(),
+      () => window.dagInstance.resetView(),
+      () => window.dagInstance.resize(),
+      () => window.dagInstance.exportImage(),
+    ];
+    const mutationMessages = mutations.map((mutate) => {
+      try {
+        mutate();
+        return null;
+      } catch (error) {
+        return error.message;
+      }
+    });
     return {
       destroyedBefore: cyBefore.destroyed(),
       cyAfter: window.getDAGCy(window.dagInstance),
-      message,
+      mutationMessages,
     };
   });
-  expect(teardown).toEqual({
-    destroyedBefore: true,
-    cyAfter: null,
-    message: "Cannot use a destroyed workflow DAG",
-  });
+  expect(teardown.destroyedBefore).toBe(true);
+  expect(teardown.cyAfter).toBeNull();
+  expect(teardown.mutationMessages).toHaveLength(14);
+  expect(new Set(teardown.mutationMessages)).toEqual(
+    new Set(["Cannot use a destroyed workflow DAG"]),
+  );
   expect(errors).toEqual([]);
 });
 

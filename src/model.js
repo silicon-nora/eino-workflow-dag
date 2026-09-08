@@ -139,20 +139,20 @@ function appendPath(prefix, id) {
     if (!ids.length) return empty;
 
     var realEdges = [];
-    var hasStartEdge = false;
-    var hasEndEdge = false;
+    var explicitStartTargets = createKeyMap();
+    var explicitEndSources = createKeyMap();
     (graph.edges || []).forEach(function (e) {
       if (!e || !e.from || !e.to || e.toParent || e.to_parent) return;
       if (e.from === 'START') {
-        hasStartEdge = true;
         if (e.to !== 'END' && cost[e.to] != null) {
+          explicitStartTargets[e.to] = true;
           realEdges.push({ from: VIRT_START, to: e.to });
         }
         return;
       }
       if (e.to === 'END') {
-        hasEndEdge = true;
         if (e.from !== 'START' && cost[e.from] != null) {
+          explicitEndSources[e.from] = true;
           realEdges.push({ from: e.from, to: VIRT_END });
         }
         return;
@@ -173,20 +173,26 @@ function appendPath(prefix, id) {
       outdeg[e.from] += 1;
     });
 
-    if (!hasStartEdge) {
-      ids.forEach(function (id) {
-        if (indeg[id] === 0 && (allowSkipped || !skipped[id])) {
-          realEdges.push({ from: VIRT_START, to: id });
-        }
-      });
-    }
-    if (!hasEndEdge) {
-      ids.forEach(function (id) {
-        if (outdeg[id] === 0 && (allowSkipped || !skipped[id])) {
-          realEdges.push({ from: id, to: VIRT_END });
-        }
-      });
-    }
+    // A valid snapshot may contain disconnected components or only partial
+    // start/end annotations. Give every otherwise-unbounded component a
+    // virtual boundary without duplicating explicit Eino endpoint arcs. This
+    // keeps Level peeling total for every accepted acyclic graph.
+    ids.forEach(function (id) {
+      if (
+        indeg[id] === 0 &&
+        !explicitStartTargets[id] &&
+        (allowSkipped || !skipped[id])
+      ) {
+        realEdges.push({ from: VIRT_START, to: id });
+      }
+      if (
+        outdeg[id] === 0 &&
+        !explicitEndSources[id] &&
+        (allowSkipped || !skipped[id])
+      ) {
+        realEdges.push({ from: id, to: VIRT_END });
+      }
+    });
 
     cost[VIRT_START] = 0;
     cost[VIRT_END] = 0;

@@ -5,6 +5,29 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-09-08
+
+### Changed
+
+- Started the `1.0.0` release-candidate line after completing the protocol,
+  layout, lifecycle, package, framework, and browser release-blocker audit.
+
+### Fixed
+
+- Kept runtime validation issue codes synchronized with the public TypeScript
+  union, including required node status and duration failures.
+- Assigned every accepted acyclic graph component to a deterministic Level,
+  even when only part of a disconnected graph declares explicit `start` or
+  `end` relationships, preventing overlapping fallback positions.
+- Made `expandAll()` reject use after `destroy()` consistently with every
+  other mutating instance method.
+
+### Added
+
+- Added automatic runtime-to-TypeScript validation-code contract coverage,
+  partial-boundary layout fixtures in all four directions, and a lifecycle
+  check covering every mutating instance method after destruction.
+
 ## [0.4.0-beta.3] - 2026-09-08
 
 ### Changed
