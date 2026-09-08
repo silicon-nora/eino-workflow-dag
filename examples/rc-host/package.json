@@ -1,0 +1,17 @@
+{
+  "name": "eino-workflow-dag-rc-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "eino-workflow-dag": "1.0.0-rc.2"
+  },
+  "devDependencies": {
+    "vite": "6.4.3"
+  }
+}
