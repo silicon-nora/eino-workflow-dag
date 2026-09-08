@@ -65,5 +65,3 @@ jobs:
           --ignore-scripts --access public
           --tag "${{ steps.release.outputs.dist_tag }}"
           --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

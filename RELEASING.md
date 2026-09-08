@@ -77,26 +77,21 @@ report and the unpacked contents, and reruns the package-level documentation,
 source-map exclusion, sensitive-content, asset, and type-surface checks on that exact
 file.
 
-## npm authentication bootstrap
+## npm authentication
 
 The publish job uses the protected GitHub environment `npm-release`. Configure
 required reviewers for that environment before the first release.
 
-npm requires a package to exist before a Trusted Publisher can be attached,
-so the first release needs a one-time bootstrap credential. Two-factor
-authentication is not a project prerequisite. For the first release only,
-create a short-lived granular publish token with the minimum package
-permissions and publish-time 2FA bypass enabled, add it as the protected
-environment secret `NPM_TOKEN`, publish the GitHub Release, and remove that
-secret immediately after the job succeeds. The workflow requests GitHub OIDC
-and adds npm provenance to this first artifact.
-
-After the package exists, configure its npm Trusted Publisher with GitHub user
+The package's npm Trusted Publisher is restricted to GitHub user
 `silicon-nora`, repository `eino-workflow-dag`, workflow filename
-`publish.yml`, environment `npm-release`, and direct-publish permission.
-Future jobs authenticate with short-lived OIDC credentials and do not need
-`NPM_TOKEN`. The public `repository` field in `package.json` must match the
-GitHub repository exactly. Keep prereleases away from the `latest` dist-tag.
+`publish.yml`, environment `npm-release`, and direct-publish permission. Jobs
+authenticate with short-lived OIDC credentials; do not add a stored npm
+publish token. npm requires maintainers to use two-factor authentication when
+changing package settings or Trusted Publisher connections.
+
+The workflow requests GitHub OIDC and npm publishes provenance for the public
+artifact. The public `repository` field in `package.json` must match the GitHub
+repository exactly. Keep prereleases away from the `latest` dist-tag.
 
 The `prepack` lifecycle rebuilds and checks `dist`, so a tarball cannot silently
 reuse an older local build. `npm run pack:check` also uses an isolated temporary
