@@ -1,10 +1,7 @@
 const STATUS_ORDER = [
-  "running",
   "failed",
-  "degraded",
   "success",
   "skipped",
-  "pending",
 ];
 
 function countLabel(count, singular, plural = `${singular}s`) {

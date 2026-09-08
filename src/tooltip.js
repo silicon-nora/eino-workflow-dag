@@ -3,11 +3,8 @@ import { resolveLocale } from "./locale.js";
 
 function statusLabel(status, locale) {
   const labels = mergePlainRecords({
-    pending: "Pending",
-    running: "Running",
     success: "Success",
     failed: "Failed",
-    degraded: "Degraded",
     skipped: "Skipped",
   }, locale && locale.statuses);
   return (hasOwnKey(labels, status) ? labels[status] : status) || "-";

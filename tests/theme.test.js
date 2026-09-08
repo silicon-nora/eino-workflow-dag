@@ -25,13 +25,12 @@ assert.equal(themeTokens("test-brand").node.fontSize, 17);
 const rules = stylesheet("test-brand");
 const nodeRule = rules.find((rule) => rule.selector === "node");
 const highlightedRule = rules.find((rule) => rule.selector === "edge[level = 0]");
-const degradedRule = rules.find(
-  (rule) => rule.selector === 'node[status = "degraded"]',
-);
 assert.equal(nodeRule.style["font-size"], 17);
 assert.equal(highlightedRule.style["line-color"], "#663399");
-assert.equal(degradedRule.style["border-color"], "#9a6700");
-assert.equal(degradedRule.style["background-color"], "#fff8c5");
+assert.equal(
+  rules.some((rule) => rule.selector === 'node[status = "degraded"]'),
+  false,
+);
 
 assert.throws(() => registerTheme("classic", {}), /cannot be replaced/);
 assert.throws(() => registerTheme("", {}), /non-empty string/);

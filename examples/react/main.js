@@ -14,7 +14,7 @@ let dagSnapshot = {
   execution: {
     nodes: [
       { path: ["input"], status: "success", durationMs: 5 },
-      { path: ["answer"], status: "running", durationMs: 30 },
+      { path: ["answer"], status: "success", durationMs: 30 },
     ],
   },
 };

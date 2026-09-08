@@ -4,6 +4,7 @@ export const CURRENT_SCHEMA_VERSION = 1;
 export const SUPPORTED_SCHEMA_VERSIONS = Object.freeze([1]);
 
 const EDGE_CHANNELS = new Set(["control", "data"]);
+const NODE_EXECUTION_STATUSES = new Set(["success", "failed", "skipped"]);
 const START = "start";
 const END = "end";
 
@@ -56,6 +57,25 @@ function validateNonNegativeNumber(value, path, field, errors, integer = false) 
   ) {
     const expected = integer ? "a non-negative safe integer" : "a non-negative finite number";
     errors.push(issue("invalid_number_field", propertyPath(path, field), `Expected ${field} to be ${expected}.`));
+  }
+}
+
+function validateNodeDuration(value, path, status, errors) {
+  const descriptor = Object.getOwnPropertyDescriptor(value, "durationMs");
+  if (!descriptor || !("value" in descriptor)) {
+    errors.push(issue("missing_node_duration", `${path}.durationMs`, "A node execution requires durationMs."));
+    return;
+  }
+  const durationMs = descriptor.value;
+  if (durationMs !== null && (
+    typeof durationMs !== "number" ||
+    !Number.isFinite(durationMs) ||
+    durationMs < 0
+  )) {
+    errors.push(issue("invalid_number_field", `${path}.durationMs`, "Expected durationMs to be a non-negative finite number or null."));
+  }
+  if (status === "skipped" && durationMs !== null) {
+    errors.push(issue("invalid_skipped_duration", `${path}.durationMs`, "A skipped node must have a null durationMs."));
   }
 }
 
@@ -387,11 +407,16 @@ export function validateWorkflowSnapshot(input) {
           continue;
         }
         validateKnownFields(state, statePath, new Set(["path", "status", "startedAtMs", "finishedAtMs", "durationMs", "metrics", "errorMessage"]), errors);
-        validateString(state, statePath, "status", errors);
+        const status = own(state, "status");
+        if (status === undefined) {
+          errors.push(issue("missing_node_status", `${statePath}.status`, "A node execution requires a final status."));
+        } else if (!NODE_EXECUTION_STATUSES.has(status)) {
+          errors.push(issue("invalid_node_status", `${statePath}.status`, `Expected status to be success, failed, or skipped.`));
+        }
         validateString(state, statePath, "errorMessage", errors);
         validateNonNegativeNumber(state, statePath, "startedAtMs", errors, true);
         validateNonNegativeNumber(state, statePath, "finishedAtMs", errors, true);
-        validateNonNegativeNumber(state, statePath, "durationMs", errors);
+        validateNodeDuration(state, statePath, status, errors);
         validateTimeRange(state, statePath, errors);
         validateMetadata(state, statePath, "metrics", errors);
         const nodePath = own(state, "path");

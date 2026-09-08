@@ -142,7 +142,7 @@ import {
       kind: node.kind || "",
       component: node.component || "",
       metadata: node.metadata || null,
-      status: node.status || "",
+      ...(node.status == null ? {} : { status: node.status }),
       ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
       metrics: node.metrics || null,
       errorMessage: node.err_msg || "",

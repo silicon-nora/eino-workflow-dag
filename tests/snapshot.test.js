@@ -34,16 +34,16 @@ const snapshot = {
   },
   execution: {
     nodes: [
-      { path: ["input"], status: "running", durationMs: 10 },
+      { path: ["input"], status: "success", durationMs: 10 },
       { path: ["work/flow"], status: "success", durationMs: 20 },
-      { path: ["work/flow", "model"], metrics: { tokens: 4 } },
+      { path: ["work/flow", "model"], status: "success", durationMs: null, metrics: { tokens: 4 } },
     ],
   },
 };
 
 const normalized = normalizeDAGSnapshot(snapshot);
 assert(normalized.definition.nodes[0].status === undefined, "definition omits execution state");
-assert(normalized.runtimeByPath.input.status === "running", "root execution is indexed");
+assert(normalized.runtimeByPath.input.status === "success", "root execution is indexed");
 const nestedKey = encodeNodePath(["work/flow", "model"]);
 assert(normalized.runtimeByPath[nestedKey].metrics.tokens === 4, "nested execution uses an unambiguous path key");
 assert(JSON.stringify(decodeNodePath(nestedKey)) === '["work/flow","model"]', "encoded paths round trip");
@@ -70,8 +70,16 @@ assert(
 assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");
 assert(normalized.definition.nodes[1].graph.nodes[0].kind === "llm", "Eino components map to visual kinds");
 
+const withoutExecution = structuredClone(snapshot);
+delete withoutExecution.execution;
+const withoutExecutionNormalized = normalizeDAGSnapshot(withoutExecution);
+assert(
+  withoutExecutionNormalized.root.nodes.every((node) => node.status === undefined),
+  "nodes without final execution records do not receive an invented status",
+);
+
 const stateOnly = structuredClone(snapshot);
-stateOnly.execution.nodes[0].status = "success";
+stateOnly.execution.nodes[0].status = "failed";
 stateOnly.execution.nodes[0].metrics = { bytes: 8 };
 const stateNormalized = normalizeDAGSnapshot(stateOnly);
 assert(normalized.definitionKey === stateNormalized.definitionKey, "execution changes preserve topology");

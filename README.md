@@ -47,7 +47,7 @@ const snapshot = {
     id: "run-42",
     nodes: [
       { path: ["input"], status: "success", durationMs: 12 },
-      { path: ["model"], status: "running", durationMs: 240 },
+      { path: ["model"], status: "success", durationMs: 240 },
     ],
   },
 };
@@ -91,6 +91,8 @@ interface EinoWorkflowSnapshot {
 - Eino branches remain separate `branches`; they are not edge channels.
 - Eino field mappings are attached to data edges as `fromPath`/`toPath` arrays.
 - `execution` contains run identity, timing, status, errors, and metrics.
+- Node execution status is a closed final-outcome enum: `success`, `failed`, or
+  `skipped`. Nodes without a final outcome have no execution record.
 - Execution nodes use array paths such as `["research", "model"]`, so local IDs
   never become ambiguous.
 - `metadata` is the only extension point for application-specific JSON data.
@@ -189,11 +191,12 @@ const activeNodePath = ref(["model"]);
 ## Themes, locale, and formatting
 
 Built-in themes are `classic`, `ink`, and `midnight`. Register application
-themes with `registerWorkflowDAGTheme()`. Eino component and execution-status
-values remain open strings. The renderer maps known component categories to
-visual kinds such as `llm`, `io`, `cpu`, `merge`, and `graph` for styling and
-formatter data. Resolved kind and status labels remain available through
-`locale.kinds` and `locale.statuses`.
+themes with `registerWorkflowDAGTheme()`. Eino component values remain open
+strings, while execution status is the fixed `success`, `failed`, or `skipped`
+outcome. The renderer maps known component categories to visual kinds such as
+`llm`, `io`, `cpu`, `merge`, and `graph` for styling and formatter data.
+Resolved kind and status labels remain available through `locale.kinds` and
+`locale.statuses`.
 
 `tooltipFormatter` and `nodeLabelFormatter` receive renderer-owned plain data.
 They include the original Eino `component` and node `metadata`; they do not

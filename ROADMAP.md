@@ -43,20 +43,18 @@ JavaScript contract.
 ### Release and maintenance
 
 - [x] Publish support, security, contribution, provenance, and release procedures
-- [x] Publish compatibility, deprecation, custom component/status, and theme policies
+- [x] Publish compatibility, deprecation, component/status, and theme policies
 - [x] Verify React 18/19 and Vue 3 from clean installations of the published package
 - [ ] Publish a release candidate and resolve every release-blocking defect
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
-## Current milestone — 0.4.0-beta.1
+## Current milestone — 0.4.0-beta.3
 
-## Beta.1 — published compatibility
-
-- [x] Publish and verify the alpha package under npm's `next` dist-tag
-- [x] Install the public package into clean React 18, React 19, and Vue 3 consumers
-- [x] Freeze the schema-version-1 protocol and reviewed public API surface
-- [x] Add published-package smoke coverage to every future release
-- [ ] Publish beta.1 under npm's `next` dist-tag
+- [x] Use execution duration when assigning graph-local Levels
+- [x] Keep branch geometry stable across nested-workflow expansion
+- [x] Finalize node execution as `success`, `failed`, or `skipped` outcomes
+- [x] Treat missing execution records as unknown instead of inventing a state
+- [ ] Publish beta.3 under npm's `next` dist-tag
 - [ ] Resolve every defect classified as release-blocking
 - [ ] Publish the first release candidate
 
@@ -81,7 +79,7 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Publish beta.1 under npm's `next` dist-tag.
+1. Publish beta.3 under npm's `next` dist-tag.
 2. Resolve release-blocking defects and publish a release candidate.
 3. Promote the validated stable version to `latest`.
 

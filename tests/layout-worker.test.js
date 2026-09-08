@@ -65,7 +65,7 @@ const graph = {
       name: "Answer",
       parent: null,
       kind: "llm",
-      status: "running",
+      status: "success",
       cost_ms: 8,
       metrics: null,
       err_msg: "",

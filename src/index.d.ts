@@ -7,13 +7,9 @@ export interface JsonObject {
 export type DAGDirection = "RIGHT" | "LEFT" | "DOWN" | "UP";
 export type DAGTheme = "classic" | "ink" | "midnight" | (string & {});
 export type WorkflowNodeStatus =
-  | "pending"
-  | "running"
   | "success"
   | "failed"
-  | "degraded"
-  | "skipped"
-  | (string & {});
+  | "skipped";
 /** Dependency channels exposed by Eino GraphInfo.Edges and DataEdges. */
 export type WorkflowEdgeChannel = "control" | "data";
 /** Relationships that can appear in the rendered graph. */
@@ -65,13 +61,14 @@ export interface WorkflowBranch {
 
 export interface WorkflowNodeExecution {
   readonly path: NodePath;
-  readonly status?: WorkflowNodeStatus;
+  /** Final outcome of this node invocation. */
+  readonly status: WorkflowNodeStatus;
   /** Unix epoch milliseconds. */
   readonly startedAtMs?: number;
   /** Unix epoch milliseconds. */
   readonly finishedAtMs?: number;
-  /** Non-negative elapsed milliseconds. */
-  readonly durationMs?: number;
+  /** Non-negative elapsed milliseconds, or null when no duration was measured. */
+  readonly durationMs: number | null;
   readonly metrics?: JsonObject | null;
   readonly errorMessage?: string;
 }
@@ -107,7 +104,7 @@ export interface VisibleNode {
   readonly kind: string;
   readonly component: string;
   readonly metadata: JsonObject | null;
-  readonly status: string;
+  readonly status?: WorkflowNodeStatus;
   /** Absent when no execution timing was supplied for this node. */
   readonly durationMs?: number;
   readonly metrics: JsonObject | null;
@@ -203,7 +200,7 @@ export interface WorkflowDAGInstance {
 
 export interface DAGLocale {
   kinds?: Readonly<Record<string, string>>;
-  statuses?: Readonly<Record<string, string>>;
+  statuses?: Partial<Readonly<Record<WorkflowNodeStatus, string>>>;
   tooltip?: Partial<DAGTooltipLocale>;
   collapseSubgraphTitle?: string;
 }
@@ -218,7 +215,7 @@ export interface DAGTooltipLocale {
 
 export interface ResolvedDAGLocale {
   kinds: Readonly<Record<string, string>>;
-  statuses: Readonly<Record<string, string>>;
+  statuses: Readonly<Record<WorkflowNodeStatus, string>>;
   tooltip: DAGTooltipLocale;
   collapseSubgraphTitle: string;
 }
@@ -226,7 +223,7 @@ export interface ResolvedDAGLocale {
 export interface DAGAccessibilitySummary {
   nodeCount: number;
   edgeCount: number;
-  statuses: Readonly<Record<string, number>>;
+  statuses: Partial<Readonly<Record<WorkflowNodeStatus, number>>>;
   expandedSubgraphs: number;
   collapsedSubgraphs: number;
   text: string;

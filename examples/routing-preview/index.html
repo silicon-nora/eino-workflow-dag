@@ -163,7 +163,7 @@
         execution: {
           nodes: nodes.map((node, index) => ({
             path: [node.id],
-            status: index === nodes.length - 1 ? "running" : "success",
+            status: "success",
             durationMs: 4 + index * 17,
           })),
         },
@@ -375,9 +375,9 @@
               { path: ["select_candidates"], status: "success", durationMs: 0 },
               { path: ["build_signals"], status: "success", durationMs: 0 },
               { path: ["route_strategy"], status: "success", durationMs: 0 },
-              { path: ["batch_analysis"], status: "skipped", durationMs: 0 },
-              { path: ["batch_compose"], status: "skipped", durationMs: 0 },
-              { path: ["update_profile"], status: "skipped", durationMs: 0 },
+              { path: ["batch_analysis"], status: "skipped", durationMs: null },
+              { path: ["batch_compose"], status: "skipped", durationMs: null },
+              { path: ["update_profile"], status: "skipped", durationMs: null },
               { path: ["guided_flow"], status: "success", durationMs: 10650 },
               { path: ["guided_flow", "rank_sources"], status: "success", durationMs: 0 },
               { path: ["guided_flow", "prepare_access"], status: "success", durationMs: 0 },

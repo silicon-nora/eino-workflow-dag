@@ -41,17 +41,20 @@ messages, issue order, stack traces, and underlying `cause` values are not.
 Consumers should still include an unknown-code fallback so they can report
 errors introduced by a future schema or package major.
 
-## Open component and status values
+## Component and status values
 
-Eino component categories and execution statuses are open strings. Known values
-receive built-in labels and visual treatment; unknown values remain visible and
-use the generic fallback. Consumers must not reject a snapshot solely because a
-new component or status string appears.
+Eino component categories are open strings. Known values receive built-in
+labels and visual treatment; unknown component values remain visible and use
+the generic fallback.
 
-Applications can localize component kinds and statuses with `locale.kinds` and
-`locale.statuses`, or customize rendered text with `nodeLabelFormatter` and
-`tooltipFormatter`. Formatters receive renderer-owned plain data, not mutable
-engine objects.
+Node execution status is the closed final-outcome enum `success`, `failed`, or
+`skipped`. A node without a final outcome is omitted from `execution.nodes`.
+Adding another status requires a new snapshot schema version.
+
+Applications can localize component kinds and the three statuses with
+`locale.kinds` and `locale.statuses`, or customize rendered text with
+`nodeLabelFormatter` and `tooltipFormatter`. Formatters receive renderer-owned
+plain data, not mutable engine objects.
 
 ## Themes
 

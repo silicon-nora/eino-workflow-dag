@@ -162,6 +162,9 @@ func TestRealWorkflowMatchesSharedFixture(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
+	// This test controls the branch input and can therefore authoritatively
+	// identify the unselected route. Generic Eino callbacks do not report it.
+	recorder.MarkSkipped([]string{"fallback"})
 	execution := recorder.Execution()
 	if len(execution.Nodes) == 0 {
 		t.Fatal("Eino execution callbacks did not expose node paths")
@@ -169,10 +172,19 @@ func TestRealWorkflowMatchesSharedFixture(t *testing.T) {
 	if execution.StartedAtMS == nil || execution.FinishedAtMS == nil || execution.DurationMS == nil {
 		t.Fatalf("workflow timing was not collected: %#v", execution)
 	}
+	foundSkipped := false
 	for _, node := range execution.Nodes {
-		if node.Status != "success" {
+		if node.Status == NodeStatusSkipped {
+			foundSkipped = true
+			if !reflect.DeepEqual(node.Path, []string{"fallback"}) || node.DurationMS != nil {
+				t.Fatalf("unexpected skipped execution state: %#v", node)
+			}
+		} else if node.Status != NodeStatusSuccess {
 			t.Fatalf("unexpected execution state: %#v", execution)
 		}
+	}
+	if !foundSkipped {
+		t.Fatal("the unselected Eino branch was not represented as skipped")
 	}
 
 	snapshot, err := Project(info)
@@ -230,6 +242,32 @@ func TestExecutionRecorderCapturesFailure(t *testing.T) {
 	node := execution.Nodes[0]
 	if !reflect.DeepEqual(node.Path, []string{"fail"}) || node.Status != "failed" || node.ErrorMessage != wanted.Error() {
 		t.Fatalf("unexpected failed node state: %#v", node)
+	}
+}
+
+func TestExecutionRecorderOmitsUnfinishedAndMarksSkipped(t *testing.T) {
+	recorder := NewExecutionRecorder("partial-run")
+	recorder.recordStart([]string{"unfinished"})
+	recorder.MarkSkipped([]string{"route", "unused"})
+
+	execution := recorder.Execution()
+	if len(execution.Nodes) != 1 {
+		t.Fatalf("expected only the final skipped record, got %#v", execution.Nodes)
+	}
+	node := execution.Nodes[0]
+	if !reflect.DeepEqual(node.Path, []string{"route", "unused"}) || node.Status != NodeStatusSkipped {
+		t.Fatalf("unexpected skipped node state: %#v", node)
+	}
+	if node.DurationMS != nil || node.StartedAtMS != nil || node.FinishedAtMS != nil {
+		t.Fatalf("skipped node must not have timing: %#v", node)
+	}
+
+	encoded, err := json.Marshal(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded) != `{"path":["route","unused"],"status":"skipped","durationMs":null}` {
+		t.Fatalf("unexpected skipped JSON: %s", encoded)
 	}
 }
 

@@ -74,14 +74,23 @@ type Execution struct {
 	Metadata     JSONMap         `json:"metadata,omitempty"`
 }
 
+// NodeStatus is a final node execution outcome in EinoWorkflowSnapshot.
+type NodeStatus string
+
+const (
+	NodeStatusSuccess NodeStatus = "success"
+	NodeStatusFailed  NodeStatus = "failed"
+	NodeStatusSkipped NodeStatus = "skipped"
+)
+
 type NodeExecution struct {
-	Path         []string `json:"path"`
-	Status       string   `json:"status,omitempty"`
-	StartedAtMS  *int64   `json:"startedAtMs,omitempty"`
-	FinishedAtMS *int64   `json:"finishedAtMs,omitempty"`
-	DurationMS   *float64 `json:"durationMs,omitempty"`
-	Metrics      JSONMap  `json:"metrics,omitempty"`
-	ErrorMessage string   `json:"errorMessage,omitempty"`
+	Path         []string   `json:"path"`
+	Status       NodeStatus `json:"status"`
+	StartedAtMS  *int64     `json:"startedAtMs,omitempty"`
+	FinishedAtMS *int64     `json:"finishedAtMs,omitempty"`
+	DurationMS   *float64   `json:"durationMs"`
+	Metrics      JSONMap    `json:"metrics,omitempty"`
+	ErrorMessage string     `json:"errorMessage,omitempty"`
 }
 
 // Project creates a deterministic topology snapshot from Eino's GraphInfo.

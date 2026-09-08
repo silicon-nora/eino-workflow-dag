@@ -25,7 +25,7 @@ type ExecutionRecorder struct {
 
 type recordedNode struct {
 	path         []string
-	status       string
+	status       NodeStatus
 	started      *time.Time
 	finished     *time.Time
 	errorMessage string
@@ -85,7 +85,8 @@ func (recorder *ExecutionRecorder) Handler() callbacks.Handler {
 		Build()
 }
 
-// Execution returns a deterministic copy of the current execution state.
+// Execution returns a deterministic copy of the final outcomes collected so
+// far. Nodes that have started but not finished are omitted.
 func (recorder *ExecutionRecorder) Execution() Execution {
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
@@ -111,6 +112,9 @@ func (recorder *ExecutionRecorder) Execution() Execution {
 	sort.Strings(keys)
 	for _, key := range keys {
 		recorded := recorder.nodes[key]
+		if recorded.status == "" {
+			continue
+		}
 		node := NodeExecution{
 			Path:         append([]string{}, recorded.path...),
 			Status:       recorded.status,
@@ -156,7 +160,7 @@ func (recorder *ExecutionRecorder) recordStart(path []string) {
 		node.started = timePointer(now)
 	}
 	node.finished = nil
-	node.status = "running"
+	node.status = ""
 	node.errorMessage = ""
 }
 
@@ -184,11 +188,29 @@ func (recorder *ExecutionRecorder) recordEnd(path []string, errorMessage string)
 	}
 	node.finished = timePointer(now)
 	if errorMessage == "" {
-		node.status = "success"
+		node.status = NodeStatusSuccess
 		node.errorMessage = ""
 	} else {
-		node.status = "failed"
+		node.status = NodeStatusFailed
 		node.errorMessage = errorMessage
+	}
+}
+
+// MarkSkipped records a node that an authoritative Eino routing decision did
+// not invoke. Eino's generic callback API does not expose skipped nodes, so a
+// producer must call this method from routing or observability information it
+// controls. A skipped node has no timing and serializes durationMs as null.
+func (recorder *ExecutionRecorder) MarkSkipped(path []string) {
+	if len(path) == 0 {
+		return
+	}
+	recorder.mu.Lock()
+	defer recorder.mu.Unlock()
+
+	key := executionPathKey(path)
+	recorder.nodes[key] = &recordedNode{
+		path:   append([]string{}, path...),
+		status: NodeStatusSkipped,
 	}
 }
 

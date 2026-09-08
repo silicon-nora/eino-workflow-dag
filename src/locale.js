@@ -11,11 +11,8 @@ export const DEFAULT_LOCALE = Object.freeze({
     graph: "Graph",
   }),
   statuses: Object.freeze({
-    pending: "Pending",
-    running: "Running",
     success: "Success",
     failed: "Failed",
-    degraded: "Degraded",
     skipped: "Skipped",
   }),
   tooltip: Object.freeze({

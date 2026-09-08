@@ -359,14 +359,6 @@ export function stylesheet(themeId) {
         },
       },
       {
-        selector: 'node[status = "degraded"]',
-        style: {
-          "border-color": C.warning,
-          "background-color": C.warnBg,
-          "border-width": Math.max(N.borderWidth, 1.5),
-        },
-      },
-      {
         selector: 'node[status = "failed"]',
         style: {
           "border-color": C.signal,
