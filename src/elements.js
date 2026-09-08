@@ -72,7 +72,7 @@ export function toCytoscapeElements(visible, options = {}) {
       component: node.component || "",
       metadata: node.metadata || null,
       ...(node.status == null ? {} : { status: node.status }),
-      cost_ms: node.cost_ms,
+      ...(node.cost_ms == null ? {} : { cost_ms: node.cost_ms }),
       metrics: node.metrics || null,
       err_msg: node.err_msg || "",
       expandable: !!node.expandable,
@@ -101,6 +101,17 @@ export function toCytoscapeElements(visible, options = {}) {
   return elements;
 }
 
+const optionalNodeDataKeys = ["status", "cost_ms"];
+
+function patchElementData(element, spec) {
+  if (spec.group === "nodes") {
+    for (const key of optionalNodeDataKeys) {
+      if (!hasOwnKey(spec.data, key)) element.removeData(key);
+    }
+  }
+  element.data(spec.data);
+}
+
 /**
  * Patch element data in place when IDs, groups, parents, and edge endpoints
  * match. Returns false without mutation when a topology change needs rebuild.
@@ -124,7 +135,7 @@ export function patchCytoscapeElements(cy, elements) {
 
   cy.batch(() => {
     for (const spec of elements) {
-      cy.getElementById(spec.data.id).data(spec.data);
+      patchElementData(cy.getElementById(spec.data.id), spec);
     }
   });
   return true;
@@ -183,7 +194,7 @@ export function syncCytoscapeElements(cy, elements) {
     }
 
     for (const spec of elements) {
-      cy.getElementById(spec.data.id).data(spec.data);
+      patchElementData(cy.getElementById(spec.data.id), spec);
     }
   });
 

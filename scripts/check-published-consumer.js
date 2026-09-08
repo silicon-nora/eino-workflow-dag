@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   rmSync,
   writeFileSync,
@@ -10,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateRCRegistry } from "./rc-validation.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
@@ -17,6 +19,11 @@ const manifest = JSON.parse(
 );
 const version = process.argv[2];
 const fixtureName = process.argv[3];
+const registry = validateRCRegistry(
+  process.env.PUBLISHED_CONSUMER_REGISTRY || "https://registry.npmjs.org/",
+);
+const packageSpec =
+  process.env.PUBLISHED_CONSUMER_PACKAGE_SPEC || `${manifest.name}@${version}`;
 
 const snapshotSource = `const snapshot: EinoWorkflowSnapshot = {
   schemaVersion: 1,
@@ -130,6 +137,9 @@ function spawn(command, args, cwd, environment) {
     encoding: "utf8",
     env: environment,
     shell: process.platform === "win32",
+    timeout: Number(
+      process.env.PUBLISHED_CONSUMER_COMMAND_TIMEOUT_MS || 180_000,
+    ),
   });
 }
 
@@ -139,7 +149,7 @@ function run(command, args, cwd, environment) {
     fail(
       `${basename(command)} ${args.join(" ")} exited with ${result.status}\n${
         result.stderr || result.stdout || "no output"
-      }`,
+      }${result.signal ? `\nterminated by ${result.signal}` : ""}`,
     );
   }
   return result;
@@ -173,9 +183,11 @@ if (!fixture) {
   fail(`unknown fixture ${fixtureName || "<empty>"}; expected ${Object.keys(fixtures).join(", ")}`);
 }
 
-const work = mkdtempSync(resolve(tmpdir(), `eino-workflow-dag-${fixtureName}-`));
+const work = realpathSync(
+  mkdtempSync(resolve(tmpdir(), `eino-workflow-dag-${fixtureName}-`)),
+);
 try {
-  writeFixture(work, ".npmrc", "registry=https://registry.npmjs.org\n");
+  writeFixture(work, ".npmrc", `registry=${registry}\n`);
   writeFixture(
     work,
     "package.json",
@@ -213,8 +225,12 @@ try {
     npm_config_audit: "false",
     npm_config_cache: resolve(work, "npm-cache"),
     npm_config_fund: "false",
+    npm_config_fetch_retries: "2",
+    npm_config_fetch_retry_maxtimeout: "5000",
+    npm_config_fetch_retry_mintimeout: "1000",
+    npm_config_fetch_timeout: "30000",
     npm_config_ignore_scripts: "true",
-    npm_config_registry: "https://registry.npmjs.org",
+    npm_config_registry: registry,
     npm_config_update_notifier: "false",
     npm_config_userconfig: resolve(work, ".npmrc"),
   };
@@ -224,7 +240,7 @@ try {
       "--ignore-scripts",
       "--no-package-lock",
       "--save-exact",
-      `${manifest.name}@${version}`,
+      packageSpec,
       ...fixture.dependencies,
     ],
     work,
@@ -279,7 +295,7 @@ try {
   }
 
   console.log(
-    `OK: ${manifest.name}@${version} installs from npm and type-checks, bundles, and loads in ${fixtureName}`,
+    `OK: ${manifest.name}@${version} installs from the candidate source and type-checks, bundles, and loads in ${fixtureName}`,
   );
 } finally {
   rmSync(work, { recursive: true, force: true });

@@ -89,6 +89,22 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
   expect(statePatch.after.dataPatches).toBe(statePatch.before.dataPatches + 1);
   expect(statePatch.after.layoutRuns).toBe(statePatch.before.layoutRuns);
 
+  const clearedExecution = await page.evaluate(() => {
+    const next = structuredClone(window.dagSnapshot);
+    delete next.execution;
+    window.dagInstance.update(next);
+    const data = window.getDAGCy(window.dagInstance)
+      .getElementById("answer")
+      .data();
+    const cleared = {
+      status: data.status ?? null,
+      durationMs: data.cost_ms ?? null,
+    };
+    window.dagInstance.update(window.dagSnapshot);
+    return cleared;
+  });
+  expect(clearedExecution).toEqual({ status: null, durationMs: null });
+
   await page.evaluate(() => {
     const next = structuredClone(window.dagSnapshot);
     next.workflow.nodes.push({ id: "audit", name: "Audit", component: "Lambda" });
