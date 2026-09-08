@@ -79,6 +79,17 @@ updated.find((element) => element.data.id === "a").data.status = "failed";
 assert(patchCytoscapeElements(cy, updated), "data-only update is patched");
 assert(cy.getElementById("a").data("status") === "failed", "patched data is visible");
 
+const clearedExecution = structuredClone(updated);
+const clearedNode = clearedExecution.find((element) => element.data.id === "a");
+delete clearedNode.data.status;
+delete clearedNode.data.cost_ms;
+assert(patchCytoscapeElements(cy, clearedExecution), "missing execution is patched");
+assert(
+  cy.getElementById("a").data("status") === undefined &&
+    cy.getElementById("a").data("cost_ms") === undefined,
+  "a data-only update removes stale execution status and duration",
+);
+
 const topologyChange = structuredClone(updated);
 topologyChange.find((element) => element.data.id === "e").data.source = "g";
 assert(!patchCytoscapeElements(cy, topologyChange), "edge endpoint change requires rebuild");

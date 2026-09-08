@@ -5,6 +5,26 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-09-08
+
+### Added
+
+- Added exact-Registry release-candidate validation that combines real Go Eino
+  projection, clean framework consumers, three-browser geometry checks, and
+  repeated update and lifecycle soak cycles in one retained report.
+
+### Changed
+
+- Bounded Registry installation retries so an unavailable network produces a
+  failed validation report instead of an indefinitely waiting RC run.
+
+### Fixed
+
+- Canonicalized temporary consumer directories before invoking Vite so clean
+  Registry builds work when macOS exposes `/var` through `/private/var`.
+- Cleared stale node status and duration data when an incremental update omits
+  execution state, preserving the schema rule that missing outcomes are unknown.
+
 ## [1.0.0-rc.1] - 2026-09-08
 
 ### Changed

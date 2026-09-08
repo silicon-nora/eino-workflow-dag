@@ -8,6 +8,7 @@ const excludedDirectories = new Set([
   "node_modules",
   "test-results",
   "examples/react-dist",
+  ".artifacts",
 ]);
 assertNoSensitiveContent(projectRoot, { excludedDirectories });
 console.log("OK: no known credential signatures found in public source files");

@@ -6,5 +6,6 @@ test-results/
 examples/react-dist/
 .packed-consumer-*/
 .packed-browser-*/
+.artifacts/
 .DS_Store
 *.log

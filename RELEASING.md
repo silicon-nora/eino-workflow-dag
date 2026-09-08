@@ -2,7 +2,7 @@
 
 Publishing requires confirmed repository ownership, package authority, and a
 fully passing release gate. Prereleases are published under `next`; promotion
-to beta follows compatibility testing and feedback from package users.
+to `latest` follows release-candidate integration validation and feedback.
 
 ## Release refs
 
@@ -67,7 +67,9 @@ supported concurrently.
     React 19, and Vue 3 consumers and pass type, ESM bundle, CSS, and CommonJS
     entry checks. Do not commit a local tarball or cross-repository `file:`
     dependency.
-12. Review beta compatibility reports before preparing `0.4.0-rc.1`. Keep all
+12. Run the exact published version through
+    [RC validation](./RC_VALIDATION.md), review the retained report and host
+    integration observations, and resolve every release blocker. Keep all
     prereleases on `next`; do not assign `latest` during this phase.
 
 The release workflow rejects a missing or invalid changelog date and requires
