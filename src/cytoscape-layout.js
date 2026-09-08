@@ -266,33 +266,45 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
       rules.afterPass2(graph);
     }
 
-    // 先落叶子坐标，compound 才会按子节点+padding 算出真正的 position()
-    nodes
-      .filter(function (n) {
-        return !n.isParent();
-      })
-      .layoutPositions(layout, options, function (n) {
-        return getPos(n, options);
-      });
-
     /**
      * 边 endpoint 相对 Cy 当前 position()（展开 Graph 是子节点包围盒中心）。
      * 必须在 layoutPositions 之后取——包围盒中心与 Cy compound 中心
      * 差几像素时，水平直线会被画成正交折线。
      */
-    var lookup = graph._elementLookup || {};
-    edges.forEach(function (edge) {
-      var layoutEdge = lookup[edge.id()];
-      if (!layoutEdge) return;
-      var abs = layoutEdge._flowAbsRoute;
-      if (!abs || abs.length < 2) return;
-      applyAbsRouteToCy(
-        edge,
-        abs,
-        edge.source().position(),
-        edge.target().position(),
-      );
-    });
+    var applyEdgeRoutes = function applyEdgeRoutes() {
+      var lookup = graph._elementLookup || {};
+      edges.forEach(function (edge) {
+        var layoutEdge = lookup[edge.id()];
+        if (!layoutEdge) return;
+        var abs = layoutEdge._flowAbsRoute;
+        if (!abs || abs.length < 2) return;
+        applyAbsRouteToCy(
+          edge,
+          abs,
+          edge.source().position(),
+          edge.target().position(),
+        );
+      });
+    };
+
+    // Cytoscape emits layoutstop from layoutPositions(). Apply routes from the
+    // preceding layoutready hook so observers and the layout cache see a fully
+    // committed layout rather than default diagonal edge styles.
+    var positionOptions = assign({}, options);
+    var originalReady = positionOptions.ready;
+    positionOptions.ready = function (event) {
+      applyEdgeRoutes();
+      if (typeof originalReady === "function") originalReady(event);
+    };
+
+    // 先落叶子坐标，compound 才会按子节点+padding 算出真正的 position()
+    nodes
+      .filter(function (n) {
+        return !n.isParent();
+      })
+      .layoutPositions(layout, positionOptions, function (n) {
+        return getPos(n, options);
+      });
 
     return this;
   };

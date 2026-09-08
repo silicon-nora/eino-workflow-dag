@@ -73,6 +73,20 @@ assert.deepEqual(
   ),
   ["SOUTH"],
 );
+assert.deepEqual(
+  exclusiveSideChoices(
+    bypass,
+    "a",
+    owners.outOwner,
+    "EAST",
+    "SOUTH",
+    right,
+    false,
+    false,
+  ),
+  ["EAST", "SOUTH", "NORTH"],
+  "a reserved main side remains available until an edge actually occupies it",
+);
 
 const candidate = (id, overrides = {}) => ({
   id,
@@ -129,6 +143,22 @@ assert.equal(
 );
 assert.equal(
   selectBestPortCandidate(
+    [
+      candidate("cross-sides", { bends: 1, sideLoad: 0 }),
+      candidate("main-sides", {
+        bends: 2,
+        outSide: "EAST",
+        inSide: "WEST",
+        sideLoad: 2,
+      }),
+    ],
+    right,
+  ).id,
+  "main-sides",
+  "available primary ports outrank load and bend-count preferences",
+);
+assert.equal(
+  selectBestPortCandidate(
     [candidate("more-crossings", { vsBypass: 2, score: 0 }), candidate("clear", { score: 99 })],
     right,
   ).id,
@@ -139,5 +169,47 @@ assert.equal(
   "cheap",
 );
 assert.equal(selectBestPortCandidate([], right), null);
+
+for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+  const profile = axisProfile(direction);
+  const crossSide = profile.crossSides[0];
+  const reserved = exclusiveSideChoices(
+    bypass,
+    "a",
+    { a: main },
+    profile.outSide,
+    crossSide,
+    profile,
+    false,
+    false,
+  );
+  assert.equal(
+    reserved[0],
+    profile.outSide,
+    `${direction} keeps an unoccupied primary output side available`,
+  );
+
+  assert.equal(
+    selectBestPortCandidate(
+      [
+        candidate("cross", {
+          bends: 0,
+          inSide: crossSide,
+          outSide: crossSide,
+          sideLoad: 0,
+        }),
+        candidate("primary", {
+          bends: 2,
+          inSide: profile.inSide,
+          outSide: profile.outSide,
+          sideLoad: 2,
+        }),
+      ],
+      profile,
+    ).id,
+    "primary",
+    `${direction} primary sides outrank secondary route preferences`,
+  );
+}
 
 console.log("OK: port planner tests passed");
