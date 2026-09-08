@@ -60,7 +60,7 @@ JavaScript contract.
 - [x] Publish `1.0.0-rc.1` under npm's `next` dist-tag
 - [x] Add exact-Registry RC integration and repeated-lifecycle validation
 - [x] Review the first RC observation and clear stale execution data on update
-- [ ] Publish and validate `1.0.0-rc.2` after the RC observation fix
+- [x] Publish and validate `1.0.0-rc.2` after the RC observation fix
 - [ ] Review RC feedback and resolve any newly discovered release blocker
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
@@ -85,11 +85,9 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Publish `1.0.0-rc.2` under npm's `next` dist-tag.
-2. Run the exact-package [RC validation](./RC_VALIDATION.md), observe one host
-   integration, and review feedback.
-3. Fix release blockers only; publish another RC if code changes are required.
-4. Publish `1.0.0` under npm's `latest` dist-tag after RC validation.
+1. Observe one host integration with `1.0.0-rc.2` and review feedback.
+2. Fix release blockers only; publish another RC if code changes are required.
+3. Publish `1.0.0` under npm's `latest` dist-tag after RC validation.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
