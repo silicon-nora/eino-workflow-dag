@@ -9,7 +9,7 @@ const requiredProvenanceItems = [
   "Confirm that authorization covers all contributor work present in this repository",
   "Review visual assets, fixtures, and example data for confidential or third-party material",
   "Include the bundled Cytoscape.js MIT notice",
-  "Verify that the exact npm name was unregistered on 2026-09-05; repeat immediately before publishing because a lookup does not reserve the name",
+  "Verify npm package ownership and current published metadata immediately before publishing",
   "Record the approving party and approval date in the release record",
 ];
 

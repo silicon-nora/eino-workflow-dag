@@ -35,8 +35,8 @@ authorization item below.
 - [x] Review visual assets, fixtures, and example data for confidential or
   third-party material
 - [x] Include the bundled Cytoscape.js MIT notice
-- [x] Verify that the exact npm name was unregistered on 2026-09-05; repeat
-  immediately before publishing because a lookup does not reserve the name
+- [x] Verify npm package ownership and current published metadata immediately
+  before publishing
 - [x] Record the approving party and approval date in the release record
 
 Do not remove this gate merely because the package passes technical checks.

@@ -3,6 +3,20 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
+## [0.4.0-beta.1] - 2026-09-08
+
+### Changed
+
+- Froze the schema-version-1 protocol and public package surface for beta
+  compatibility validation.
+- Extended every npm release with clean Registry consumer builds for the
+  supported React and Vue peer ranges.
+
+### Added
+
+- Added a reusable published-package smoke workflow covering React 18, React
+  19, Vue 3, ESM bundling, package CSS, TypeScript, and CommonJS loading.
+
 ## [0.4.0-alpha.3] - 2026-09-08
 
 ### Changed
