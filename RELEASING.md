@@ -4,6 +4,18 @@ Publishing requires confirmed repository ownership, package authority, and a
 fully passing release gate. Prereleases are published under `next`; promotion
 to beta follows compatibility testing and feedback from package users.
 
+## Release refs
+
+Release from a commit on `main` and create one immutable, SemVer-matching tag
+for each published version: `v<package.json version>`. The tag, GitHub Release,
+and npm version identify the same source and must never be moved or reused.
+Stable versions do not need a separate stable branch.
+
+Use a temporary `release/<version>` branch only for a prolonged candidate
+freeze, and merge its final changes back to `main` before tagging. Introduce a
+long-lived maintenance branch only when more than one stable major line is
+supported concurrently.
+
 ## Pre-release checklist
 
 1. Confirm that all code, documentation, and visual assets present in this

@@ -2,6 +2,20 @@
 
 Thank you for helping improve `eino-workflow-dag`.
 
+## Branches and pull requests
+
+`main` is the only long-lived development branch and must remain releasable.
+Create a short-lived branch for every change, using a descriptive prefix such
+as `feat/`, `fix/`, `docs/`, or `chore/`. Open a pull request against `main`,
+resolve review threads, and wait for every required check before merging. Delete
+the source branch after it is merged.
+
+Do not create permanent `develop`, `stable`, or `production` branches. A
+temporary `release/<version>` branch is appropriate only when a candidate needs
+an extended freeze. A maintenance branch such as `v1-maintenance` is justified
+only when the project is actively shipping fixes for more than one stable major
+line.
+
 ## Development workflow
 
 1. Install dependencies with `npm ci`.
