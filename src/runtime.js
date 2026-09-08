@@ -603,6 +603,7 @@ export function mountRenderer(container, options) {
     }
 
     function expandAll() {
+      assertActive();
       var next = createKeyMap();
       Model.listSubgraphs(root).forEach(function (s) {
         next[s.path] = true;

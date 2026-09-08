@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { layoutVisibleGraph } from "../src/layout.js";
 import { buildVisibleGraph, listSubgraphs } from "../src/model.js";
+import { projectWorkflowSnapshot } from "../src/snapshot.js";
+import { validateWorkflowSnapshot } from "../src/validation.js";
 
 const DIRECTIONS = ["RIGHT", "LEFT", "DOWN", "UP"];
 const SPECIAL_IDS = [
@@ -77,6 +79,66 @@ function mainCenter(position, direction) {
   return direction === "RIGHT" || direction === "LEFT"
     ? position.x + position.width / 2
     : position.y + position.height / 2;
+}
+
+const partialBoundarySnapshot = {
+  schemaVersion: 1,
+  workflow: {
+    nodes: [
+      { id: "explicit-start", component: "Lambda" },
+      { id: "implicit-end", component: "Lambda" },
+      { id: "implicit-start", component: "Lambda" },
+      { id: "explicit-end", component: "Lambda" },
+    ],
+    edges: [
+      { from: "start", to: "explicit-start", channels: ["control"] },
+      {
+        from: "explicit-start",
+        to: "implicit-end",
+        channels: ["control"],
+      },
+      {
+        from: "implicit-start",
+        to: "explicit-end",
+        channels: ["control"],
+      },
+      { from: "explicit-end", to: "end", channels: ["control"] },
+    ],
+  },
+  execution: {
+    nodes: [
+      { path: ["explicit-start"], status: "success", durationMs: 1 },
+      { path: ["implicit-end"], status: "success", durationMs: 1 },
+      { path: ["implicit-start"], status: "success", durationMs: 10 },
+      { path: ["explicit-end"], status: "success", durationMs: 10 },
+    ],
+  },
+};
+
+assert(
+  validateWorkflowSnapshot(partialBoundarySnapshot).valid,
+  "partial endpoint annotations are valid protocol input",
+);
+const partialBoundaryVisible = buildVisibleGraph(
+  projectWorkflowSnapshot(partialBoundarySnapshot),
+  {},
+);
+assert.deepEqual(
+  partialBoundaryVisible.levelZeroPath,
+  ["implicit-start", "explicit-end"],
+  "Level 0 considers every disconnected acyclic component",
+);
+for (const direction of DIRECTIONS) {
+  const { positions } = layoutVisibleGraph(partialBoundaryVisible, { direction });
+  const ids = Object.keys(positions);
+  for (let left = 0; left < ids.length; left += 1) {
+    for (let right = left + 1; right < ids.length; right += 1) {
+      assert(
+        !overlap(positions[ids[left]], positions[ids[right]]),
+        `partial boundaries/${direction}: ${ids[left]} and ${ids[right]} do not overlap`,
+      );
+    }
+  }
 }
 
 for (let seed = 1; seed <= 80; seed += 1) {
