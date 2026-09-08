@@ -247,8 +247,9 @@ production dependency.
 For local routing inspection, build the package, serve the repository root,
 and open the interactive
 [routing preview](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples/routing-preview).
-It contains serial, fan-in, diamond, nested-workflow, and stress cases in all
-four layout directions. The same matrix is exercised by the browser test suite.
+It contains serial, fan-in, diamond, nested-workflow, production-scale, and
+stress cases in all four layout directions. The same matrix is exercised by the
+browser test suite.
 
 ## Support and licensing
 

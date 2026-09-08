@@ -93,7 +93,14 @@ test("routing preview covers every case and direction", async ({ page }) => {
   const directions = await page.locator("[data-direction]").evaluateAll((buttons) =>
     buttons.map((button) => button.dataset.direction),
   );
-  expect(caseIds).toEqual(["serial", "fan", "diamond", "nested", "stress"]);
+  expect(caseIds).toEqual([
+    "serial",
+    "fan",
+    "diamond",
+    "nested",
+    "production",
+    "stress",
+  ]);
   expect(directions).toEqual(["RIGHT", "LEFT", "DOWN", "UP"]);
 
   for (const caseId of caseIds) {

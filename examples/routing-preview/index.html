@@ -131,6 +131,7 @@
               <option value="fan" selected>三路汇聚</option>
               <option value="diamond">分叉再合并</option>
               <option value="nested">嵌套 Workflow</option>
+              <option value="production">复杂生产流程</option>
               <option value="stress">密集压力图</option>
             </select>
           </label>
@@ -251,6 +252,147 @@
             ],
           },
         },
+        production: {
+          schemaVersion: 1,
+          workflow: {
+            nodes: [
+              { id: "collect_events", name: "Collect Events", component: "Loader" },
+              { id: "resolve_sources", name: "Resolve Sources", component: "Retriever" },
+              { id: "select_candidates", name: "Select Candidates", component: "Lambda" },
+              { id: "build_signals", name: "Build Signals", component: "Lambda" },
+              { id: "route_strategy", name: "Route Strategy", component: "Lambda" },
+              {
+                id: "batch_analysis",
+                name: "Batch Analysis",
+                component: "Workflow",
+                workflow: {
+                  nodes: [
+                    { id: "rank_sources", name: "Rank Sources", component: "Lambda" },
+                    { id: "prepare_access", name: "Prepare Access", component: "Lambda" },
+                    { id: "behavior_context", name: "Behavior Context", component: "Lambda" },
+                    { id: "load_summaries", name: "Load Summaries", component: "Retriever" },
+                    { id: "load_documents", name: "Load Documents", component: "Retriever" },
+                    { id: "load_preferences", name: "Load Preferences", component: "Retriever" },
+                    { id: "merge_analysis", name: "Merge Analysis Input", component: "Lambda" },
+                    { id: "analyze_items", name: "Analyze Items", component: "ChatModel" },
+                  ],
+                  edges: [
+                    edge("start", "rank_sources", ["control"]),
+                    edge("rank_sources", "prepare_access", ["control", "data"]),
+                    edge("prepare_access", "behavior_context"),
+                    edge("prepare_access", "load_summaries"),
+                    edge("prepare_access", "load_documents"),
+                    edge("prepare_access", "load_preferences"),
+                    edge("behavior_context", "merge_analysis"),
+                    edge("load_summaries", "merge_analysis"),
+                    edge("load_documents", "merge_analysis"),
+                    edge("load_preferences", "merge_analysis"),
+                    edge("merge_analysis", "analyze_items", ["control", "data"]),
+                    edge("analyze_items", "end", ["control"]),
+                  ],
+                },
+              },
+              {
+                id: "batch_compose",
+                name: "Batch Compose",
+                component: "Workflow",
+                workflow: {
+                  nodes: [
+                    { id: "prepare_cards", name: "Prepare Cards", component: "Lambda" },
+                    { id: "compose_cards", name: "Compose Cards", component: "ChatModel" },
+                    { id: "repair_format", name: "Repair Format", component: "ChatModel" },
+                    { id: "enrich_results", name: "Enrich Results", component: "Lambda" },
+                  ],
+                  edges: [
+                    edge("start", "prepare_cards", ["control"]),
+                    edge("prepare_cards", "compose_cards", ["control", "data"]),
+                    edge("compose_cards", "repair_format", ["control", "data"]),
+                    edge("repair_format", "enrich_results", ["control", "data"]),
+                    edge("enrich_results", "end", ["control"]),
+                  ],
+                },
+              },
+              { id: "update_profile", name: "Update Profile", component: "Lambda" },
+              {
+                id: "guided_flow",
+                name: "Guided Flow",
+                component: "Workflow",
+                workflow: {
+                  nodes: [
+                    { id: "rank_sources", name: "Rank Sources", component: "Lambda" },
+                    { id: "prepare_access", name: "Prepare Access", component: "Lambda" },
+                    { id: "behavior_context", name: "Behavior Context", component: "Lambda" },
+                    { id: "load_summaries", name: "Load Summaries", component: "Retriever" },
+                    { id: "load_documents", name: "Load Documents", component: "Retriever" },
+                    { id: "load_preferences", name: "Load Preferences", component: "Retriever" },
+                    { id: "analyze_items", name: "Analyze Items", component: "ChatModel" },
+                    { id: "merge_compose", name: "Merge Compose Input", component: "Lambda" },
+                    { id: "compose_cards", name: "Compose Cards", component: "ChatModel" },
+                    { id: "repair_format", name: "Repair Format", component: "ChatModel" },
+                    { id: "enrich_results", name: "Enrich Results", component: "Lambda" },
+                  ],
+                  edges: [
+                    edge("start", "rank_sources", ["control"]),
+                    edge("rank_sources", "prepare_access", ["control", "data"]),
+                    edge("prepare_access", "behavior_context"),
+                    edge("prepare_access", "load_summaries"),
+                    edge("prepare_access", "load_documents"),
+                    edge("prepare_access", "load_preferences"),
+                    edge("behavior_context", "analyze_items"),
+                    edge("load_summaries", "analyze_items"),
+                    edge("load_preferences", "analyze_items"),
+                    edge("load_documents", "merge_compose"),
+                    edge("analyze_items", "merge_compose"),
+                    edge("merge_compose", "compose_cards", ["control", "data"]),
+                    edge("compose_cards", "repair_format", ["control", "data"]),
+                    edge("repair_format", "enrich_results", ["control", "data"]),
+                    edge("enrich_results", "end", ["control"]),
+                  ],
+                },
+              },
+            ],
+            edges: [
+              edge("start", "collect_events", ["control"]),
+              edge("collect_events", "resolve_sources", ["control", "data"]),
+              edge("resolve_sources", "select_candidates", ["control", "data"]),
+              edge("select_candidates", "build_signals", ["control", "data"]),
+              edge("build_signals", "route_strategy", ["control", "data"]),
+              edge("batch_analysis", "batch_compose", ["control", "data"]),
+              edge("batch_analysis", "update_profile", ["control", "data"]),
+              edge("batch_compose", "end", ["control"]),
+              edge("update_profile", "end", ["control"]),
+              edge("guided_flow", "end", ["control"]),
+            ],
+            branches: [
+              { from: "route_strategy", targets: ["batch_analysis", "guided_flow"] },
+            ],
+          },
+          execution: {
+            durationMs: 12480,
+            nodes: [
+              { path: ["collect_events"], status: "success", durationMs: 830 },
+              { path: ["resolve_sources"], status: "success", durationMs: 980 },
+              { path: ["select_candidates"], status: "success", durationMs: 0 },
+              { path: ["build_signals"], status: "success", durationMs: 0 },
+              { path: ["route_strategy"], status: "success", durationMs: 0 },
+              { path: ["batch_analysis"], status: "skipped", durationMs: 0 },
+              { path: ["batch_compose"], status: "skipped", durationMs: 0 },
+              { path: ["update_profile"], status: "skipped", durationMs: 0 },
+              { path: ["guided_flow"], status: "success", durationMs: 10650 },
+              { path: ["guided_flow", "rank_sources"], status: "success", durationMs: 0 },
+              { path: ["guided_flow", "prepare_access"], status: "success", durationMs: 0 },
+              { path: ["guided_flow", "behavior_context"], status: "success", durationMs: 0 },
+              { path: ["guided_flow", "load_summaries"], status: "success", durationMs: 1280 },
+              { path: ["guided_flow", "load_documents"], status: "success", durationMs: 4080 },
+              { path: ["guided_flow", "load_preferences"], status: "success", durationMs: 130 },
+              { path: ["guided_flow", "analyze_items"], status: "success", durationMs: 3030 },
+              { path: ["guided_flow", "merge_compose"], status: "success", durationMs: 0 },
+              { path: ["guided_flow", "compose_cards"], status: "success", durationMs: 6350 },
+              { path: ["guided_flow", "repair_format"], status: "success", durationMs: 0 },
+              { path: ["guided_flow", "enrich_results"], status: "success", durationMs: 0 },
+            ],
+          },
+        },
         stress: makeSnapshot(
           [
             { id: "a", name: "A", component: "Lambda" },
@@ -276,6 +418,7 @@
         fan: "三路并行后汇聚 · 检查主端口与分流端口",
         diamond: "分叉再合并 · 检查多层扇出与扇入",
         nested: "展开的嵌套 Workflow · 检查容器边界路由",
+        production: "分支、跳过路径与嵌套扇入 · 模拟生产级工作流",
         stress: "密集压力图 · 检查复杂路由和缓存恢复",
       };
 
@@ -326,7 +469,7 @@
       });
       document.querySelector("#case").addEventListener("change", (event) => {
         const caseId = event.target.value;
-        dag.update(cases[caseId]);
+        dag.update(cases[caseId], { preserveExpanded: false });
         if (caseId === "nested") dag.expandAll();
         dag.resetView();
         document.querySelector("#case-description").textContent = descriptions[caseId];

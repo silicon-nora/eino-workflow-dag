@@ -24,7 +24,8 @@ public contract is being validated.
   topology updates, all four directions, and layout-cache round trips.
 - Exposed field mappings, edge metadata, and branch metadata in rendered-edge
   data, including edge-click callbacks.
-- Added an interactive routing preview with multiple topology cases and
+- Added an interactive routing preview with multiple topology cases, including
+  an anonymized production-scale nested workflow, and
   browser coverage across every supported layout direction.
 
 ### Fixed
