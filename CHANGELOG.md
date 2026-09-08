@@ -3,14 +3,10 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
-## [0.4.0-beta.1] - 2026-09-08
+## [0.4.0-beta.2] - 2026-09-08
 
 ### Changed
 
-- Froze the schema-version-1 protocol and public package surface for beta
-  compatibility validation.
-- Extended every npm release with clean Registry consumer builds for the
-  supported React and Vue peer ranges.
 - Changed default node labels to show the original Eino component and to omit
   timing when no node execution duration was supplied.
 - Preserved an absent node duration in formatter, click, and visible-graph data
@@ -23,15 +19,37 @@ public contract is being validated.
 
 ### Added
 
-- Added a reusable published-package smoke workflow covering React 18, React
-  19, Vue 3, ESM bundling, package CSS, TypeScript, and CommonJS loading.
-- Added browser routing-invariant coverage for fan-in/fan-out graphs across
-  topology updates, all four directions, and layout-cache round trips.
 - Exposed field mappings, edge metadata, and branch metadata in rendered-edge
   data, including edge-click callbacks.
 - Added an interactive routing preview with multiple topology cases, including
   an anonymized production-scale nested workflow, and
   browser coverage across every supported layout direction.
+
+### Fixed
+
+- Kept every same-graph, same-Level node on one cross-axis rail, including
+  expanded workflows whose content waist is aligned to a parent Level.
+- Allowed higher-Level rails to expand on either side of Level 0, selecting the
+  side from connected-rail distance and the occupied layout envelope.
+- Aligned expanded-workflow boundary ports with the workflow's inner Level 0
+  rail, keeping unobstructed same-Level connections straight without disabling
+  obstacle detours.
+
+## [0.4.0-beta.1] - 2026-09-08
+
+### Changed
+
+- Froze the schema-version-1 protocol and public package surface for beta
+  compatibility validation.
+- Extended every npm release with clean Registry consumer builds for the
+  supported React and Vue peer ranges.
+
+### Added
+
+- Added a reusable published-package smoke workflow covering React 18, React
+  19, Vue 3, ESM bundling, package CSS, TypeScript, and CommonJS loading.
+- Added browser routing-invariant coverage for fan-in/fan-out graphs across
+  topology updates, all four directions, and layout-cache round trips.
 
 ### Fixed
 
@@ -41,13 +59,6 @@ public contract is being validated.
   positions and styles.
 - Preferred the workflow direction's primary input/output sides until those
   sides are actually occupied, instead of treating a reservation as use.
-- Kept every same-graph, same-Level node on one cross-axis rail, including
-  expanded workflows whose content waist is aligned to a parent Level.
-- Allowed higher-Level rails to expand on either side of Level 0, selecting the
-  side from connected-rail distance and the occupied layout envelope.
-- Aligned expanded-workflow boundary ports with the workflow's inner Level 0
-  rail, keeping unobstructed same-Level connections straight without disabling
-  obstacle detours.
 
 ## [0.4.0-alpha.3] - 2026-09-08
 
