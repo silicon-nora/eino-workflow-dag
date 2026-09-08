@@ -255,3 +255,126 @@ test("restores host state on destroy", async ({ page }) => {
     },
   });
 });
+
+test("applies instance themes and opt-out interaction policy", async ({ page }) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:720px;height:420px";
+    const container = document.createElement("div");
+    container.style.cssText = "width:100%;height:100%";
+    host.appendChild(container);
+    document.body.appendChild(host);
+    let nodeClicks = 0;
+    let edgeClicks = 0;
+    const snapshot = {
+      schemaVersion: 1,
+      workflow: {
+        nodes: [
+          {
+            id: "nested",
+            name: "Nested",
+            workflow: { nodes: [{ id: "inside" }], edges: [] },
+          },
+          { id: "finish", name: "Finish" },
+        ],
+        edges: [{ from: "nested", to: "finish", channels: ["control"] }],
+      },
+    };
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(container, {
+      snapshot,
+      expanded: [],
+      theme: {
+        base: "classic",
+        tokens: {
+          canvas: { bg: "#f8fafc" },
+          colors: { highlighted: "#2563eb" },
+          tooltip: { bg: "#111827", color: "#f9fafb" },
+        },
+      },
+      interaction: {
+        expandOnNodeClick: false,
+        tooltipOnHover: false,
+        pinTooltipOnNodeClick: false,
+        highlightEdgeOnClick: false,
+        clearHighlightOnCanvasClick: false,
+        keyboardNavigation: false,
+        panOnDrag: false,
+        zoomOnCtrlWheel: false,
+      },
+      onNodeClick: () => { nodeClicks += 1; },
+      onEdgeClick: () => { edgeClicks += 1; },
+    });
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const initial = instance.getDiagnostics();
+    const node = cy.getElementById("nested");
+    const edge = cy.edges().first();
+    node.emit("mouseover");
+    node.emit("tap");
+    edge.emit("tap");
+
+    instance.setTheme({
+      base: "classic",
+      tokens: {
+        canvas: { bg: "#fff7ed" },
+        colors: { highlighted: "#ea580c" },
+      },
+    });
+    const painted = instance.getDiagnostics();
+    const paintCanvas = container.style.background;
+    instance.setTheme({
+      base: "classic",
+      tokens: {
+        node: { width: 280, height: 76, textMaxWidth: 250 },
+        spacing: { nodeNode: 72, betweenLayers: 68 },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const resized = instance.getDiagnostics();
+    const returnedTheme = instance.getTheme();
+    returnedTheme.tokens.node.width = 90;
+    const stableTheme = instance.getTheme();
+    const output = {
+      nodeClicks,
+      edgeClicks,
+      expanded: instance.getExpanded(),
+      edgeHighlighted: edge.hasClass("highlight"),
+      tooltipCount: host.querySelectorAll(".cy-node-tip:not([hidden])").length,
+      tabIndex: container.getAttribute("tabindex"),
+      panning: cy.userPanningEnabled(),
+      paintLayoutDelta: painted.layoutRuns - initial.layoutRuns,
+      geometryLayoutDelta: resized.layoutRuns - painted.layoutRuns,
+      width: node.width(),
+      height: node.height(),
+      themeWidth: stableTheme.tokens.node.width,
+      paintCanvas,
+      canvas: container.style.background,
+      tooltipBg: host.style.getPropertyValue("--eino-workflow-dag-tooltip-bg"),
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result).toEqual({
+    nodeClicks: 1,
+    edgeClicks: 1,
+    expanded: [],
+    edgeHighlighted: false,
+    tooltipCount: 0,
+    tabIndex: null,
+    panning: false,
+    paintLayoutDelta: 0,
+    geometryLayoutDelta: 1,
+    width: 280,
+    height: 76,
+    themeWidth: 280,
+    paintCanvas: "rgb(255, 247, 237)",
+    canvas: "rgb(244, 246, 248)",
+    tooltipBg: "rgba(255, 255, 255, 0.97)",
+  });
+});

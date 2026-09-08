@@ -191,7 +191,14 @@ const activeNodePath = ref(["model"]);
 ## Themes, locale, and formatting
 
 Built-in themes are `classic`, `ink`, and `midnight`. Register application
-themes with `registerWorkflowDAGTheme()`. Eino component values remain open
+themes with `registerWorkflowDAGTheme()`, or pass an instance theme definition
+with `base` and `tokens`. Visual tokens cover colors, node dimensions, route
+styles, expanded-graph titles, tooltips, and layout spacing. The `interaction`
+option independently enables or disables built-in expansion, tooltip, route
+highlight, keyboard, pan, and wheel-zoom behavior. See the normative
+[customization contract](./CUSTOMIZATION.md).
+
+Eino component values remain open
 strings, while execution status is the fixed `success`, `failed`, or `skipped`
 outcome. The renderer maps known component categories to visual kinds such as
 `llm`, `io`, `cpu`, `merge`, and `graph` for styling and formatter data.
@@ -211,6 +218,9 @@ replacement for the component identity.
 `metadata`. When a rendered relationship also represents an Eino branch, its
 metadata is available separately as `branchMetadata`. Node formatter data and
 rendered edges also expose their graph-local numeric `level`.
+
+Presentation settings are never read from snapshot `metadata`. Metadata is
+passed to host callbacks and formatters without acquiring renderer semantics.
 
 ## Level layout model
 

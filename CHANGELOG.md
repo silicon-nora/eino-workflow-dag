@@ -5,6 +5,19 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-09-08
+
+### Added
+
+- Defined a renderer-neutral visual and interaction customization contract,
+  including instance theme overrides, validated geometry and tooltip tokens,
+  and opt-out policies for built-in pointer, keyboard, pan, and zoom actions.
+
+### Changed
+
+- Theme changes now relayout only when node geometry or spacing changes; paint
+  changes preserve the current layout and viewport.
+
 ### Fixed
 
 - Excluded nested consumer dependency directories from repository sensitive-content

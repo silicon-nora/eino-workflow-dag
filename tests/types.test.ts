@@ -60,6 +60,19 @@ const container = document.createElement("div");
 const instance = createWorkflowDAG(container, {
   snapshot,
   direction: "RIGHT",
+  theme: {
+    base: "ink",
+    tokens: {
+      node: { width: 240, height: 68, textMaxWidth: 216 },
+      spacing: { nodeNode: 64, betweenLayers: 56 },
+      tooltip: { bg: "#111827", color: "#f9fafb" },
+    },
+  },
+  interaction: {
+    expandOnNodeClick: false,
+    pinTooltipOnNodeClick: false,
+    zoomOnCtrlWheel: true,
+  },
   activeNodePath: activePath,
   expanded: [["research"]],
   tooltipFormatter: (node) => `${node.name}: ${node.status}`,
@@ -70,6 +83,10 @@ const instance = createWorkflowDAG(container, {
 });
 
 instance.setTheme("midnight");
+instance.setTheme({
+  base: "classic",
+  tokens: { colors: { highlighted: "#2563eb" } },
+});
 instance.setLocale({ statuses: { success: "完成" } });
 const resolvedLocale: ResolvedDAGLocale = instance.getLocale();
 resolvedLocale.tooltip.metrics;
