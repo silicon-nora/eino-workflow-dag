@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   listThemes,
   normalizeTheme,
+  normalizeThemeInput,
   registerTheme,
   stylesheet,
   themeTokens,
@@ -9,6 +10,22 @@ import {
 
 assert.deepEqual(listThemes().slice(0, 3), ["classic", "ink", "midnight"]);
 assert.equal(normalizeTheme("missing"), "classic");
+
+const instanceTheme = normalizeThemeInput({
+  base: "ink",
+  tokens: {
+    node: { width: 248, height: 72, textMaxWidth: 220 },
+    spacing: { betweenLayers: 62 },
+    tooltip: { bg: "#111827", color: "#f9fafb" },
+  },
+});
+assert.equal(instanceTheme.base, "ink");
+assert.equal(themeTokens(instanceTheme).node.width, 248);
+assert.equal(themeTokens(instanceTheme).node.height, 72);
+assert.equal(themeTokens(instanceTheme).spacing.betweenLayers, 62);
+assert.equal(themeTokens(instanceTheme).spacing.nodeNode, 56);
+assert.equal(themeTokens(instanceTheme).tooltip.bg, "#111827");
+assert.equal(stylesheet(instanceTheme)[0].style.width, 248);
 
 const unregister = registerTheme("test-brand", {
   canvas: { bg: "#fafafa" },
@@ -35,6 +52,26 @@ assert.equal(
 assert.throws(() => registerTheme("classic", {}), /cannot be replaced/);
 assert.throws(() => registerTheme("", {}), /non-empty string/);
 assert.throws(() => registerTheme("invalid", null), /must be an object/);
+assert.throws(
+  () => normalizeThemeInput({ tokens: { node: { widht: 200 } } }),
+  /node\.widht is not supported/,
+);
+assert.throws(
+  () => normalizeThemeInput({ tokens: { node: { width: 20 } } }),
+  /node\.width must be between 80 and 600/,
+);
+assert.throws(
+  () => normalizeThemeInput({ tokens: { edge: { highlightedUnderlay: "yes" } } }),
+  /highlightedUnderlay must be a boolean/,
+);
+assert.throws(
+  () => normalizeThemeInput({ tokens: {}, appearance: {} }),
+  /theme\.appearance is not supported/,
+);
+assert.throws(
+  () => normalizeThemeInput({ tokens: JSON.parse('{"toString":{"x":1}}') }),
+  /toString is not supported/,
+);
 
 unregister();
 assert.equal(normalizeTheme("test-brand"), "classic");

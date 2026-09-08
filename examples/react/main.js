@@ -41,7 +41,7 @@ function render() {
           locale,
           activeNodePath,
           style: { height: "420px" },
-          pinNodeTip: false,
+          interaction: { pinTooltipOnNodeClick: false },
           onReady(instance) {
             window.reactDagInstance = instance;
           },

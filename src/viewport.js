@@ -5,7 +5,7 @@ export function createViewportController(container, options) {
   const tooltip = options.tooltip;
   const minZoom = options.minZoom;
   const maxZoom = options.maxZoom;
-  const fitPadding = options.fitPadding;
+  let fitPadding = options.fitPadding;
   const zoomStep = options.zoomStep;
   let lockingPan = false;
   let wheelHandler = null;
@@ -74,7 +74,7 @@ export function createViewportController(container, options) {
   }
 
   function bind() {
-    if (wheelHandler) return;
+    if (wheelHandler || options.wheelZoom === false) return;
     wheelHandler = (event) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
@@ -107,6 +107,9 @@ export function createViewportController(container, options) {
     onViewport,
     resetView: () => resize({ fit: true }),
     resize,
+    setFitPadding(value) {
+      fitPadding = value;
+    },
     sync,
     zoomIn: () => zoomBy(zoomStep),
     zoomOut: () => zoomBy(1 / zoomStep),

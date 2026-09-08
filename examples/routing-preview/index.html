@@ -425,7 +425,7 @@
       const dag = EinoWorkflowDAG.createWorkflowDAG(document.querySelector("#dag"), {
         snapshot,
         direction: "RIGHT",
-        pinNodeTip: false,
+        interaction: { pinTooltipOnNodeClick: false },
       });
       const access = Symbol.for("eino-workflow-dag.cytoscape");
 

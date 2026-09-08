@@ -91,7 +91,7 @@
       window.dagInstance = EinoWorkflowDAG.createWorkflowDAG(document.querySelector("#dag"), {
         snapshot,
         direction: "RIGHT",
-        pinNodeTip: false,
+        interaction: { pinTooltipOnNodeClick: false },
         onExpandedChange(expanded) {
           window.dagExpansionEvents.push(expanded);
         },

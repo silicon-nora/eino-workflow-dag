@@ -6,6 +6,12 @@ export interface JsonObject {
 
 export type DAGDirection = "RIGHT" | "LEFT" | "DOWN" | "UP";
 export type DAGTheme = "classic" | "ink" | "midnight" | (string & {});
+export interface DAGThemeDefinition {
+  /** Registered theme used before applying instance tokens. Defaults to classic. */
+  readonly base?: DAGTheme;
+  readonly tokens?: DAGThemeTokens;
+}
+export type DAGThemeInput = DAGTheme | DAGThemeDefinition;
 export type WorkflowNodeStatus =
   | "success"
   | "failed"
@@ -143,7 +149,8 @@ export interface WorkflowSubgraphInfo {
 export interface CreateWorkflowDAGOptions {
   snapshot: EinoWorkflowSnapshot;
   direction?: DAGDirection;
-  theme?: DAGTheme;
+  theme?: DAGThemeInput;
+  interaction?: DAGInteractionPolicy;
   expanded?: readonly NodePath[];
   activeNodePath?: NodePath | null;
   onExpandedChange?: (expanded: readonly NodePath[]) => void;
@@ -152,6 +159,7 @@ export interface CreateWorkflowDAGOptions {
   onError?: (error: WorkflowDAGError | WorkflowSnapshotError) => void;
   tooltipFormatter?: (node: RenderedNodeData) => string;
   nodeLabelFormatter?: (node: VisibleNode) => string;
+  /** @deprecated Use interaction.pinTooltipOnNodeClick. */
   pinNodeTip?: boolean;
   autoResize?: boolean;
   debug?: boolean;
@@ -160,6 +168,7 @@ export interface CreateWorkflowDAGOptions {
     summary: DAGAccessibilitySummary,
     visible: VisibleGraph,
   ) => string;
+  /** @deprecated Use interaction.keyboardNavigation. */
   keyboardNavigation?: boolean;
   layoutCacheSize?: number;
   locale?: DAGLocale;
@@ -184,8 +193,8 @@ export interface WorkflowDAGInstance {
   setActiveNodePath(path?: NodePath | null): void;
   getDirection(): DAGDirection;
   setDirection(direction: DAGDirection): void;
-  getTheme(): DAGTheme;
-  setTheme(theme: DAGTheme): void;
+  getTheme(): DAGThemeInput;
+  setTheme(theme: DAGThemeInput): void;
   getLocale(): ResolvedDAGLocale;
   setLocale(locale?: DAGLocale): void;
   zoomIn(): void;
@@ -285,6 +294,9 @@ export interface DAGThemeTokens {
     probeGlow: string;
   }>;
   node?: Partial<{
+    width: number;
+    height: number;
+    textMaxWidth: number;
     shape: string;
     borderWidth: number;
     radius: number;
@@ -312,6 +324,40 @@ export interface DAGThemeTokens {
     titleHoverBorder: string;
     titleFont: string;
   }>;
+  tooltip?: Partial<{
+    bg: string;
+    color: string;
+    borderColor: string;
+    pinnedBorderColor: string;
+    shadow: string;
+    pinnedShadow: string;
+    radius: number;
+    maxWidth: number;
+    maxHeight: number;
+    fontSize: number;
+    lineHeight: number;
+    paddingX: number;
+    paddingY: number;
+  }>;
+  spacing?: Partial<{
+    nodeNode: number;
+    betweenLayers: number;
+    nestedNodeNode: number;
+    nestedBetweenLayers: number;
+    fitPadding: number;
+  }>;
+}
+
+/** Optional built-in interactions. Callbacks still fire when defaults are disabled. */
+export interface DAGInteractionPolicy {
+  readonly expandOnNodeClick?: boolean;
+  readonly tooltipOnHover?: boolean;
+  readonly pinTooltipOnNodeClick?: boolean;
+  readonly highlightEdgeOnClick?: boolean;
+  readonly clearHighlightOnCanvasClick?: boolean;
+  readonly keyboardNavigation?: boolean;
+  readonly panOnDrag?: boolean;
+  readonly zoomOnCtrlWheel?: boolean;
 }
 
 export type WorkflowSnapshotIssueCode =

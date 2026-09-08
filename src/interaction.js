@@ -1,5 +1,47 @@
 import { isExpandableCollapsed } from "./elements.js";
 
+const INTERACTION_DEFAULTS = Object.freeze({
+  expandOnNodeClick: true,
+  tooltipOnHover: true,
+  pinTooltipOnNodeClick: true,
+  highlightEdgeOnClick: true,
+  clearHighlightOnCanvasClick: true,
+  keyboardNavigation: true,
+  panOnDrag: true,
+  zoomOnCtrlWheel: true,
+});
+
+/** Resolve the public interaction policy, including the two pre-policy aliases. */
+export function resolveInteractionPolicy(options = {}) {
+  const source = options.interaction == null ? {} : options.interaction;
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    throw new TypeError("interaction must be an object");
+  }
+  const resolved = { ...INTERACTION_DEFAULTS };
+  for (const key of Object.keys(source)) {
+    if (!Object.prototype.hasOwnProperty.call(INTERACTION_DEFAULTS, key)) {
+      throw new TypeError(`interaction.${key} is not supported`);
+    }
+    if (typeof source[key] !== "boolean") {
+      throw new TypeError(`interaction.${key} must be a boolean`);
+    }
+    resolved[key] = source[key];
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(source, "pinTooltipOnNodeClick") &&
+    options.pinNodeTip !== undefined
+  ) {
+    resolved.pinTooltipOnNodeClick = options.pinNodeTip !== false;
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(source, "keyboardNavigation") &&
+    options.keyboardNavigation !== undefined
+  ) {
+    resolved.keyboardNavigation = options.keyboardNavigation !== false;
+  }
+  return resolved;
+}
+
 function eventData(element) {
   return { ...element.data() };
 }
@@ -11,7 +53,7 @@ export function bindGraphInteractions(cy, container, handlers) {
   const originalTabIndex = container.getAttribute("tabindex");
   const originalKeyShortcuts = container.getAttribute("aria-keyshortcuts");
 
-  if (handlers.keyboardNavigation !== false) {
+  if (handlers.policy.keyboardNavigation) {
     if (originalTabIndex == null) container.setAttribute("tabindex", "0");
     container.setAttribute(
       "aria-keyshortcuts",
@@ -46,7 +88,7 @@ export function bindGraphInteractions(cy, container, handlers) {
   }
 
   function onKeyDown(event) {
-    if (handlers.keyboardNavigation === false || event.target !== container) return;
+    if (!handlers.policy.keyboardNavigation || event.target !== container) return;
     const nodes = keyboardNodes();
     if (!nodes.length) return;
     let index = nodes.findIndex((node) => node.id() === keyboardNodeId);
@@ -84,13 +126,13 @@ export function bindGraphInteractions(cy, container, handlers) {
     cy.nodes(".hover").removeClass("hover");
     node.addClass("hover");
     container.style.cursor = "pointer";
-    handlers.tooltip.show(node);
+    if (handlers.policy.tooltipOnHover) handlers.tooltip.show(node);
   });
   cy.on("mouseout", "node", (event) => {
     event.target.removeClass("hover");
     event.target.removeClass("press");
     container.style.cursor = "default";
-    handlers.tooltip.scheduleHide();
+    if (handlers.policy.tooltipOnHover) handlers.tooltip.scheduleHide();
   });
   cy.on("mousedown", "node", (event) => {
     const node = event.target;
@@ -101,8 +143,8 @@ export function bindGraphInteractions(cy, container, handlers) {
     const node = event.target;
     if (node.isParent()) return;
     handlers.onNodeClick(eventData(node));
-    handlers.tooltip.togglePin(node);
-    if (!isExpandableCollapsed(node)) return;
+    if (handlers.policy.pinTooltipOnNodeClick) handlers.tooltip.togglePin(node);
+    if (!handlers.policy.expandOnNodeClick || !isExpandableCollapsed(node)) return;
     node.addClass("press");
     const id = node.id();
     if (expandTimer) clearTimeout(expandTimer);
@@ -122,11 +164,15 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("tap", "edge", (event) => {
     const edge = event.target;
     handlers.onEdgeClick(eventData(edge));
-    if (edge.hasClass("highlight")) handlers.clearEdgeHighlight();
-    else handlers.setEdgeHighlight(edge);
+    if (handlers.policy.highlightEdgeOnClick) {
+      if (edge.hasClass("highlight")) handlers.clearEdgeHighlight();
+      else handlers.setEdgeHighlight(edge);
+    }
   });
   cy.on("tap", (event) => {
-    if (event.target === cy) handlers.clearEdgeHighlight();
+    if (event.target === cy && handlers.policy.clearHighlightOnCanvasClick) {
+      handlers.clearEdgeHighlight();
+    }
   });
   cy.on("viewport", handlers.onViewport);
 

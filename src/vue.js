@@ -17,6 +17,7 @@ function forwardedOptions(props, emit) {
     snapshot: props.snapshot,
     direction: props.direction,
     theme: props.theme,
+    interaction: props.interaction,
     expanded: props.expanded,
     activeNodePath: props.activeNodePath,
     pinNodeTip: props.pinNodeTip,
@@ -50,7 +51,8 @@ export const EinoWorkflowDAGVue = defineComponent({
   props: {
     snapshot: { type: Object, required: true },
     direction: { type: String, default: "RIGHT" },
-    theme: { type: String, default: "classic" },
+    theme: { type: [String, Object], default: "classic" },
+    interaction: { type: Object, default: undefined },
     expanded: { type: Array, default: undefined },
     activeNodePath: { type: Array, default: null },
     pinNodeTip: { type: Boolean, default: true },
@@ -183,7 +185,10 @@ export const EinoWorkflowDAGVue = defineComponent({
             "eino-workflow-dag-host",
             "cy-wrap",
           ],
-          "data-theme": props.theme,
+          "data-theme":
+            typeof props.theme === "string"
+              ? props.theme
+              : props.theme?.base || "classic",
         }),
         [
           h("div", { ref: container, class: "cy-root" }),

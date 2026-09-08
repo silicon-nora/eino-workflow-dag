@@ -10,7 +10,10 @@ import {
   syncCytoscapeElements,
   toCytoscapeElements,
 } from "./elements.js";
-import { bindGraphInteractions } from "./interaction.js";
+import {
+  bindGraphInteractions,
+  resolveInteractionPolicy,
+} from "./interaction.js";
 import { createViewportController } from "./viewport.js";
 import { createEdgeStateController } from "./edge-state.js";
 import {
@@ -41,8 +44,10 @@ import {
 import { WorkflowDAGError } from "./workflow-error.js";
 import { attachCytoscapeAccess } from "./cytoscape-access.js";
 import {
-  normalizeTheme,
+  normalizeThemeInput,
   stylesheet,
+  themeFingerprint,
+  themeName,
   themeTokens,
 } from "./theme.js";
 
@@ -51,25 +56,20 @@ import {
   // Cytoscape compound nodes only support uniform padding. Use the top value
   // so the title overlay has five extra pixels of breathing room.
   var COMPOUND_PAD = GRAPH_COMPOUND_PAD;
-  // Root graph spacing. Leaf nodes remain 220×64.
-  // betweenLayers controls forward-axis spacing; nodeNode controls cross-axis spacing.
-  var SPACE_ROOT = {
-    nodeNode: 56,
+  // Routing clearance remains invariant. Themes can tune only the public
+  // node and layer gaps.
+  var SPACE_ROOT_BASE = {
     // Edge-to-node clearance also controls the outer detour channel.
     edgeNode: 44,
     edgeEdge: 28,
     portPort: 20,
-    betweenLayers: 48,
     edgeNodeBetweenLayers: 44,
     edgeEdgeBetweenLayers: 28,
-    fitPadding: 28,
   };
-  var SPACE_COMPOUND = {
-    nodeNode: 64,
+  var SPACE_COMPOUND_BASE = {
     edgeNode: 52,
     edgeEdge: 30,
     portPort: 22,
-    betweenLayers: 56,
     edgeNodeBetweenLayers: 52,
     edgeEdgeBetweenLayers: 28,
   };
@@ -232,15 +232,29 @@ import {
     );
   }
 
+  function layoutThemeFingerprint(tokens) {
+    return JSON.stringify({
+      node: [tokens.node.width, tokens.node.height, tokens.node.textMaxWidth],
+      spacing: tokens.spacing,
+    });
+  }
+
   /** Theme-driven styles; see THEMES for the built-in visual systems. */
 
   /**
    * @param {object} [profile] AxisProfile（含 direction）；缺省 RIGHT
    * @param {object} [visible] WorkflowDAGModel.buildVisibleGraph 结果
    */
-  function workflowLayoutOptions(profile, visible, fit) {
-    var sr = SPACE_ROOT;
-    var sc = SPACE_COMPOUND;
+  function workflowLayoutOptions(profile, visible, fit, tokens) {
+    var sr = Object.assign({}, SPACE_ROOT_BASE, {
+      nodeNode: tokens.spacing.nodeNode,
+      betweenLayers: tokens.spacing.betweenLayers,
+      fitPadding: tokens.spacing.fitPadding,
+    });
+    var sc = Object.assign({}, SPACE_COMPOUND_BASE, {
+      nodeNode: tokens.spacing.nestedNodeNode,
+      betweenLayers: tokens.spacing.nestedBetweenLayers,
+    });
     var p = profile || defaultAxisProfile();
     var dir = p.direction;
     return {
@@ -286,7 +300,11 @@ export function mountRenderer(container, options) {
     var normalizedSnapshot = normalizeDAGSnapshot(publicSnapshot);
     var root = normalizedSnapshot.root;
     var profile = axisProfile(normalizeDirection(options.direction));
-    var themeId = normalizeTheme(options.theme);
+    var themeInput = normalizeThemeInput(options.theme);
+    var themeKey = themeFingerprint(themeInput);
+    var tokens = themeTokens(themeInput);
+    var layoutThemeKey = layoutThemeFingerprint(tokens);
+    var interactionPolicy = resolveInteractionPolicy(options);
     var activeNodeKey = normalizeActiveNodePath(options.activeNodePath);
     var expanded = options.expanded
       ? expandedPathsToMap(options.expanded)
@@ -324,6 +342,19 @@ export function mountRenderer(container, options) {
       "--eino-workflow-dag-title-hover-bg",
       "--eino-workflow-dag-title-hover-border",
       "--eino-workflow-dag-title-font",
+      "--eino-workflow-dag-tooltip-bg",
+      "--eino-workflow-dag-tooltip-color",
+      "--eino-workflow-dag-tooltip-border",
+      "--eino-workflow-dag-tooltip-pinned-border",
+      "--eino-workflow-dag-tooltip-shadow",
+      "--eino-workflow-dag-tooltip-pinned-shadow",
+      "--eino-workflow-dag-tooltip-radius",
+      "--eino-workflow-dag-tooltip-max-width",
+      "--eino-workflow-dag-tooltip-max-height",
+      "--eino-workflow-dag-tooltip-font-size",
+      "--eino-workflow-dag-tooltip-line-height",
+      "--eino-workflow-dag-tooltip-padding-x",
+      "--eino-workflow-dag-tooltip-padding-y",
     ];
     var previousHostStyles = createKeyMap();
     if (hostElement && hostElement.classList) {
@@ -342,7 +373,6 @@ export function mountRenderer(container, options) {
     var ZOOM_STEP = 1.2;
     var MIN_ZOOM = 0.45;
     var MAX_ZOOM = 2.0;
-    var FIT_PADDING = 28;
 
     var cy = null;
     var locale = resolveLocale(options.locale);
@@ -425,13 +455,12 @@ export function mountRenderer(container, options) {
     }
 
     function graphStylesheet() {
-      return stylesheet(themeId).concat(additionalStyles);
+      return stylesheet(themeInput).concat(additionalStyles);
     }
 
     /** 画布底色 + .cy-wrap data-theme / overlay CSS 变量（不触碰 cy layout） */
-    function applyThemeChrome(id) {
-      var tid = normalizeTheme(id);
-      var tokens = themeTokens(tid);
+    function applyThemeChrome() {
+      var tid = themeName(themeInput);
       container.style.background = tokens.canvas.bg;
       var wrap = hostElement;
       if (wrap && wrap.classList) {
@@ -454,23 +483,56 @@ export function mountRenderer(container, options) {
         } else {
           wrap.style.removeProperty("--eino-workflow-dag-title-font");
         }
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-bg", tokens.tooltip.bg);
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-color", tokens.tooltip.color);
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-border", tokens.tooltip.borderColor);
+        wrap.style.setProperty(
+          "--eino-workflow-dag-tooltip-pinned-border",
+          tokens.tooltip.pinnedBorderColor,
+        );
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-shadow", tokens.tooltip.shadow);
+        wrap.style.setProperty(
+          "--eino-workflow-dag-tooltip-pinned-shadow",
+          tokens.tooltip.pinnedShadow,
+        );
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-radius", tokens.tooltip.radius + "px");
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-max-width", tokens.tooltip.maxWidth + "px");
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-max-height", tokens.tooltip.maxHeight + "px");
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-font-size", tokens.tooltip.fontSize + "px");
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-line-height", String(tokens.tooltip.lineHeight));
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-padding-x", tokens.tooltip.paddingX + "px");
+        wrap.style.setProperty("--eino-workflow-dag-tooltip-padding-y", tokens.tooltip.paddingY + "px");
       }
     }
 
     function getTheme() {
-      return themeId;
+      if (typeof themeInput === "string") return themeInput;
+      return {
+        base: themeInput.base,
+        tokens: JSON.parse(JSON.stringify(themeInput.tokens)),
+      };
     }
 
     function setTheme(next) {
       assertActive();
-      next = normalizeTheme(next);
-      if (next === themeId) return;
-      themeId = next;
+      var nextInput = normalizeThemeInput(next);
+      var nextKey = themeFingerprint(nextInput);
+      if (nextKey === themeKey) return;
+      var previousGeometry = layoutThemeKey;
+      themeInput = nextInput;
+      themeKey = nextKey;
+      tokens = themeTokens(themeInput);
+      layoutThemeKey = layoutThemeFingerprint(tokens);
       if (cy) {
-        // 只换 stylesheet，保留边 segments / layout / expanded
         cy.style(graphStylesheet());
       }
-      applyThemeChrome(themeId);
+      applyThemeChrome();
+      viewport.setFitPadding(tokens.spacing.fitPadding);
+      if (previousGeometry !== layoutThemeKey) {
+        layoutCache.clear();
+        render();
+        return;
+      }
       viewport.sync();
     }
 
@@ -635,7 +697,7 @@ export function mountRenderer(container, options) {
               }));
             }
           : null,
-      pinning: options.pinNodeTip !== false,
+      pinning: interactionPolicy.pinTooltipOnNodeClick,
       locale: locale,
     });
     var viewport = createViewportController(container, {
@@ -644,8 +706,9 @@ export function mountRenderer(container, options) {
       tooltip: tooltip,
       minZoom: MIN_ZOOM,
       maxZoom: MAX_ZOOM,
-      fitPadding: FIT_PADDING,
+      fitPadding: tokens.spacing.fitPadding,
       zoomStep: ZOOM_STEP,
+      wheelZoom: interactionPolicy.zoomOnCtrlWheel,
     });
     var edgeState = createEdgeStateController(function () { return cy; });
 
@@ -662,12 +725,12 @@ export function mountRenderer(container, options) {
       if (cached && restoreCytoscapeLayout(cy, cached)) {
         diagnostics.layoutCacheHits += 1;
         edgeState.refresh();
-        if (fit) cy.fit(undefined, FIT_PADDING);
+        if (fit) cy.fit(undefined, tokens.spacing.fitPadding);
         viewport.afterViewSettled();
         return;
       }
       diagnostics.layoutRuns += 1;
-      var layout = cy.layout(workflowLayoutOptions(profile, visible, fit));
+      var layout = cy.layout(workflowLayoutOptions(profile, visible, fit, tokens));
       activeLayout = layout;
       layout.one("layoutstop", function () {
         if (destroyed || generation !== layoutGeneration || !cy) return;
@@ -715,7 +778,7 @@ export function mountRenderer(container, options) {
         accessibility.update(visible);
         edgeState.refresh();
         syncActiveNode();
-        if (renderOptions.fit) cy.fit(undefined, FIT_PADDING);
+        if (renderOptions.fit) cy.fit(undefined, tokens.spacing.fitPadding);
         viewport.afterViewSettled();
         tooltip.refresh(cy);
         if (interaction) interaction.refreshKeyboardFocus();
@@ -744,7 +807,7 @@ export function mountRenderer(container, options) {
           boxSelectionEnabled: false,
           // Bare wheel events scroll the page; Ctrl+wheel zoom is bound by viewport.
           userZoomingEnabled: false,
-          userPanningEnabled: true,
+          userPanningEnabled: interactionPolicy.panOnDrag,
           minZoom: MIN_ZOOM,
           maxZoom: MAX_ZOOM,
         });
@@ -761,7 +824,7 @@ export function mountRenderer(container, options) {
           setEdgeHighlight: edgeState.set,
           togglePath: toggleEncodedPath,
           tooltip: tooltip,
-          keyboardNavigation: options.keyboardNavigation !== false,
+          policy: interactionPolicy,
         });
         viewport.bind();
       } else {
@@ -773,7 +836,7 @@ export function mountRenderer(container, options) {
       runLayout(
         visible,
         !renderOptions || renderOptions.fit !== false,
-        layoutCacheKey(profile.direction, elements, additionalStyles.length > 0),
+        layoutCacheKey(profile.direction, elements, additionalStyles.length > 0) + layoutThemeKey,
       );
       return visible;
     }
@@ -850,7 +913,7 @@ export function mountRenderer(container, options) {
           full: requested.full,
           background:
             requested.background === undefined
-              ? themeTokens(themeId).canvas.bg
+              ? tokens.canvas.bg
               : requested.background,
           scale: requested.scale,
           maxWidth: requested.maxWidth,
@@ -863,7 +926,7 @@ export function mountRenderer(container, options) {
         full: requested.full !== false,
         bg:
           requested.background === undefined
-            ? themeTokens(themeId).canvas.bg
+            ? tokens.canvas.bg
             : requested.background,
       };
       ["scale", "maxWidth", "maxHeight", "quality"].forEach(function (key) {
@@ -875,7 +938,7 @@ export function mountRenderer(container, options) {
     }
 
     // 初始
-    applyThemeChrome(themeId);
+    applyThemeChrome();
     render();
     if (options.autoResize !== false) {
       resizeObserver = observeElementResize(container, function () {
