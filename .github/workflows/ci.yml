@@ -53,6 +53,7 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - run: node --check scripts/check-published-consumer.js
       - run: npm run prepublishOnly
       - if: matrix.node == 24
         name: Audit production dependencies

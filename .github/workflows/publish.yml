@@ -12,6 +12,8 @@ jobs:
     name: npm
     runs-on: ubuntu-latest
     environment: npm-release
+    outputs:
+      version: ${{ steps.release.outputs.version }}
     permissions:
       contents: read
       id-token: write
@@ -65,3 +67,9 @@ jobs:
           --ignore-scripts --access public
           --tag "${{ steps.release.outputs.dist_tag }}"
           --provenance
+
+  published-consumer:
+    needs: npm
+    uses: ./.github/workflows/published-smoke.yml
+    with:
+      version: ${{ needs.npm.outputs.version }}

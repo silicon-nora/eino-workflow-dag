@@ -61,9 +61,11 @@ supported concurrently.
     publish a GitHub Release. `.github/workflows/publish.yml` re-runs all gates
     and publishes prereleases under `next`; stable versions use `latest`. The
     tagged commit must belong to the repository's default branch.
-11. Confirm npm serves the expected integrity and package metadata, then perform
-    a clean smoke installation using the exact published version. Do not commit
-    a local tarball or cross-repository `file:` dependency.
+11. Confirm npm serves the expected integrity and package metadata. The publish
+    workflow must then install the exact registry version into clean React 18,
+    React 19, and Vue 3 consumers and pass type, ESM bundle, CSS, and CommonJS
+    entry checks. Do not commit a local tarball or cross-repository `file:`
+    dependency.
 12. Review prerelease compatibility reports before preparing
     `0.4.0-beta.1`. Keep the alpha on `next`; do not assign `latest` during this
     phase.
