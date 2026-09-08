@@ -268,30 +268,44 @@ const runtime = {};
   function placeFlatLayer(items, edges, nested, profile, spacing) {
     if (!items.length) return;
     var layerOf = assignLayers(items, edges);
-    var maxL = 0;
+    var incoming = createKeyMap();
+    var itemById = createKeyMap();
     var i;
     for (i = 0; i < items.length; i++) {
       items[i]._layer = layerOf[items[i].id] || 0;
-      if (items[i]._layer > maxL) maxL = items[i]._layer;
+      items[i]._order = i;
+      incoming[items[i].id] = [];
+      itemById[items[i].id] = items[i];
     }
-    var span = [];
-    for (i = 0; i <= maxL; i++) span[i] = 0;
-    for (i = 0; i < items.length; i++) {
-      var Lay = items[i]._layer;
-      var ms = mainSize(items[i], profile);
-      if (ms > span[Lay]) span[Lay] = ms;
+    for (i = 0; i < edges.length; i++) {
+      var edge = edges[i];
+      if (!itemById[edge.from] || !incoming[edge.to]) continue;
+      incoming[edge.to].push(edge.from);
     }
-    var orig = [0];
-    for (i = 1; i <= maxL; i++) {
-      orig[i] = orig[i - 1] + span[i - 1] + spacing.betweenLayers;
-    }
-    for (i = 0; i < items.length; i++) {
-      var extra = span[items[i]._layer] - mainSize(items[i], profile);
-      setMainCoord(
-        items[i],
-        profile,
-        orig[items[i]._layer] + extra / 2,
-      );
+
+    /**
+     * Advance each branch from its direct predecessors. Complete cross-axis
+     * bounds are separated by packByRailLevels, so different Levels may share
+     * main-axis space without inheriting the widest Graph in a topology layer.
+     */
+    var ordered = items.slice().sort(function (a, b) {
+      return a._layer - b._layer || a._order - b._order;
+    });
+    for (i = 0; i < ordered.length; i++) {
+      var item = ordered[i];
+      var start = 0;
+      var predecessors = incoming[item.id] || [];
+      for (var pi = 0; pi < predecessors.length; pi++) {
+        var predecessor = itemById[predecessors[pi]];
+        if (!predecessor) continue;
+        start = Math.max(
+          start,
+          mainCoord(predecessor, profile) +
+            mainSize(predecessor, profile) +
+            spacing.betweenLayers,
+        );
+      }
+      setMainCoord(item, profile, start);
     }
 
     for (i = 0; i < items.length; i++) {

@@ -3,6 +3,14 @@
 All notable changes are documented here. Prerelease APIs may change while the
 public contract is being validated.
 
+## [Unreleased]
+
+### Changed
+
+- Made parallel Level branches advance from their direct predecessors using
+  their own node widths. Expanded workflows no longer stretch shorter sibling
+  branches, while joins still wait for the furthest incoming branch.
+
 ## [0.4.0-beta.2] - 2026-09-08
 
 ### Changed

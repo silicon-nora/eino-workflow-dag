@@ -26,6 +26,20 @@ function center(pos, axis) {
   return pos.y + pos.height / 2;
 }
 
+function progressStart(pos, direction) {
+  if (direction === "RIGHT") return pos.x;
+  if (direction === "LEFT") return -(pos.x + pos.width);
+  if (direction === "DOWN") return pos.y;
+  return -(pos.y + pos.height);
+}
+
+function progressEnd(pos, direction) {
+  if (direction === "RIGHT") return pos.x + pos.width;
+  if (direction === "LEFT") return -pos.x;
+  if (direction === "DOWN") return pos.y + pos.height;
+  return -pos.y;
+}
+
 function posOf(laid, id) {
   var p = laid.positions[id];
   assert(!!p, "missing position " + id);
@@ -195,16 +209,30 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   );
 })();
 
-(function sameLayerCentersOnMainAxis() {
+(function parallelBranchesAdvanceIndependently() {
   var root = badCaseRoot();
   var visible = Model.buildVisibleGraph(root, { nested_pipeline: true });
-  var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
-  var box = posOf(laid, "nested_pipeline");
-  var skipped = posOf(laid, "skipped_branch");
-  assert(
-    almost(box.x + box.width / 2, skipped.x + skipped.width / 2),
-    "same-column nodes share the column center"
-  );
+  ["RIGHT", "LEFT", "DOWN", "UP"].forEach(function (direction) {
+    var laid = Layout.layoutVisibleGraph(visible, { direction: direction });
+    var box = posOf(laid, "nested_pipeline");
+    var skipped = posOf(laid, "skipped_branch");
+    var tail = posOf(laid, "skipped_tail");
+    assert(
+      almost(progressStart(box, direction), progressStart(skipped, direction)),
+      direction + " aligns direct branches at their input boundary"
+    );
+    assert(
+      almost(
+        progressStart(tail, direction),
+        progressEnd(skipped, direction) + Layout.SPACE_ROOT.betweenLayers
+      ),
+      direction + " advances a branch from its own predecessor"
+    );
+    assert(
+      progressEnd(tail, direction) < progressEnd(box, direction),
+      direction + " keeps the short branch inside the expanded branch span"
+    );
+  });
 })();
 
 (function higherLevelChainUsesOwnRail() {
@@ -352,7 +380,7 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   );
 })();
 
-(function parallelLevelsShareColumnCenter() {
+(function parallelLevelsShareInputBoundary() {
   var root = {
     version: 2,
     nodes: [
@@ -422,12 +450,63 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
     "higher_level_sink clears the same-column Level 0 box on either side"
   );
   assert(
-    almost(
-      higher_level_sink.x + higher_level_sink.width / 2,
-      rec.x + rec.width / 2
-    ),
-    "same-column nodes share the column center"
+    almost(higher_level_sink.x, rec.x),
+    "parallel Levels share their input boundary"
   );
+})();
+
+(function joinWaitsForFurthestPredecessor() {
+  var root = {
+    version: 2,
+    nodes: [
+      { id: "source", kind: "cpu", cost_ms: 1, status: "success" },
+      {
+        id: "wide_branch",
+        kind: "graph",
+        cost_ms: 10,
+        status: "success",
+        graph: {
+          nodes: [
+            { id: "a", kind: "cpu", cost_ms: 1, status: "success" },
+            { id: "b", kind: "cpu", cost_ms: 1, status: "success" },
+            { id: "c", kind: "cpu", cost_ms: 1, status: "success" }
+          ],
+          edges: [
+            { from: "START", to: "a" },
+            { from: "a", to: "b" },
+            { from: "b", to: "c" },
+            { from: "c", to: "END" }
+          ]
+        }
+      },
+      { id: "short_branch", kind: "io", cost_ms: 1, status: "success" },
+      { id: "join", kind: "merge", cost_ms: 1, status: "success" }
+    ],
+    edges: [
+      { from: "START", to: "source" },
+      { from: "source", to: "wide_branch" },
+      { from: "source", to: "short_branch" },
+      { from: "wide_branch", to: "join" },
+      { from: "short_branch", to: "join" },
+      { from: "join", to: "END" }
+    ]
+  };
+  var visible = Model.buildVisibleGraph(root, { wide_branch: true });
+  ["RIGHT", "LEFT", "DOWN", "UP"].forEach(function (direction) {
+    var laid = Layout.layoutVisibleGraph(visible, { direction: direction });
+    var wide = posOf(laid, "wide_branch");
+    var short = posOf(laid, "short_branch");
+    var join = posOf(laid, "join");
+    var expected =
+      Math.max(
+        progressEnd(wide, direction),
+        progressEnd(short, direction)
+      ) + Layout.SPACE_ROOT.betweenLayers;
+    assert(
+      almost(progressStart(join, direction), expected),
+      direction + " places a join after its furthest predecessor"
+    );
+  });
 })();
 
 (function levelsStayGloballyOrdered() {

@@ -203,6 +203,74 @@ test("an expanded graph keeps its external Level 0 edge straight", async ({
   }
 });
 
+test("production branches advance by their own rendered width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/examples/routing-preview/");
+  await page.locator("#dag canvas").first().waitFor();
+  await page.locator("#case").selectOption("production");
+  await page.evaluate(() => window.routingPreview.setExpanded([["guided_flow"]]));
+  await settleLayout(page);
+
+  for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+    await page.locator(`[data-direction="${direction}"]`).click();
+    await settleLayout(page);
+    const geometry = await page.evaluate((activeDirection) => {
+      const access = Symbol.for("eino-workflow-dag.cytoscape");
+      const cy = window.routingPreview[access]();
+      const bounds = (id) =>
+        cy.getElementById(id).boundingBox({
+          includeLabels: false,
+          includeOverlays: false,
+        });
+      const start = (box) => {
+        if (activeDirection === "RIGHT") return box.x1;
+        if (activeDirection === "LEFT") return -box.x2;
+        if (activeDirection === "DOWN") return box.y1;
+        return -box.y2;
+      };
+      const end = (box) => {
+        if (activeDirection === "RIGHT") return box.x2;
+        if (activeDirection === "LEFT") return -box.x1;
+        if (activeDirection === "DOWN") return box.y2;
+        return -box.y1;
+      };
+      const analysis = bounds("batch_analysis");
+      const compose = bounds("batch_compose");
+      const profile = bounds("update_profile");
+      const guided = bounds("guided_flow");
+      return {
+        forkInputDelta: Math.abs(start(analysis) - start(guided)),
+        siblingInputDelta: Math.abs(start(compose) - start(profile)),
+        sideBranchGap: start(compose) - end(analysis),
+        sideBranchRemainingSpan: end(guided) - end(compose),
+      };
+    }, direction);
+
+    expect(
+      geometry.forkInputDelta,
+      `${direction}: direct branches share an input boundary`,
+    ).toBeLessThan(10);
+    expect(
+      geometry.siblingInputDelta,
+      `${direction}: side-branch siblings share an input boundary`,
+    ).toBeLessThan(2);
+    expect(
+      geometry.sideBranchGap,
+      `${direction}: side branch uses the configured local gap`,
+    ).toBeGreaterThan(30);
+    expect(
+      geometry.sideBranchGap,
+      `${direction}: expanded sibling does not stretch the side branch`,
+    ).toBeLessThan(80);
+    expect(
+      geometry.sideBranchRemainingSpan,
+      `${direction}: short branch remains inside the expanded branch span`,
+    ).toBeGreaterThan(300);
+  }
+});
+
 test("a same-Level edge may bend when its direct corridor is blocked", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/examples/routing-preview/");
