@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { axisProfile } from "../src/axis-profile.js";
 import {
   bumpPortSideUse,
-  claimMainPortOwners,
+  claimPreferredPortOwners,
   crossSideTowardTarget,
   exclusiveSideChoices,
   orderSidesByOccupancy,
@@ -50,19 +50,24 @@ bumpPortSideUse(prototypeOccupancy, "constructor", "WEST");
 assert.equal(portSideUseCount(prototypeOccupancy, "__proto__", "EAST"), 1);
 assert.equal(portSideUseCount(prototypeOccupancy, "constructor", "WEST"), 1);
 
-const main = { id: "main", source: "a", target: "b" };
-const bypass = { id: "bypass", source: "a", target: "c" };
-const owners = claimMainPortOwners(
-  [bypass, main],
+const edgeAtLevel = (id, source, target, level) => ({
+  id,
+  source,
+  target,
+  _cyEle: { data: (key) => (key === "level" ? level : undefined) },
+});
+const preferred = edgeAtLevel("preferred", "a", "b", 0);
+const higher = edgeAtLevel("higher", "a", "c", 1);
+const owners = claimPreferredPortOwners(
+  [higher, preferred],
   { a: box(0, 0), b: box(100, 0), c: box(100, 120) },
   right,
-  (edge) => edge.id === "main",
 );
-assert.equal(owners.outOwner.a, main);
-assert.equal(owners.inOwner.b, main);
+assert.equal(owners.outOwner.a, preferred);
+assert.equal(owners.inOwner.b, preferred);
 assert.deepEqual(
   exclusiveSideChoices(
-    bypass,
+    higher,
     "a",
     owners.outOwner,
     "EAST",
@@ -75,7 +80,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   exclusiveSideChoices(
-    bypass,
+    higher,
     "a",
     owners.outOwner,
     "EAST",
@@ -85,7 +90,7 @@ assert.deepEqual(
     false,
   ),
   ["EAST", "SOUTH", "NORTH"],
-  "a reserved main side remains available until an edge actually occupies it",
+  "a reserved forward side remains available until an edge actually occupies it",
 );
 
 const candidate = (id, overrides = {}) => ({
@@ -93,8 +98,7 @@ const candidate = (id, overrides = {}) => ({
   route: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
   outSide: "NORTH",
   inSide: "NORTH",
-  vsCritical: 0,
-  vsBypass: 0,
+  crossings: 0,
   bends: 1,
   geoWrong: 0,
   sideLoad: 0,
@@ -104,11 +108,11 @@ const candidate = (id, overrides = {}) => ({
 
 assert.equal(
   selectBestPortCandidate(
-    [candidate("cross", { score: 1 }), candidate("critical", { vsCritical: 1, score: 0 })],
+    [candidate("clear", { score: 1 }), candidate("crossing", { crossings: 1, score: 0 })],
     right,
   ).id,
-  "cross",
-  "a zero-critical-crossing candidate is a hard preference",
+  "clear",
+  "a zero-crossing candidate is a hard preference",
 );
 assert.equal(
   selectBestPortCandidate(
@@ -135,17 +139,17 @@ assert.equal(
   selectBestPortCandidate(
     [
       candidate("cross-sides", { score: 0 }),
-      candidate("main-sides", { outSide: "EAST", inSide: "WEST", score: 99 }),
+      candidate("forward-sides", { outSide: "EAST", inSide: "WEST", score: 99 }),
     ],
     right,
   ).id,
-  "main-sides",
+  "forward-sides",
 );
 assert.equal(
   selectBestPortCandidate(
     [
       candidate("cross-sides", { bends: 1, sideLoad: 0 }),
-      candidate("main-sides", {
+      candidate("forward-sides", {
         bends: 2,
         outSide: "EAST",
         inSide: "WEST",
@@ -154,12 +158,12 @@ assert.equal(
     ],
     right,
   ).id,
-  "main-sides",
+  "forward-sides",
   "available primary ports outrank load and bend-count preferences",
 );
 assert.equal(
   selectBestPortCandidate(
-    [candidate("more-crossings", { vsBypass: 2, score: 0 }), candidate("clear", { score: 99 })],
+    [candidate("more-crossings", { crossings: 2, score: 0 }), candidate("clear", { score: 99 })],
     right,
   ).id,
   "clear",
@@ -174,9 +178,9 @@ for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
   const profile = axisProfile(direction);
   const crossSide = profile.crossSides[0];
   const reserved = exclusiveSideChoices(
-    bypass,
+    higher,
     "a",
-    { a: main },
+    { a: preferred },
     profile.outSide,
     crossSide,
     profile,

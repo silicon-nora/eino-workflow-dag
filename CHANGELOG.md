@@ -15,6 +15,11 @@ public contract is being validated.
   timing when no node execution duration was supplied.
 - Preserved an absent node duration in formatter, click, and visible-graph data
   instead of reporting it as zero.
+- Replaced the dual path classification with graph-local numeric Levels. Each
+  graph now starts at Level 0, assigns one global rail per Level, and exposes
+  node and edge Levels through the public renderer data.
+- Renamed visible-graph path summaries to `levelZeroPath` and
+  `levelZeroDurationMs` and removed the redundant edge `main` flag.
 
 ### Added
 
@@ -36,6 +41,8 @@ public contract is being validated.
   positions and styles.
 - Preferred the workflow direction's primary input/output sides until those
   sides are actually occupied, instead of treating a reservation as use.
+- Kept every same-graph, same-Level node on one cross-axis rail, including
+  expanded workflows whose content waist is aligned to a parent Level.
 
 ## [0.4.0-alpha.3] - 2026-09-08
 

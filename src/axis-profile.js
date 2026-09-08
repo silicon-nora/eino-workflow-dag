@@ -52,8 +52,8 @@ export function axisProfile(direction) {
     axis,
     cross,
     crossSides: crossSides.slice(),
-    bypassOutSides: [outSide].concat(crossSides),
-    bypassInSides: [inSide].concat(crossSides),
+    outSides: [outSide].concat(crossSides),
+    inSides: [inSide].concat(crossSides),
     forwardSign,
   };
 }

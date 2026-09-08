@@ -26,6 +26,7 @@ async function inspectRoutes(page, direction) {
       DOWN: "SOUTH",
       UP: "NORTH",
     }[activeDirection];
+    const crossAxis = activeDirection === "RIGHT" || activeDirection === "LEFT" ? "y" : "x";
 
     const isOrthogonal = (points) =>
       points.length >= 2 &&
@@ -77,6 +78,33 @@ async function inspectRoutes(page, direction) {
     }
     for (const [nodeId, sides] of outgoing) {
       if (!sides.includes(expectedOutputSide)) failures.push(`${nodeId}:missing-primary-output`);
+    }
+
+    const railCoordinate = (node) => {
+      if (node.isParent()) {
+        const levelZeroChild = node.children().filter((child) => Number(child.data("level")) === 0)[0];
+        if (levelZeroChild) return railCoordinate(levelZeroChild);
+      }
+      return node.position(crossAxis);
+    };
+    const rails = new Map();
+    cy.nodes().forEach((node) => {
+      const parentId = node.parent().nonempty() ? node.parent().id() : "root";
+      const level = Number(node.data("level"));
+      const key = `${parentId}:${level}`;
+      if (!rails.has(key)) rails.set(key, []);
+      rails.get(key).push({ id: node.id(), value: railCoordinate(node) });
+    });
+    for (const [key, members] of rails) {
+      if (members.length < 2) continue;
+      const values = members.map((member) => member.value);
+      if (Math.max(...values) - Math.min(...values) > tolerance) {
+        failures.push(
+          `${key}:nodes-do-not-share-rail:${members
+            .map((member) => `${member.id}=${member.value.toFixed(1)}`)
+            .join(",")}`,
+        );
+      }
     }
     return { edgeCount: cy.edges().length, failures };
   }, direction);

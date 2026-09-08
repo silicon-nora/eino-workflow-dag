@@ -6,7 +6,7 @@ import {
 import {
   SAME_ROW_TOL,
   bumpPortSideUse,
-  claimMainPortOwners,
+  claimPreferredPortOwners,
   crossSideTowardTarget,
   exclusiveSideChoices,
   pickInSideByGeometry,
@@ -18,7 +18,7 @@ import {
 import { createKeyMap } from "./key-map.js";
 
 export {
-  claimMainPortOwners,
+  claimPreferredPortOwners,
   isSameCrossRow,
   pickInSideByGeometry,
   pickOutSideByGeometry,
@@ -161,9 +161,9 @@ export {
 
   /**
    * 叶子端口约定（含子图内叶子）：
-   * - 主路：随 AxisProfile 主出/主入侧正中出入
+   * - 每端最低 Level 的边：随 AxisProfile 前向出/入侧正中出入
    * - 交叉边：半区附着（禁止走交叉边中点）
-   * - 旁路：两遍排点后评分筛侧 → 流程线计算几何
+   * - 其余边：两遍排点后评分筛侧 → 流程线计算几何
    */
   /**
    * 交叉边沿主轴半区比例（避开 0.5 中点）。
@@ -198,7 +198,7 @@ export var crossEndRatio = function crossEndRatio(end, profile) {
     return !!(nodeK && nodeK._cyEle && !nodeK._cyEle.isParent());
   };
 
-  /** 展开的 Graph 包装框（compound parent）；外部边可挂主入/主出口 */
+  /** 展开的 Graph 包装框（compound parent）；外部边可挂前向输入/输出端口。 */
   var isGraphWrapper = function isGraphWrapper(nodeK) {
     return !!(
       nodeK &&
@@ -306,8 +306,8 @@ export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
     nodeK.height = box.height;
   };
 
-  /** Pin critical ports to the rendered wrapper midpoint. */
-  var pinCriticalPortsToWrapperCenter = function pinCriticalPortsToWrapperCenter(
+  /** Pin the preferred rail port to the rendered wrapper midpoint. */
+  var pinRailPortsToWrapperCenter = function pinRailPortsToWrapperCenter(
     nodeK,
     profile,
   ) {
@@ -319,7 +319,7 @@ export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
     var p = profile || defaultAxisProfile();
     for (var i = 0; i < nodeK.ports.length; i++) {
       var port = nodeK.ports[i];
-      if (!port || !port._critical) continue;
+      if (!port || !port._railAnchor) continue;
       var side = portSideOf(port);
       if (side === p.inSide || side === p.outSide) {
         if (p.axis === "x") {
@@ -343,8 +343,8 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
     var width = w > 0 ? w : 220;
     var height = h > 0 ? h : 64;
     var p = profile || defaultAxisProfile();
-    var main = side === p.outSide || side === p.inSide;
-    if (main) {
+    var forward = side === p.outSide || side === p.inSide;
+    if (forward) {
       if (side === "WEST") return { x: 0, y: height / 2 };
       if (side === "EAST") return { x: width, y: height / 2 };
       if (side === "NORTH") return { x: width / 2, y: 0 };
@@ -361,7 +361,7 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
 
   /**
    * @param end 'in'|'out' — 交叉边：出=前进半区、入=反方向半区（随 forwardSign）；主轴边先交叉中点再散布
-   * @param critical 主线端口：独侧时锁交叉轴正中
+   * @param railAnchor 当前节点最低 Level 的端口：独侧时锁交叉轴正中
    * @param peerId 对端节点 id（入←source / 出→target），用于主轴边口序防交叉
    * @param profile AxisProfile；缺省 RIGHT
    */
@@ -371,7 +371,7 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
     side,
     tag,
     end,
-    critical,
+    railAnchor,
     peerId,
     profile,
   ) {
@@ -393,7 +393,7 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
       width: 0,
       height: 0,
       _end: end || "out",
-      _critical: !!critical,
+      _railAnchor: !!railAnchor,
       _peerId: peerId || null,
       side: side,
     });
@@ -433,13 +433,13 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
       var da = peerCenter(a, absLookup, axis);
       var db = peerCenter(b, absLookup, axis);
       if (da !== db) return da - db;
-      if (a._critical !== b._critical) return a._critical ? -1 : 1;
+      if (a._railAnchor !== b._railAnchor) return a._railAnchor ? -1 : 1;
       return String(a.id).localeCompare(String(b.id));
     });
   };
 
   /**
-   * 包装框主侧旁路口：贴对端交叉坐标（夹在边距内，避开主线腰）。
+   * 包装框前向侧的非锚定端口：贴对端交叉坐标并避开轨道腰线。
    * 多口间距不够时返回 false，由调用方回退等分槽。
    */
   var placeMainSideTowardPeers = function placeMainSideTowardPeers(
@@ -544,7 +544,7 @@ export var portLocalOnNode = function portLocalOnNode(side, w, h, end, profile) 
       var da = peerManhattanToNode(a, nodeAbs, absLookup);
       var db = peerManhattanToNode(b, nodeAbs, absLookup);
       if (da !== db) return da - db;
-      if (a._critical !== b._critical) return a._critical ? -1 : 1;
+      if (a._railAnchor !== b._railAnchor) return a._railAnchor ? -1 : 1;
       return String(a.id).localeCompare(String(b.id));
     });
     var used = createKeyMap();
@@ -635,7 +635,7 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
   /**
    * 左右缘占口算法（Y 从小到大）：
    * 在可用高度上 N 等分，每段中点一槽。
-   * avoidMid：主线占中时，上/下两带各自再 N 等分中点，不进中点禁带。
+   * avoidMid：轨道锚点占中时，上/下两带各自再 N 等分中点，不进中点禁带。
    */
   var buildVerticalSlots = function buildVerticalSlots(count, h, avoidMid) {
     if (count <= 0) return [];
@@ -686,7 +686,7 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
 
   /**
    * 同侧端口（只选点，不改走线）：
-   * - 主轴边：沿交叉轴 N 等分 + 对端交叉坐标单调占槽；主链锁中点
+   * - 主轴边：沿交叉轴 N 等分 + 对端交叉坐标单调占槽；轨道锚点锁中点
    * - 交叉边：沿主轴等分 + 半区；近源优先占槽
    * 单肘弯等几何由流程线计算负责，禁止回写 port 坐标。
    */
@@ -719,18 +719,18 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
     /** 竖直边（主轴=x）：按对端 Y 排序后与槽位一一对应 */
     var placeVerticalByPeerY = function placeVerticalByPeerY(ports, x) {
       if (!ports.length) return;
-      var critList = [];
+      var anchorList = [];
       var rest = [];
       for (var j = 0; j < ports.length; j++) {
-        if (ports[j]._critical) critList.push(ports[j]);
+        if (ports[j]._railAnchor) anchorList.push(ports[j]);
         else rest.push(ports[j]);
       }
-      for (var c = 0; c < critList.length; c++) {
-        critList[c].x = x;
-        critList[c].y = h / 2;
+      for (var c = 0; c < anchorList.length; c++) {
+        anchorList[c].x = x;
+        anchorList[c].y = h / 2;
       }
       if (!rest.length) {
-        if (!critList.length && ports.length === 1) {
+        if (!anchorList.length && ports.length === 1) {
           ports[0].x = x;
           ports[0].y = h / 2;
         }
@@ -747,12 +747,12 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
           w,
           h,
           nodeAbs,
-          critList.length > 0,
+          anchorList.length > 0,
         )
       ) {
         return;
       }
-      var ys = buildVerticalSlots(rest.length, h, critList.length > 0)
+      var ys = buildVerticalSlots(rest.length, h, anchorList.length > 0)
         .slice()
         .sort(function (a, b) {
           return a - b;
@@ -766,18 +766,18 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
     /** 水平边（主轴=y）：按对端 X 排序后与槽位一一对应（placeVerticalByPeerY 镜像） */
     var placeHorizontalByPeerX = function placeHorizontalByPeerX(ports, y) {
       if (!ports.length) return;
-      var critList = [];
+      var anchorList = [];
       var rest = [];
       for (var j = 0; j < ports.length; j++) {
-        if (ports[j]._critical) critList.push(ports[j]);
+        if (ports[j]._railAnchor) anchorList.push(ports[j]);
         else rest.push(ports[j]);
       }
-      for (var c = 0; c < critList.length; c++) {
-        critList[c].x = w / 2;
-        critList[c].y = y;
+      for (var c = 0; c < anchorList.length; c++) {
+        anchorList[c].x = w / 2;
+        anchorList[c].y = y;
       }
       if (!rest.length) {
-        if (!critList.length && ports.length === 1) {
+        if (!anchorList.length && ports.length === 1) {
           ports[0].x = w / 2;
           ports[0].y = y;
         }
@@ -794,12 +794,12 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
           w,
           h,
           nodeAbs,
-          critList.length > 0,
+          anchorList.length > 0,
         )
       ) {
         return;
       }
-      var xs = buildHorizontalSlots(rest.length, w, critList.length > 0)
+      var xs = buildHorizontalSlots(rest.length, w, anchorList.length > 0)
         .slice()
         .sort(function (a, b) {
           return a - b;
@@ -1107,7 +1107,7 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
     return srcAbs.y - gap;
   };
 
-  /** 统计叶子节点上已有出/入端口的侧占用（主路+旁路）。 */
+  /** 统计叶子节点上已有出/入端口的侧占用。 */
   var collectExistingPortSideUse = function collectExistingPortSideUse(
     elementLookup,
   ) {
@@ -1148,13 +1148,13 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
       if (srcOk && !findPortById(srcK, edge.sourcePort)) {
         syncNodeSizeFromAbs(srcK, srcAbs);
         var geoOut = pickOutSideByGeometry(srcAbs, tgtAbs, profile);
-        var mainOutUsed =
+        var forwardOutUsed =
           portSideUseCount(sideUse.outUse, edge.source, profile.outSide) > 0;
         var shareOut =
           isGraphWrapper(srcK) && geoOut === profile.outSide;
         var outAllowed = shareOut
           ? [profile.outSide]
-          : mainOutUsed
+          : forwardOutUsed
             ? (profile.crossSides || []).slice()
             : [profile.outSide];
         var os = pickSidePreferringFree(
@@ -1176,19 +1176,19 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
           edge.target,
           profile,
         );
-        edge._bypassOut = true;
+        edge._adaptiveOut = true;
         bumpPortSideUse(sideUse.outUse, edge.source, os);
       }
       if (tgtOk && !findPortById(tgtK, edge.targetPort)) {
         syncNodeSizeFromAbs(tgtK, tgtAbs);
         var geoIn = pickInSideByGeometry(srcAbs, tgtAbs, profile);
-        var mainInUsed =
+        var forwardInUsed =
           portSideUseCount(sideUse.inUse, edge.target, profile.inSide) > 0;
         var shareIn =
           isGraphWrapper(tgtK) && geoIn === profile.inSide;
         var inAllowed = shareIn
           ? [profile.inSide]
-          : mainInUsed
+          : forwardInUsed
             ? (profile.crossSides || []).slice()
             : [profile.inSide];
         var is = pickSidePreferringFree(
@@ -1210,21 +1210,21 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
           edge.source,
           profile,
         );
-        edge._bypassIn = true;
+        edge._adaptiveIn = true;
         bumpPortSideUse(sideUse.inUse, edge.target, is);
       }
     }
   };
 
   /**
-   * 清空所有旁路边的端口（主路/关键边端口不动），供最终几何重挑。
+   * 清空所有自适应端口，供最终几何重挑。
    * 二遍 interactive 排点会翻转节点上下序，首遍挑的交叉侧可能已失效。
    */
-  var clearBypassPorts = function clearBypassPorts(graph, elementLookup) {
+  var clearAdaptivePorts = function clearAdaptivePorts(graph, elementLookup) {
     var edges = collectGraphEdges(graph, []);
     for (var i = 0; i < edges.length; i++) {
       var e = edges[i];
-      if (!(e._bypassOut || e._bypassIn)) continue;
+      if (!(e._adaptiveOut || e._adaptiveIn)) continue;
       var srcK = elementLookup[e.source];
       var tgtK = elementLookup[e.target];
       if (srcK && e.sourcePort) {
@@ -1687,10 +1687,9 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
   ) {
     if (!route || route.length < 2) return 1e9;
     var bends = countRouteBends(route);
-    var cross = countRouteCrossingsByKind(route, committed);
+    var crossings = countRouteCrossings(route, committed);
     var score =
-      cross.vsCritical * CROSSING_WEIGHT_CRITICAL +
-      cross.vsBypass * CROSSING_WEIGHT_BYPASS +
+      crossings * CROSSING_WEIGHT +
       bends * BEND_WEIGHT;
     score += verticalAlignPenalty(os, isSide, srcAbs, tgtAbs, profile);
     score += routeEndStubLength(route) * FLOW_STUB_WEIGHT;
@@ -2169,7 +2168,7 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
         var or = routeById[edges[j].id];
         if (or && or.length >= 2) {
           others.push(or);
-          committed.push({ route: or, critical: isCriticalEdge(edges[j]) });
+          committed.push({ route: or });
         }
       }
       var srcPt = portAbsOnNode(srcK, srcAbs, edge.sourcePort);
@@ -2285,7 +2284,7 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
 
   /**
    * 清除非 Graph 包装 parent 上的端口。
-   * 展开 Graph 包装框需保留外部边主入/主出口，不再清空。
+   * 展开 Graph 包装框需保留外部边的前向输入/输出端口。
    */
   var stripWrapperNodeNorms = function stripWrapperNodeNorms(elementLookup) {
     Object.keys(elementLookup).forEach(function (id) {
@@ -2310,11 +2309,11 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       syncNodeSizeFromAbs(k, absLookup[id]);
       syncGraphWrapperSize(k);
       spreadFixedPortsOnNode(k, absLookup, profile);
-      pinCriticalPortsToWrapperCenter(k, profile);
+      pinRailPortsToWrapperCenter(k, profile);
     });
   };
 
-  var assignCriticalSidePorts = function assignCriticalSidePorts(
+  var assignLevelSidePorts = function assignLevelSidePorts(
     elementLookup,
     layoutEdges,
     profile,
@@ -2322,6 +2321,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     var p = profile || defaultAxisProfile();
     var outS = p.outSide;
     var inS = p.inSide;
+    var owners = claimPreferredPortOwners(layoutEdges, createKeyMap(), p);
     for (var i = 0; i < layoutEdges.length; i++) {
       var e = layoutEdges[i];
       var srcK = elementLookup[e.source];
@@ -2329,9 +2329,8 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       var srcOk = canAttachSidePort(srcK);
       var tgtOk = canAttachSidePort(tgtK);
       if (!srcOk && !tgtOk) continue;
-      if (isCriticalEdge(e)) {
-        // 主线：主出/主入均在交叉轴正中（_critical；与旁路共侧时按对端交叉坐标让位）
-        if (srcOk)
+      if (srcOk) {
+        if (owners.outOwner[e.source] === e) {
           e.sourcePort = addSidePort(
             srcK,
             e.source,
@@ -2342,7 +2341,12 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
             e.target,
             p,
           );
-        if (tgtOk)
+        } else {
+          e._adaptiveOut = true;
+        }
+      }
+      if (tgtOk) {
+        if (owners.inOwner[e.target] === e) {
           e.targetPort = addSidePort(
             tgtK,
             e.target,
@@ -2353,10 +2357,10 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
             e.source,
             p,
           );
-        continue;
+        } else {
+          e._adaptiveIn = true;
+        }
       }
-      if (srcOk) e._bypassOut = true;
-      if (tgtOk) e._bypassIn = true;
     }
   };
 
@@ -2371,7 +2375,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
 
   /**
    * 沿给定侧朝对端交叉坐标取附着点（夹在边距内）。
-   * 包装框与主线共主侧时，禁止用腰上中点估旁路（会穿下一列主路框）。
+   * 包装框的非锚定端口使用前向侧时，禁止用腰上中点估算路径。
    */
   var attachOnSideTowardPeer = function attachOnSideTowardPeer(
     abs,
@@ -2426,20 +2430,17 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     }
   };
 
-  var isCriticalEdge = function isCriticalEdge(e) {
-    if (!e || !e._cyEle) return false;
+  var edgeLevel = function edgeLevel(e) {
+    if (!e || !e._cyEle) return 0;
     var lv = e._cyEle.data("level");
-    if (lv != null && lv !== "") return +lv === 1;
-    if (e._cyEle.data("stroke") === "critical") return true;
-    return !!e._cyEle.data("main");
+    return Number.isInteger(+lv) && +lv >= 0 ? +lv : 0;
   };
 
-  /** 交叉代价：旁路×主线必须显著高于「走下方」软偏好，否则会为贴底而穿主线 */
-  var CROSSING_WEIGHT_CRITICAL = 80;
-  var CROSSING_WEIGHT_BYPASS = 12;
-  /** 同侧已被主路或已定旁路边占用：选点时必须计入，避免多旁路挤同一口 */
+  /** 路由按 Level 升序提交，因此统一交叉代价即可自然保护较低 Level。 */
+  var CROSSING_WEIGHT = 24;
+  /** 同侧已被其它边占用：选点时必须计入，避免多条边挤同一口。 */
   var PORT_SIDE_OCCUPY_WEIGHT = 40;
-  /** 折点权重（低于侧占用与穿主线） */
+  /** 折点权重（低于侧占用与交叉） */
   var BEND_WEIGHT = 10;
   /** 上下出入相对首遍实际路径每少 1 折点的软加分 */
   var VERTICAL_BEND_BONUS = 3;
@@ -2453,7 +2454,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
   /**
    * 交叉轴出/入方位软惩罚：
    * 目标在交叉正方向 → 偏好正交叉侧；负方向偏好负交叉侧；
-   * 同行（主线旁路）默认走正交叉侧（RIGHT=下方 SOUTH；DOWN=右方 EAST）。
+   * 同行默认走正交叉侧（RIGHT=下方 SOUTH；DOWN=右方 EAST）。
    */
   var verticalAlignPenalty = function verticalAlignPenalty(
     os,
@@ -2478,7 +2479,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       if (os === posSide) pen += VERTICAL_ALIGN_PENALTY;
       if (is === posSide) pen += VERTICAL_ALIGN_PENALTY;
     } else {
-      // 同行：旁路默认贴主线正交叉侧
+      // 同行默认贴正交叉侧
       if (os === negSide) pen += VERTICAL_ALIGN_PENALTY;
       if (is === negSide) pen += VERTICAL_ALIGN_PENALTY;
     }
@@ -2706,7 +2707,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       return mid;
     }
 
-    // 主出 → 主入：主轴中线走廊（推广 EAST→WEST）
+    // 前向输出 → 前向输入：主轴中线走廊（推广 EAST→WEST）。
     if (srcSide === p.outSide && tgtSide === p.inSide) {
       if (p.axis === "x") {
         var mx = (a2.x + b2.x) / 2;
@@ -2839,7 +2840,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       return {
         bends: 99,
         route: null,
-        cross: { vsCritical: 99, vsBypass: 99 },
+        crossings: 99,
       };
     }
     var exclude = createKeyMap();
@@ -2847,6 +2848,12 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     exclude[edge.target] = true;
     var srcNodeK = elementLookup && elementLookup[edge.source];
     var tgtNodeK = elementLookup && elementLookup[edge.target];
+    var srcAttach = !edge._adaptiveOut
+      ? portAbsOnNode(srcNodeK, srcK, edge.sourcePort)
+      : null;
+    var tgtAttach = !edge._adaptiveIn
+      ? portAbsOnNode(tgtNodeK, tgtK, edge.targetPort)
+      : null;
     var variants = detourOrthoRoutes(
       srcK,
       tgtK,
@@ -2855,8 +2862,8 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       absLookup,
       exclude,
       profile,
-      candidateAttachPoint(srcK, os, tgtK, "out", srcNodeK),
-      candidateAttachPoint(tgtK, is, srcK, "in", tgtNodeK),
+      srcAttach || candidateAttachPoint(srcK, os, tgtK, "out", srcNodeK),
+      tgtAttach || candidateAttachPoint(tgtK, is, srcK, "in", tgtNodeK),
     );
     var bendCap = maxBendsForSides(os, is, profile);
     var best = null;
@@ -2868,20 +2875,17 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       var bends = countRouteBends(route);
       // 超过侧预算或全局 2 折顶：非法
       if (bends > bendCap || bends > MAX_BENDS_ABSOLUTE) continue;
-      var cross = countRouteCrossingsByKind(route, committed);
-      var rank =
-        cross.vsCritical * CROSSING_WEIGHT_CRITICAL +
-        cross.vsBypass * CROSSING_WEIGHT_BYPASS +
-        bends * BEND_WEIGHT;
+      var crossings = countRouteCrossings(route, committed);
+      var rank = crossings * CROSSING_WEIGHT + bends * BEND_WEIGHT;
       if (!best || rank < best.rank) {
-        best = { bends: bends, route: route, cross: cross, rank: rank };
+        best = { bends: bends, route: route, crossings: crossings, rank: rank };
       }
     }
     return (
       best || {
         bends: 99,
         route: null,
-        cross: { vsCritical: 99, vsBypass: 99 },
+        crossings: 99,
       }
     );
   };
@@ -2964,10 +2968,10 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     return Math.abs(tx - sx) + Math.abs(ty - sy);
   };
 
-  /** 主线优先，其次短线优先 */
+  /** Level 数字较小的边优先，同 Level 内短线优先。 */
   var compareDrawOrder = function compareDrawOrder(a, b, absLookup) {
-    var ca = isCriticalEdge(a) ? 0 : 1;
-    var cb = isCriticalEdge(b) ? 0 : 1;
+    var ca = edgeLevel(a);
+    var cb = edgeLevel(b);
     if (ca !== cb) return ca - cb;
     return edgeCenterLength(a, absLookup) - edgeCenterLength(b, absLookup);
   };
@@ -3061,19 +3065,15 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     return false;
   };
 
-  /** 分别统计与主线 / 旁路的交叉数（旁路×主线必须计入且权重更高） */
-  var countRouteCrossingsByKind = function countRouteCrossingsByKind(
+  /** 统计与已按 Level 顺序提交路径的交叉数。 */
+  var countRouteCrossings = function countRouteCrossings(
     route,
     committed,
   ) {
-    var vsCritical = 0;
-    var vsBypass = 0;
     if (!route || route.length < 2 || !committed || !committed.length) {
-      return {
-        vsCritical: 0,
-        vsBypass: 0,
-      };
+      return 0;
     }
+    var crossings = 0;
     for (var c = 0; c < committed.length; c++) {
       var item = committed[c];
       var other = item && item.route;
@@ -3092,13 +3092,9 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
             hits++;
         }
       }
-      if (item.critical) vsCritical += hits;
-      else vsBypass += hits;
+      crossings += hits;
     }
-    return {
-      vsCritical: vsCritical,
-      vsBypass: vsBypass,
-    };
+    return crossings;
   };
 
   var countRouteBends = function countRouteBends(route) {
@@ -3115,14 +3111,8 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     return n;
   };
 
-  /**
-   * Choose bypass ports from short to long routes before final route drawing.
-   * 硬规则：
-   * - 口序：近源最短槽（散布阶段）；主链主出/主入居中
-   * - 折点：两端皆交叉侧 ≤2；其余 ≤1
-   * - 0 穿主线优先；同池少折 → 少旁路交叉 → 总分
-   */
-export var refineBypassSidePorts = function refineBypassSidePorts(
+  /** 按 Level 升序为需要避让的端点选择端口，再计算最终路由。 */
+export var refineAdaptiveSidePorts = function refineAdaptiveSidePorts(
     graph,
     elementLookup,
   ) {
@@ -3136,95 +3126,65 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
       var nk = elementLookup[id];
       if (canAttachSidePort(nk) && absAll[id]) absLookup[id] = absAll[id];
     });
-    var hasMainOut = createKeyMap();
-    var hasMainIn = createKeyMap();
-    /** 节点×侧 已被主路或旁路边占用的次数（选点必须计入） */
+    var hasForwardOut = createKeyMap();
+    var hasForwardIn = createKeyMap();
+    /** 节点×侧已被更低或同级边占用的次数。 */
     var outSideUse = createKeyMap();
     var inSideUse = createKeyMap();
     var committed = [];
 
-    var portOwners = claimMainPortOwners(
-      allEdges,
-      absLookup,
-      profile,
-      isCriticalEdge,
-    );
+    var portOwners = claimPreferredPortOwners(allEdges, absLookup, profile);
 
-    var markEdgePortsUsed = function markEdgePortsUsed(e, asCritical) {
+    var markEdgePortsUsed = function markEdgePortsUsed(e) {
       var srcK = elementLookup[e.source];
       var tgtK = elementLookup[e.target];
       if (canAttachSidePort(srcK) && e.sourcePort) {
         var os0 = portSideOf(findPortById(srcK, e.sourcePort));
         if (os0) {
           bumpPortSideUse(outSideUse, e.source, os0);
-          if (os0 === profile.outSide) hasMainOut[e.source] = true;
+          if (os0 === profile.outSide) hasForwardOut[e.source] = true;
         }
-      } else if (asCritical && canAttachSidePort(srcK)) {
-        bumpPortSideUse(outSideUse, e.source, profile.outSide);
-        hasMainOut[e.source] = true;
       }
       if (canAttachSidePort(tgtK) && e.targetPort) {
         var is0 = portSideOf(findPortById(tgtK, e.targetPort));
         if (is0) {
           bumpPortSideUse(inSideUse, e.target, is0);
-          if (is0 === profile.inSide) hasMainIn[e.target] = true;
+          if (is0 === profile.inSide) hasForwardIn[e.target] = true;
         }
-      } else if (asCritical && canAttachSidePort(tgtK)) {
-        bumpPortSideUse(inSideUse, e.target, profile.inSide);
-        hasMainIn[e.target] = true;
       }
     };
-
-    // 先提交主线路由 + 占用侧；旁路选型必须避开主路与其它已定边
-    var criticals = allEdges.filter(isCriticalEdge).sort(function (a, b) {
+    allEdges.sort(function (a, b) {
       return compareDrawOrder(a, b, absLookup);
     });
-    for (var c = 0; c < criticals.length; c++) {
-      var ce = criticals[c];
-      markEdgePortsUsed(ce, true);
-      var cSrc = elementLookup[ce.source];
-      var cTgt = elementLookup[ce.target];
-      var cRoute = getActualEdgeRoute(graph, ce);
-      if (!cRoute) {
-        var cSrcAbs = absLookup[ce.source];
-        var cTgtAbs = absLookup[ce.target];
-        var cSrcPt = portAbsOnNode(cSrc, cSrcAbs, ce.sourcePort);
-        var cTgtPt = portAbsOnNode(cTgt, cTgtAbs, ce.targetPort);
-        cRoute = edgeRouteWithSides(
-          ce,
-          absLookup,
-          canAttachSidePort(cSrc) ? profile.outSide : null,
-          canAttachSidePort(cTgt) ? profile.inSide : null,
-          profile,
-          cSrcPt && cSrcPt.x,
-          cSrcPt && cSrcPt.y,
-          cTgtPt && cTgtPt.x,
-          cTgtPt && cTgtPt.y,
-        );
-      }
-      if (cRoute) {
-        committed.push({
-          route: cRoute,
-          critical: true,
-        });
-      }
-    }
 
-    var bypasses = allEdges
-      .filter(function (e) {
-        return e._bypassIn || e._bypassOut;
-      })
-      .sort(function (a, b) {
-        return compareDrawOrder(a, b, absLookup);
-      });
-
-    for (var i = 0; i < bypasses.length; i++) {
-      var edge = bypasses[i];
+    for (var i = 0; i < allEdges.length; i++) {
+      var edge = allEdges[i];
       var srcNode = elementLookup[edge.source];
       var tgtNode = elementLookup[edge.target];
-      var srcOk = canAttachSidePort(srcNode) && edge._bypassOut;
-      var tgtOk = canAttachSidePort(tgtNode) && edge._bypassIn;
-      if (!srcOk && !tgtOk) continue;
+      var srcAttachable = canAttachSidePort(srcNode);
+      var tgtAttachable = canAttachSidePort(tgtNode);
+      var srcOk = srcAttachable && edge._adaptiveOut;
+      var tgtOk = tgtAttachable && edge._adaptiveIn;
+      if (!srcOk && !tgtOk) {
+        markEdgePortsUsed(edge);
+        var fixedRoute = getActualEdgeRoute(graph, edge);
+        if (fixedRoute) committed.push({ route: fixedRoute });
+        continue;
+      }
+      var fixedOutSide = srcAttachable
+        ? portSideOf(findPortById(srcNode, edge.sourcePort))
+        : null;
+      var fixedInSide = tgtAttachable
+        ? portSideOf(findPortById(tgtNode, edge.targetPort))
+        : null;
+      if (!srcOk && fixedOutSide) {
+        bumpPortSideUse(outSideUse, edge.source, fixedOutSide);
+        if (fixedOutSide === profile.outSide) hasForwardOut[edge.source] = true;
+      }
+      if (!tgtOk && fixedInSide) {
+        bumpPortSideUse(inSideUse, edge.target, fixedInSide);
+        if (fixedInSide === profile.inSide) hasForwardIn[edge.target] = true;
+      }
 
       var srcAbsGeo = absLookup[edge.source];
       var tgtAbsGeo = absLookup[edge.target];
@@ -3264,7 +3224,7 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
         tgtOk && isGraphWrapper(tgtNode) && geoIn === profile.inSide;
 
       var outChoices;
-      if (!srcOk) outChoices = [null];
+      if (!srcOk) outChoices = [fixedOutSide];
       else
         outChoices = exclusiveSideChoices(
           edge,
@@ -3273,12 +3233,12 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
           profile.outSide,
           facingOut,
           profile,
-          hasMainOut[edge.source],
+          hasForwardOut[edge.source],
           shareOut,
         );
 
       var inChoices;
-      if (!tgtOk) inChoices = [null];
+      if (!tgtOk) inChoices = [fixedInSide];
       else
         inChoices = exclusiveSideChoices(
           edge,
@@ -3287,7 +3247,7 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
           profile.inSide,
           facingIn,
           profile,
-          hasMainIn[edge.target],
+          hasForwardIn[edge.target],
           shareIn,
         );
 
@@ -3322,8 +3282,9 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
           var bendCap = maxBendsForSides(os, is, profile);
           if (bends > bendCap || bends > MAX_BENDS_ABSOLUTE) continue;
           var route = evaluated.route;
-          var cross =
-            evaluated.cross || countRouteCrossingsByKind(route, committed);
+          var crossings = Number.isFinite(evaluated.crossings)
+            ? evaluated.crossings
+            : countRouteCrossings(route, committed);
           var srcAbs = absLookup[edge.source];
           var tgtAbs = absLookup[edge.target];
           // 交叉侧反向判定：出/入侧与目标交叉方向相悖时视为「错误侧」。
@@ -3335,11 +3296,8 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
             if (os === posCross) geoWrong++;
             if (is === negCross) geoWrong++;
           }
-          var score =
-            cross.vsCritical * CROSSING_WEIGHT_CRITICAL +
-            cross.vsBypass * CROSSING_WEIGHT_BYPASS +
-            bends * BEND_WEIGHT;
-          // 主路 + 已定旁路的侧占用（与路径交叉一并考虑）
+          var score = crossings * CROSSING_WEIGHT + bends * BEND_WEIGHT;
+          // 已定边的侧占用与路径交叉一并考虑。
           score +=
             portSideUseCount(outSideUse, edge.source, os) *
             PORT_SIDE_OCCUPY_WEIGHT;
@@ -3360,8 +3318,7 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
             outSide: os,
             inSide: is,
             route: route,
-            vsCritical: cross.vsCritical,
-            vsBypass: cross.vsBypass,
+            crossings: crossings,
             bends: bends,
             geoWrong: geoWrong,
             sideLoad:
@@ -3389,7 +3346,7 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
           profile,
         );
         bumpPortSideUse(outSideUse, edge.source, best.outSide);
-        if (best.outSide === profile.outSide) hasMainOut[edge.source] = true;
+        if (best.outSide === profile.outSide) hasForwardOut[edge.source] = true;
       }
       if (tgtOk && best.inSide) {
         if (edge.targetPort) removePortById(tgtNode, edge.targetPort);
@@ -3404,13 +3361,10 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
           profile,
         );
         bumpPortSideUse(inSideUse, edge.target, best.inSide);
-        if (best.inSide === profile.inSide) hasMainIn[edge.target] = true;
+        if (best.inSide === profile.inSide) hasForwardIn[edge.target] = true;
       }
-      // 估算路径记入 committed，供后续旁路边评分避让（主路+已定旁路）
-      committed.push({
-        route: best.route,
-        critical: false,
-      });
+      // 估算路径记入 committed，供后续更高或同级边评分避让。
+      committed.push({ route: best.route });
     }
   };
 
@@ -3420,8 +3374,8 @@ export var refineBypassSidePorts = function refineBypassSidePorts(
   var afterLayoutPortsAndRoutes = function afterLayoutPortsAndRoutes(graph) {
     if (!graph || !graph._elementLookup) return;
     var abs2 = buildAbsNodeLookup(graph, 0, 0, createKeyMap());
-    clearBypassPorts(graph, graph._elementLookup);
-    refineBypassSidePorts(graph, graph._elementLookup);
+    clearAdaptivePorts(graph, graph._elementLookup);
+    refineAdaptiveSidePorts(graph, graph._elementLookup);
     ensureAllLeafEdgePorts(graph, graph._elementLookup, abs2);
     spreadAllFixedPorts(graph, graph._elementLookup);
     abs2 = buildAbsNodeLookup(graph, 0, 0, createKeyMap());
@@ -3433,7 +3387,7 @@ export var WorkflowDAGRules = {
       if (!graph || !graph._elementLookup) return;
       var profile = resolveGraphProfile(graph);
       var edges = collectGraphEdges(graph, []);
-      assignCriticalSidePorts(graph._elementLookup, edges, profile);
+      assignLevelSidePorts(graph._elementLookup, edges, profile);
     },
     afterPass2: afterLayoutPortsAndRoutes,
     simplifyOrthogonalPoints: simplifyOrthogonalPoints,

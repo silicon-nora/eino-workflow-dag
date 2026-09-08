@@ -52,7 +52,7 @@ import {
   // so the title overlay has five extra pixels of breathing room.
   var COMPOUND_PAD = GRAPH_COMPOUND_PAD;
   // Root graph spacing. Leaf nodes remain 220×64.
-  // betweenLayers controls main-axis spacing; nodeNode controls cross-axis spacing.
+  // betweenLayers controls forward-axis spacing; nodeNode controls cross-axis spacing.
   var SPACE_ROOT = {
     nodeNode: 56,
     // Edge-to-node clearance also controls the outer detour channel.
@@ -149,12 +149,13 @@ import {
       expandable: !!node.expandable,
       subgraph: !!node.subgraph,
       expanded: !!node.expanded,
+      level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
       ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
     };
   }
 
   function edgeChannels(kind) {
-    if (!kind || kind === "no") return [];
+    if (!kind) return [];
     return kind.split("+").filter(function (channel) {
       return channel === "control" || channel === "data" || channel === "branch";
     });
@@ -171,7 +172,6 @@ import {
       branchMetadata:
         edge.branchMetadata == null ? null : edge.branchMetadata,
       level: Number(edge.level) || 0,
-      main: !!edge.main,
     };
   }
 
@@ -189,10 +189,10 @@ import {
       edges: visible.edges.map(function (edge) {
         return publicEdgeData({ ...edge, source: edge.from, target: edge.to });
       }),
-      highlightedPath: visible.criticalPath.map(function (id) {
+      levelZeroPath: visible.levelZeroPath.map(function (id) {
         return decodeNodePath(id);
       }),
-      highlightedDurationMs: visible.criticalCostMs,
+      levelZeroDurationMs: visible.levelZeroDurationMs,
     };
   }
 
@@ -654,7 +654,7 @@ export function mountRenderer(container, options) {
       if (activeLayout && typeof activeLayout.stop === "function") {
         activeLayout.stop();
       }
-      // 清掉上次边几何 bypass，避免叠样式
+      // 清掉上次边几何，避免叠样式
       cy.edges().removeStyle();
       clearOverlays();
       var cached = layoutCache.get(cacheKey);

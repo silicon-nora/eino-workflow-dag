@@ -121,7 +121,7 @@
       <div class="toolbar">
         <div class="title">
           <h1>正交路由预览</h1>
-          <p id="case-description">三路并行后汇聚 · 检查主端口与分流端口</p>
+          <p id="case-description">三路并行后汇聚 · 检查 Level 轨道与端口分配</p>
         </div>
         <div class="actions">
           <label class="case-picker">
@@ -414,8 +414,8 @@
 
       const snapshot = cases.fan;
       const descriptions = {
-        serial: "基础串行链 · 检查主入与主出端口",
-        fan: "三路并行后汇聚 · 检查主端口与分流端口",
+        serial: "基础串行链 · 检查 Level 0 前向端口",
+        fan: "三路并行后汇聚 · 检查多 Level 端口分配",
         diamond: "分叉再合并 · 检查多层扇出与扇入",
         nested: "展开的嵌套 Workflow · 检查容器边界路由",
         production: "分支、跳过路径与嵌套扇入 · 模拟生产级工作流",

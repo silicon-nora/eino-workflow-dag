@@ -3,7 +3,7 @@ import { createKeyMap, toPlainRecord } from "./key-map.js";
 /**
  * Eino Workflow DAG — recursive layered layout.
  * 每个已展开 Graph 独立 layoutLayer，冻结成定宽高盒子交给父层。
- * 本层主线叶子锁轨；旁路让轨；父层只把子图腰对齐前置主线节点（方案 B）。
+ * 每个 Graph 层按 Level 0…N 建立稳定轨道；同层同 Level 始终共用一个交叉轴坐标。
  * Framework agnostic: no Cytoscape dependency and no external layout engine.
  */
 const runtime = {};
@@ -78,12 +78,6 @@ const runtime = {};
     return out;
   }
 
-  function indexById(items) {
-    var m = createKeyMap();
-    for (var i = 0; i < items.length; i++) m[items[i].id] = items[i];
-    return m;
-  }
-
   function mainSize(it, profile) {
     return profile.axis === "x" ? it.width : it.height;
   }
@@ -152,41 +146,6 @@ const runtime = {};
     return layer;
   }
 
-  function isMainEdge(e) {
-    return !!(e && (e.main || e.level === 1 || e.stroke === "critical"));
-  }
-
-  function criticalSequence(items, edges) {
-    var succ = createKeyMap();
-    var pred = createKeyMap();
-    var seen = createKeyMap();
-    var i;
-    for (i = 0; i < edges.length; i++) {
-      var e = edges[i];
-      if (!isMainEdge(e)) continue;
-      succ[e.from] = e.to;
-      pred[e.to] = e.from;
-      seen[e.from] = true;
-      seen[e.to] = true;
-    }
-    var start = null;
-    var ids = Object.keys(seen);
-    for (i = 0; i < ids.length; i++) {
-      if (!pred[ids[i]]) {
-        start = ids[i];
-        break;
-      }
-    }
-    if (!start && ids.length) start = ids[0];
-    var seq = [];
-    var guard = createKeyMap();
-    for (var cur = start; cur && !guard[cur]; cur = succ[cur]) {
-      guard[cur] = true;
-      seq.push(cur);
-    }
-    return seq;
-  }
-
   function localWaist(it, nest, profile) {
     var pad = (nest && nest.pad) || ZERO_PAD;
     var mid = (nest && nest.contentMid) || {
@@ -206,148 +165,23 @@ const runtime = {};
     setCrossCoord(it, profile, target - localWaist(it, nest, profile));
   }
 
-  function intervalOf(it, profile) {
-    var lo = crossCoord(it, profile);
-    return { lo: lo, hi: lo + crossSize(it, profile) };
-  }
-
-  function overlappingOcc(lo, hi, occ, gap) {
-    for (var i = 0; i < occ.length; i++) {
-      if (lo < occ[i].hi + gap && hi > occ[i].lo - gap) return occ[i];
-    }
-    return null;
-  }
-
-  function nearestFreeCenter(base, dir, s, occ, gap) {
-    var c = base;
-    var n;
-    for (n = 0; n < 40; n++) {
-      var hit = overlappingOcc(c - s / 2, c + s / 2, occ, gap);
-      if (!hit) return c;
-      c = dir > 0 ? hit.hi + gap + s / 2 : hit.lo - gap - s / 2;
-    }
-    return null;
-  }
-
-  function alignBypassLeavesToColumnStart(items, critSet, orig, profile) {
-    for (var i = 0; i < items.length; i++) {
-      var it = items[i];
-      if (critSet[it.id] || it.frozen) continue;
-      setMainCoord(it, profile, orig[it._layer]);
-    }
-  }
-
-  function preferredBypassCenter(it, edges, byId, profile) {
-    var vals = [];
-    for (var i = 0; i < edges.length; i++) {
-      if (edges[i].to !== it.id) continue;
-      var src = byId[edges[i].from];
-      if (!src) continue;
-      vals.push(
-        src.frozen
-          ? waistCross(src, src._nest, profile)
-          : crossCenter(src, profile),
-      );
-    }
-    if (!vals.length) return null;
-    vals.sort(function (a, b) {
-      return a - b;
-    });
-    return vals[(vals.length - 1) >> 1];
-  }
-
-  function nodeCross(it, profile) {
-    if (it.frozen && it._waistC != null) return it._waistC;
-    return crossCenter(it, profile);
-  }
-
-  function predColumnSideOccupancy(bp, edges, byId, profile) {
-    var plus = false;
-    var minus = false;
-    var tol = 8;
-    var i;
-    var ids = Object.keys(byId);
-    for (i = 0; i < edges.length; i++) {
-      if (edges[i].to !== bp.id) continue;
-      var pred = byId[edges[i].from];
-      if (!pred) continue;
-      var rail = nodeCross(pred, profile);
-      for (var j = 0; j < ids.length; j++) {
-        var it = byId[ids[j]];
-        if (!it || it.id === pred.id || it._layer !== pred._layer) continue;
-        var c = crossCenter(it, profile);
-        if (c > rail + tol) plus = true;
-        else if (c < rail - tol) minus = true;
-      }
-    }
-    return { plus: plus, minus: minus };
-  }
-
-  function pickBypassCenter(base, plus, minus, predOcc) {
-    if (plus == null && minus == null) return null;
-    if (plus == null) return minus;
-    if (minus == null) return plus;
-    if (predOcc.plus && !predOcc.minus) return minus;
-    if (predOcc.minus && !predOcc.plus) return plus;
-    var dp = plus - base;
-    var dm = base - minus;
-    if (dm < dp - 1) return minus;
-    return plus;
-  }
-
-  function packBypasses(bypasses, occupied, spacing, profile, nested, opts) {
-    opts = opts || {};
-    var gap = spacing.nodeNode;
-    var occ = [];
-    var i;
-    if (opts.reserveRail) {
-      var rs = profile.cross === "x" ? LEAF_W : LEAF_H;
-      occ.push({ lo: -rs / 2, hi: rs / 2 });
-    }
-    for (i = 0; i < occupied.length; i++) {
-      var it = occupied[i];
-      if (it.frozen) it._waistC = waistCross(it, nested[it.id], profile);
-      occ.push(intervalOf(it, profile));
-    }
-    var byId = opts.byId || createKeyMap();
-    var edges = opts.edges || [];
-    for (i = 0; i < bypasses.length; i++) {
-      var bp = bypasses[i];
-      var s = crossSize(bp, profile);
-      var prefer = preferredBypassCenter(bp, edges, byId, profile);
-      var base = prefer == null ? 0 : prefer;
-      var cen = pickBypassCenter(
-        base,
-        nearestFreeCenter(base, 1, s, occ, gap),
-        nearestFreeCenter(base, -1, s, occ, gap),
-        predColumnSideOccupancy(bp, edges, byId, profile),
-      );
-      if (cen == null) {
-        var maxHi = 0;
-        var k;
-        for (k = 0; k < occ.length; k++) if (occ[k].hi > maxHi) maxHi = occ[k].hi;
-        cen = maxHi + gap + s / 2;
-      }
-      setCrossCenter(bp, profile, cen);
-      occ.push({ lo: cen - s / 2, hi: cen + s / 2 });
-    }
-  }
-
   /**
-   * 按轨级锁交叉轴：同 level 共线；level 升序放置；level>1 相对已占用外推。
-   * 仍按主轴列分别处理占用，避免跨列投影。
+   * 为一个 Graph 层计算全局 Level 轨道。
+   * 每个 Level 的所有节点共享同一腰线；相邻 Level 的完整包围盒保留固定间距。
    */
-  function packByRailLevels(items, edges, nested, profile, spacing, critSet) {
-    var byId = indexById(items);
+  function packByRailLevels(items, nested, profile, spacing) {
     var gap = spacing.nodeNode;
-    var levelSet = createKeyMap();
+    var groups = createKeyMap();
     var i;
     for (i = 0; i < items.length; i++) {
-      var lv = items[i].level != null ? items[i].level : critSet[items[i].id] ? 1 : 2;
+      var lv = Number.isInteger(items[i].level) && items[i].level >= 0
+        ? items[i].level
+        : 0;
       items[i].level = lv;
-      levelSet[lv] = true;
+      if (!groups[lv]) groups[lv] = [];
+      groups[lv].push(items[i]);
     }
-    var levels = Object.keys(levelSet)
+    var levels = Object.keys(groups)
       .map(function (x) {
         return +x;
       })
@@ -355,81 +189,33 @@ const runtime = {};
         return a - b;
       });
 
-    var maxCol = 0;
-    for (i = 0; i < items.length; i++) {
-      if (items[i]._layer > maxCol) maxCol = items[i]._layer;
-    }
-    var colItems = [];
-    for (i = 0; i <= maxCol; i++) colItems[i] = [];
-    for (i = 0; i < items.length; i++) colItems[items[i]._layer].push(items[i]);
-
-    for (var c = 0; c <= maxCol; c++) {
-      var col = colItems[c];
-      if (!col.length) continue;
-      var occ = [];
-      var li;
-      for (li = 0; li < levels.length; li++) {
-        var L = levels[li];
-        var members = [];
-        var j;
-        for (j = 0; j < col.length; j++) {
-          if (col[j].level === L) members.push(col[j]);
-        }
-        if (!members.length) continue;
-        var cen;
-        if (L === 1) {
-          cen = 0;
-          for (j = 0; j < members.length; j++) {
-            if (members[j].frozen && members[j]._waistC != null) {
-              cen = members[j]._waistC;
-              break;
-            }
-          }
+    var rail = 0;
+    var previousMaxOffset = null;
+    for (var li = 0; li < levels.length; li++) {
+      var members = groups[levels[li]];
+      var minOffset = Infinity;
+      var maxOffset = -Infinity;
+      for (var j = 0; j < members.length; j++) {
+        var member = members[j];
+        var anchor = member.frozen
+          ? localWaist(member, nested[member.id], profile)
+          : crossSize(member, profile) / 2;
+        minOffset = Math.min(minOffset, -anchor);
+        maxOffset = Math.max(maxOffset, crossSize(member, profile) - anchor);
+      }
+      if (previousMaxOffset != null) {
+        rail += previousMaxOffset - minOffset + gap;
+      }
+      for (j = 0; j < members.length; j++) {
+        member = members[j];
+        if (member.frozen) {
+          setWaistCross(member, nested[member.id], profile, rail);
+          member._waistC = rail;
         } else {
-          var prefs = [];
-          for (j = 0; j < members.length; j++) {
-            var p = preferredBypassCenter(members[j], edges, byId, profile);
-            if (p != null) prefs.push(p);
-          }
-          prefs.sort(function (a, b) {
-            return a - b;
-          });
-          var base =
-            prefs.length > 0 ? prefs[(prefs.length - 1) >> 1] : 0;
-          var s = 0;
-          for (j = 0; j < members.length; j++) {
-            var cs = crossSize(members[j], profile);
-            if (cs > s) s = cs;
-          }
-          var seed = members[0];
-          cen = pickBypassCenter(
-            base,
-            nearestFreeCenter(base, 1, s, occ, gap),
-            nearestFreeCenter(base, -1, s, occ, gap),
-            predColumnSideOccupancy(seed, edges, byId, profile),
-          );
-          if (cen == null) {
-            var maxHi = 0;
-            for (j = 0; j < occ.length; j++) {
-              if (occ[j].hi > maxHi) maxHi = occ[j].hi;
-            }
-            cen = maxHi + gap + s / 2;
-          }
-        }
-        for (j = 0; j < members.length; j++) {
-          var m = members[j];
-          if (m.frozen && L === 1) {
-            setWaistCross(m, nested[m.id], profile, cen);
-            m._waistC = waistCross(m, nested[m.id], profile);
-          } else if (m.frozen) {
-            setCrossCenter(m, profile, cen);
-            m._waistC = waistCross(m, nested[m.id], profile);
-          } else {
-            setCrossCenter(m, profile, cen);
-          }
-          occ.push(intervalOf(m, profile));
+          setCrossCenter(member, profile, rail);
         }
       }
+      previousMaxOffset = maxOffset;
     }
   }
 
@@ -462,42 +248,19 @@ const runtime = {};
       );
     }
 
-    var critSeq = criticalSequence(items, edges);
-    var critSet = createKeyMap();
-    for (i = 0; i < critSeq.length; i++) critSet[critSeq[i]] = true;
-
     for (i = 0; i < items.length; i++) {
       var it0 = items[i];
-      if (it0.level == null) it0.level = critSet[it0.id] ? 1 : 2;
-      if (critSet[it0.id] && it0.frozen) {
-        setWaistCross(it0, nested[it0.id], profile, 0);
-      } else {
-        setCrossCenter(it0, profile, 0);
-      }
+      if (!Number.isInteger(it0.level) || it0.level < 0) it0.level = 0;
+      setCrossCenter(it0, profile, 0);
     }
 
-    var byId = indexById(items);
     for (i = 0; i < items.length; i++) {
       if (nested[items[i].id]) items[i]._nest = nested[items[i].id];
       if (items[i].frozen) {
         items[i]._waistC = waistCross(items[i], nested[items[i].id], profile);
       }
     }
-    for (i = 0; i < edges.length; i++) {
-      var e = edges[i];
-      if (!isMainEdge(e)) continue;
-      var src = byId[e.from];
-      var tgt = byId[e.to];
-      if (!src || !tgt || !tgt.frozen) continue;
-      var predC = src.frozen
-        ? waistCross(src, nested[src.id], profile)
-        : crossCenter(src, profile);
-      setWaistCross(tgt, nested[tgt.id], profile, predC);
-      tgt._waistC = waistCross(tgt, nested[tgt.id], profile);
-    }
-
-    alignBypassLeavesToColumnStart(items, critSet, orig, profile);
-    packByRailLevels(items, edges, nested, profile, spacing, critSet);
+    packByRailLevels(items, nested, profile, spacing);
 
     if (profile.forwardSign < 0) {
       var maxEnd = 0;
@@ -590,7 +353,7 @@ const runtime = {};
         x: 0,
         y: 0,
         frozen: !!nest,
-        level: node.level != null ? node.level : 1,
+        level: node.level != null ? node.level : 0,
       });
     }
 
@@ -598,6 +361,15 @@ const runtime = {};
     shiftToOrigin(items);
     var bbox = measureItems(items);
     var pad = wrapPad ? PAD : ZERO_PAD;
+    var contentMid = { x: bbox.width / 2, y: bbox.height / 2 };
+    for (i = 0; i < items.length; i++) {
+      if (items[i].level !== 0) continue;
+      var rail = items[i].frozen
+        ? waistCross(items[i], nested[items[i].id], profile)
+        : crossCenter(items[i], profile);
+      contentMid[profile.cross] = rail;
+      break;
+    }
     return {
       items: items,
       nested: nested,
@@ -605,7 +377,7 @@ const runtime = {};
         width: Math.max(LEAF_W, bbox.width + pad.left + pad.right),
         height: Math.max(LEAF_H, bbox.height + pad.top + pad.bottom),
       },
-      contentMid: { x: bbox.width / 2, y: bbox.height / 2 },
+      contentMid: contentMid,
       pad: pad,
     };
   }

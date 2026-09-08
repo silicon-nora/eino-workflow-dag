@@ -30,7 +30,7 @@ var THEMES = {
         warnBg: "#fff8c5",
         hover: "#2f5f82",
         press: "#1e4a6b",
-        // 边高亮：探针青（与主线橙 / 旁路灰区分）
+        // 交互高亮：探针青，与静态 Level 配色区分。
         probe: "#0e7490",
         probeGlow: "#22d3ee",
       },
@@ -445,19 +445,9 @@ export function stylesheet(themeId) {
         },
       },
       {
-        // level 1：实线主链色（经典主题为橙）
-        selector: "edge[level = 1]",
+        // Level 0 使用最高优先级轨道色（经典主题为橙）
+        selector: "edge[level = 0]",
         style: highlightedEdge,
-      },
-      {
-        selector: 'edge[kind = "no"], edge[level = 0]',
-        style: {
-          "line-style": "solid",
-          "line-color": C.signal,
-          "target-arrow-color": C.signal,
-          width: E.width,
-          opacity: 1,
-        },
       },
       {
         selector: "edge.highlight",

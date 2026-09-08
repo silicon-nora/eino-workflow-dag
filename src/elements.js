@@ -47,6 +47,7 @@ function publicVisibleNode(node) {
     expandable: !!node.expandable,
     subgraph: !!node.subgraph,
     expanded: !!node.expanded,
+    level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
   };
 }
 
@@ -77,6 +78,7 @@ export function toCytoscapeElements(visible, options = {}) {
       expandable: !!node.expandable,
       subgraph: !!node.subgraph,
       expanded: !!node.expanded,
+      level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
     };
     if (node.parent) data.parent = node.parent;
     elements.push({ group: "nodes", data });
@@ -92,10 +94,8 @@ export function toCytoscapeElements(visible, options = {}) {
       metadata: edge.metadata == null ? null : edge.metadata,
       branchMetadata:
         edge.branchMetadata == null ? null : edge.branchMetadata,
-      level: edge.level != null ? edge.level : edge.main ? 1 : 2,
-      main: !!edge.main,
+      level: Number.isInteger(edge.level) && edge.level >= 0 ? edge.level : 0,
     };
-    if (edge.kind === "no") data.level = 0;
     elements.push({ group: "edges", data });
   }
   return elements;
@@ -116,7 +116,6 @@ export function patchCytoscapeElements(cy, elements) {
     } else if (
       element.source().id() !== spec.data.source ||
       element.target().id() !== spec.data.target ||
-      !!element.data("main") !== !!spec.data.main ||
       Number(element.data("level")) !== Number(spec.data.level)
     ) {
       return false;

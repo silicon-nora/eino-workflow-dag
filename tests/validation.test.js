@@ -193,7 +193,7 @@ const rendererFields = validateWorkflowSnapshot({
   workflow: {
     nodes: [{ id: "a", kind: "llm" }],
     edges: [{ from: "start", to: "a", channels: ["control"], active: true }],
-    highlightedPath: ["a"],
+    levelZeroPath: ["a"],
   },
 });
 assert(rendererFields.errors.filter((entry) => entry.code === "unknown_field").length === 3, "renderer-only fields are outside the Eino projection");

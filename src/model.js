@@ -100,58 +100,24 @@ function appendPath(prefix, id) {
     return JSON.stringify([from, to]);
   }
 
-  /**
-   * Graph 的 hop 权重：无论收起都按它自己主路的 hop 计；无内层则 1。
-   */
+  /** Graph 的 hop 权重：子图按自身 Level 0 路径计；无内层则 1。 */
   function graphHopWeight(node) {
     if (!isGraphNode(node) || !node.graph) return 1;
-    var inner = longestPathStartToEnd(node.graph);
+    var inner = selectLevelRoute(node.graph);
     var innerHops = inner && inner.hops != null ? inner.hops : 0;
     return Math.max(1, innerHops);
   }
 
-  function declaredCriticalPath(graph) {
-    if (!graph || !Array.isArray(graph.critical_path) || !graph.critical_path.length) {
-      return null;
-    }
-    var nodes = createKeyMap();
-    (graph.nodes || []).forEach(function (node) {
-      var id = nodeRef(node);
-      if (id) nodes[id] = node;
-    });
-    var seen = createKeyMap();
-    var path = [];
-    var costMs = 0;
-    var hops = 0;
-    for (var i = 0; i < graph.critical_path.length; i++) {
-      var id = graph.critical_path[i];
-      var node = nodes[id];
-      if (!node || seen[id]) return null;
-      if (i > 0) {
-        var previous = path[i - 1];
-        var connected = (graph.edges || []).some(function (edge) {
-          return edge && edge.kind !== 'no' && edge.from === previous && edge.to === id;
-        });
-        if (!connected) return null;
-      }
-      seen[id] = true;
-      path.push(id);
-      costMs += node.cost_ms || 0;
-      hops += graphHopWeight(node);
-    }
-    return { path: path, costMs: costMs, hops: hops, prev: createKeyMap() };
-  }
-
   /**
-   * 单层主线：必须从 START 到 END 的最长 cost 路（DAG DP）。
+   * 选择当前剩余图的下一条 Level 路径：START 到 END 的最长 cost 路（DAG DP）。
    * - 有 START/END 边则用之；否则虚拟 START→入度0、出度0→END
    * - kind=graph 本层只用包装节点 cost_ms（不摊平子节点，避免双计）
-   * - 平局 hop：叶子=1，Graph=max(1, 内层主路 hop)（与是否展开无关）
+   * - 平局 hop：叶子=1，Graph=max(1, 内层 Level 0 路径 hop)（与是否展开无关）
    * - skipped 默认不可达；整层无非 skipped 路时按拓扑回退
    * @returns {{ path: string[], costMs: number, hops: number, prev: object }}
    */
-  function longestPathStartToEnd(graph) {
-    return declaredCriticalPath(graph) || longestPathCore(graph, false);
+  function selectLevelRoute(graph) {
+    return longestPathCore(graph, false);
   }
 
   function longestPathCore(graph, allowSkipped) {
@@ -324,7 +290,6 @@ function appendPath(prefix, id) {
     var edges = [];
     (graph.edges || []).forEach(function (e) {
       if (!e || !e.from || !e.to || e.toParent || e.to_parent) return;
-      if (e.kind === 'no') return;
       var fromOk =
         e.from === 'START' || e.from === 'END' || keep[e.from];
       var toOk = e.to === 'START' || e.to === 'END' || keep[e.to];
@@ -336,30 +301,28 @@ function appendPath(prefix, id) {
   }
 
   /**
-   * 本层剥轨：剩余图上反复跑最长 cost 路 → level 1…N。
+   * 本层剥轨：剩余图上反复选择路径 → Level 0…N。
    * @returns {{ nodeLevel: object, edgeLevel: object, path: string[], costMs: number }}
    */
   function assignLayerRailLevels(graph) {
     var nodeLevel = createKeyMap();
     var edgeLevel = createKeyMap();
     var exclude = createKeyMap();
-    var rootPath = [];
-    var rootCost = 0;
-    var level = 1;
+    var levelZeroPath = [];
+    var levelZeroCost = 0;
+    var level = 0;
     var guard = 0;
     var maxNodes = ((graph && graph.nodes) || []).length + 2;
 
     while (guard++ < maxNodes) {
       var sub = graphWithoutExcluded(graph, exclude);
       if (!sub.nodes.length) break;
-      var info = level === 1
-        ? longestPathStartToEnd(graph)
-        : longestPathStartToEnd(sub);
+      var info = level === 0 ? selectLevelRoute(graph) : selectLevelRoute(sub);
       var path = info.path || [];
       if (!path.length) break;
-      if (level === 1) {
-        rootPath = path.slice();
-        rootCost = info.costMs || 0;
+      if (level === 0) {
+        levelZeroPath = path.slice();
+        levelZeroCost = info.costMs || 0;
       }
       var i;
       for (i = 0; i < path.length; i++) {
@@ -384,7 +347,7 @@ function appendPath(prefix, id) {
         (graph.edges || []).forEach(function (e) {
           if (!e || e.to !== id || e.toParent || e.to_parent) return;
           if (e.from === 'START') {
-            best = best == null ? 1 : Math.min(best, 1);
+            best = best == null ? 0 : Math.min(best, 0);
             return;
           }
           if (nodeLevel[e.from] == null) return;
@@ -405,18 +368,17 @@ function appendPath(prefix, id) {
     return {
       nodeLevel: nodeLevel,
       edgeLevel: edgeLevel,
-      path: rootPath,
-      costMs: rootCost
+      path: levelZeroPath,
+      costMs: levelZeroCost
     };
   }
 
   /**
-   * 分层轨级：每个 Graph 独立剥 level 1…N。
-   * 已展开子 Graph 无论是否在父 level 1 上，都再标自己的轨级。
-   * criticalPath 仍为根级 level 1 路径（含 Graph 包装框）。
-   * 边/节点写 level；main = (level===1)；不再写 critical/bypass/inactive stroke。
+   * 分层轨级：每个 Graph 独立剥 Level 0…N。
+   * 已展开子 Graph 无论处于父层哪个 Level，都重新计算自己的轨级。
+   * 节点和边只写入非负整数 level，不再维护第二套路径语义。
    */
-  function annotateHierarchicalStrokes(root, expanded, visibleNodes, edges) {
+  function annotateHierarchicalLevels(root, expanded, visibleNodes, edges) {
     expanded = expanded || createKeyMap();
     var nodeLevelAbs = createKeyMap();
     var edgeLevelAbs = createKeyMap();
@@ -458,16 +420,10 @@ function appendPath(prefix, id) {
 
     (visibleNodes || []).forEach(function (n) {
       if (!n || !n.id) return;
-      n.level = nodeLevelAbs[n.id] != null ? nodeLevelAbs[n.id] : 1;
+      n.level = nodeLevelAbs[n.id] != null ? nodeLevelAbs[n.id] : 0;
     });
 
     (edges || []).forEach(function (e) {
-      if (e.kind === 'no') {
-        e.level = 0;
-        e.main = false;
-        delete e.stroke;
-        return;
-      }
       var key = edgeKey(e.from, e.to);
       var lv = edgeLevelAbs[key];
       if (lv == null) {
@@ -476,23 +432,21 @@ function appendPath(prefix, id) {
         if (lf != null && lt != null) lv = Math.max(lf, lt);
         else if (lf != null) lv = lf;
         else if (lt != null) lv = lt;
-        else lv = 2;
+        else lv = 0;
       }
       e.level = lv;
-      e.main = lv === 1;
-      delete e.stroke;
     });
 
     return {
-      criticalPath: rootInfo.path || [],
-      criticalCostMs: rootInfo.costMs || 0
+      levelZeroPath: rootInfo.path || [],
+      levelZeroDurationMs: rootInfo.costMs || 0
     };
   }
 
   /**
    * @param {object} root private renderer projection
    * @param {object} expanded path -> true
-   * @returns {{ nodes: object[], edges: object[], criticalPath: string[], criticalCostMs: number }}
+   * @returns {{ nodes: object[], edges: object[], levelZeroPath: string[], levelZeroDurationMs: number }}
    */
   function buildVisibleGraph(root, expanded) {
     expanded = expanded || createKeyMap();
@@ -576,31 +530,30 @@ function appendPath(prefix, id) {
     walk(root, '', null);
     var edges = materializeEdges(rawEdges, nodes);
 
-    var pathInfo = annotateHierarchicalStrokes(root, expanded, nodes, edges);
+    var pathInfo = annotateHierarchicalLevels(root, expanded, nodes, edges);
     return {
       nodes: nodes,
       edges: edges,
-      criticalPath: pathInfo.criticalPath,
-      criticalCostMs: pathInfo.criticalCostMs
+      levelZeroPath: pathInfo.levelZeroPath,
+      levelZeroDurationMs: pathInfo.levelZeroDurationMs
     };
   }
 
   /**
-   * 首次渲染默认展开：主路上的子 Graph 展开；skipped / 旁路收起。
-   * Uses the critical path computed with all subgraphs collapsed.
+   * 首次渲染默认展开：Level 0 上已运行的子 Graph 展开。
    */
   function defaultExpandedMap(root) {
     var next = createKeyMap();
     if (!root) return toPlainRecord(next);
     var collapsed = buildVisibleGraph(root, createKeyMap());
-    var critical = createKeyMap();
-    (collapsed.criticalPath || []).forEach(function (id) {
-      critical[id] = true;
+    var levelZero = createKeyMap();
+    (collapsed.levelZeroPath || []).forEach(function (id) {
+      levelZero[id] = true;
     });
     listSubgraphs(root, '', []).forEach(function (s) {
       if (!s || !s.path || !s.node) return;
       if (s.node.status === 'skipped') return;
-      if (critical[s.path]) next[s.path] = true;
+      if (levelZero[s.path]) next[s.path] = true;
     });
     return toPlainRecord(next);
   }

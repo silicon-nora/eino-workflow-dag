@@ -80,11 +80,11 @@ const graph = {
       from: "input",
       to: "answer",
       kind: "",
-      stroke: "critical",
+      level: 0,
     },
   ],
-  criticalPath: ["input", "answer"],
-  criticalCostMs: 10,
+  levelZeroPath: ["input", "answer"],
+  levelZeroDurationMs: 10,
 };
 
 const linked = new LinkedWorker();

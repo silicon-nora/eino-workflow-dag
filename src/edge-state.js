@@ -22,10 +22,9 @@ export function createEdgeStateController(getCy) {
       if (!target || target.x == null) target = edge.target().position();
       const length = Math.abs(target.x - source.x) + Math.abs(target.y - source.y);
       const level = edge.data("level");
-      const critical = level != null ? (+level === 1 ? 0 : 1) : edge.data("main") ? 0 : 1;
-      return { edge, critical, length };
+      return { edge, level: Number.isInteger(+level) && +level >= 0 ? +level : 0, length };
     });
-    edges.sort((a, b) => a.critical - b.critical || a.length - b.length);
+    edges.sort((a, b) => a.level - b.level || a.length - b.length);
     edges.forEach(({ edge }, index) => {
       edge.style("z-index", edge.hasClass("highlight") ? 9999 : index);
     });

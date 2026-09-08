@@ -30,7 +30,7 @@ export function pickOutSideByGeometry(source, target, profile) {
 
   return clampSideToAllowed(
     picked,
-    resolved.bypassOutSides,
+    resolved.outSides,
     resolved.outSide,
   );
 }
@@ -50,7 +50,7 @@ export function pickInSideByGeometry(source, target, profile) {
 
   return clampSideToAllowed(
     picked,
-    resolved.bypassInSides,
+    resolved.inSides,
     resolved.inSide,
   );
 }
@@ -103,16 +103,16 @@ export function pickSidePreferringFree(
   allowed,
   occupancy,
   nodeId,
-  preferredMain,
+  preferredForward,
   preferredCross,
 ) {
   const ordered = orderSidesByOccupancy(
     allowed,
     occupancy,
     nodeId,
-    preferredMain,
+    preferredForward,
   );
-  if (!ordered.length) return geometrySide || preferredMain;
+  if (!ordered.length) return geometrySide || preferredForward;
 
   const minimumLoad = portSideUseCount(occupancy, nodeId, ordered[0]);
   if (
@@ -146,57 +146,37 @@ export function isSameCrossRow(left, right, profile, tolerance) {
   return crossCenterDistance(left, right, profile) <= limit;
 }
 
-function defaultCriticalEdge(edge) {
+function edgeLevel(edge) {
   if (!edge || !edge._cyEle || typeof edge._cyEle.data !== "function") {
-    return false;
+    return 0;
   }
   const level = edge._cyEle.data("level");
-  if (level != null && level !== "") return +level === 1;
-  if (edge._cyEle.data("stroke") === "critical") return true;
-  return !!edge._cyEle.data("main");
+  return Number.isInteger(+level) && +level >= 0 ? +level : 0;
 }
 
 function claimIfEmpty(owners, key, edge) {
   if (key && !hasOwnKey(owners, key)) owners[key] = edge;
 }
 
-function claimClosestVacant(edges, boxes, profile, owners, end) {
-  const closest = createKeyMap();
-  for (const edge of edges) {
-    const nodeId = end === "source" ? edge.source : edge.target;
-    if (!nodeId || hasOwnKey(owners, nodeId)) continue;
-    const source = hasOwnKey(boxes, edge.source) ? boxes[edge.source] : null;
-    const target = hasOwnKey(boxes, edge.target) ? boxes[edge.target] : null;
-    if (!source || !target) continue;
-    const distance = crossCenterDistance(source, target, profile);
-    if (!closest[nodeId] || distance < closest[nodeId].distance) {
-      closest[nodeId] = { edge, distance };
-    }
-  }
-  for (const [nodeId, candidate] of Object.entries(closest)) {
-    owners[nodeId] = candidate.edge;
-  }
-}
-
-export function claimMainPortOwners(edges, boxes, profile, isCriticalEdge) {
-  const critical = isCriticalEdge || defaultCriticalEdge;
+export function claimPreferredPortOwners(edges, boxes, profile) {
   const inOwner = createKeyMap();
   const outOwner = createKeyMap();
-
-  for (const edge of edges) {
-    if (!critical(edge)) continue;
+  const ordered = (edges || []).slice().sort((left, right) => {
+    const levelDelta = edgeLevel(left) - edgeLevel(right);
+    if (levelDelta) return levelDelta;
+    const leftSource = hasOwnKey(boxes, left.source) ? boxes[left.source] : null;
+    const leftTarget = hasOwnKey(boxes, left.target) ? boxes[left.target] : null;
+    const rightSource = hasOwnKey(boxes, right.source) ? boxes[right.source] : null;
+    const rightTarget = hasOwnKey(boxes, right.target) ? boxes[right.target] : null;
+    return (
+      crossCenterDistance(leftSource, leftTarget, profile) -
+      crossCenterDistance(rightSource, rightTarget, profile)
+    );
+  });
+  for (const edge of ordered) {
     claimIfEmpty(outOwner, edge.source, edge);
     claimIfEmpty(inOwner, edge.target, edge);
   }
-  for (const edge of edges) {
-    const source = hasOwnKey(boxes, edge.source) ? boxes[edge.source] : null;
-    const target = hasOwnKey(boxes, edge.target) ? boxes[edge.target] : null;
-    if (!source || !target || !isSameCrossRow(source, target, profile)) continue;
-    claimIfEmpty(outOwner, edge.source, edge);
-    claimIfEmpty(inOwner, edge.target, edge);
-  }
-  claimClosestVacant(edges, boxes, profile, outOwner, "source");
-  claimClosestVacant(edges, boxes, profile, inOwner, "target");
   return { inOwner, outOwner };
 }
 
@@ -204,14 +184,14 @@ export function exclusiveSideChoices(
   edge,
   nodeId,
   ownerMap,
-  mainSide,
+  forwardSide,
   facingCross,
   profile,
   alreadyTaken,
-  shareMain,
+  shareForward,
 ) {
   const owner = hasOwnKey(ownerMap, nodeId) ? ownerMap[nodeId] : null;
-  if (shareMain) return [mainSide];
+  if (shareForward) return [forwardSide];
   if (alreadyTaken) {
     if (facingCross && profileIsCrossSide(profile, facingCross)) {
       return [facingCross];
@@ -219,7 +199,7 @@ export function exclusiveSideChoices(
     return (profile.crossSides || []).slice();
   }
   if (owner && owner !== edge) {
-    const choices = [mainSide];
+    const choices = [forwardSide];
     if (facingCross && profileIsCrossSide(profile, facingCross)) {
       choices.push(facingCross);
     }
@@ -228,7 +208,7 @@ export function exclusiveSideChoices(
     }
     return choices;
   }
-  return [mainSide];
+  return [forwardSide];
 }
 
 function candidateSideRank(candidate, profile) {
@@ -241,8 +221,8 @@ function candidateSideRank(candidate, profile) {
 }
 
 export function selectBestPortCandidate(candidates, profile) {
-  const zeroCritical = candidates.filter((candidate) => candidate.vsCritical === 0);
-  const pool = zeroCritical.length ? zeroCritical : candidates;
+  const zeroCrossings = candidates.filter((candidate) => candidate.crossings === 0);
+  const pool = zeroCrossings.length ? zeroCrossings : candidates;
   let best = null;
 
   for (const candidate of pool) {
@@ -285,11 +265,11 @@ export function selectBestPortCandidate(candidates, profile) {
       }
     }
     if (decided) continue;
-    if (candidate.vsBypass < best.vsBypass) {
+    if (candidate.crossings < best.crossings) {
       best = candidate;
       continue;
     }
-    if (candidate.vsBypass > best.vsBypass) continue;
+    if (candidate.crossings > best.crossings) continue;
     if (candidate.score < best.score) best = candidate;
   }
 

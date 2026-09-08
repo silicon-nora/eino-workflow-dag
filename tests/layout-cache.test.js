@@ -17,19 +17,18 @@ const elements = [
   { group: "nodes", data: { id: "b", parent: "", subgraph: false } },
   {
     group: "edges",
-    data: { id: "e", source: "a", target: "b", kind: "", level: 1, main: true },
+    data: { id: "e", source: "a", target: "b", kind: "", level: 0 },
   },
 ];
 const right = layoutCacheKey("RIGHT", elements);
 const down = layoutCacheKey("DOWN", elements);
 assert(right !== down, "direction participates in the cache key");
 
-const bypass = structuredClone(elements);
-bypass[2].data.main = false;
-bypass[2].data.level = 2;
+const higherLevel = structuredClone(elements);
+higherLevel[2].data.level = 1;
 assert(
-  right !== layoutCacheKey("RIGHT", bypass),
-  "critical route semantics participate in the cache key",
+  right !== layoutCacheKey("RIGHT", higherLevel),
+  "edge Level participates in the cache key",
 );
 
 const delimiterInId = [

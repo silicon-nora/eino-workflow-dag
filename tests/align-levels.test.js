@@ -27,8 +27,8 @@ function pos(laid, id) {
   return p;
 }
 
-// 同层主线叶子交叉坐标必须共线（三路汇合不再保持旧布局错开）。
-(function threeWayFanInCriticalCollinear() {
+// 同一 Graph 层的 Level 0 节点必须共用一条轨道。
+(function threeWayFanInLevelZeroCollinear() {
   var root = {
     version: 2,
     nodes: [
@@ -57,11 +57,11 @@ function pos(laid, id) {
   var laid = Layout.layoutVisibleGraph(visible, { direction: "RIGHT" });
   var rail = centerY(pos(laid, "rank"));
   ["token", "body", "merge", "llm"].forEach(function (id) {
-    assert(almost(centerY(pos(laid, id)), rail), id + " on critical rail");
+    assert(almost(centerY(pos(laid, id)), rail), id + " on Level 0 rail");
   });
 })();
 
-// 父叶中心 = 子包装框内容腰；内层主线自己共线，且可以 ≠ 父叶 Y。
+// 父层轨道对齐子图的 Level 0 轨道，而不是子图包围盒中心。
 (function wrapperWaistAndInnerRail() {
   var root = {
     version: 2,
@@ -99,12 +99,12 @@ function pos(laid, id) {
   var a = pos(laid, "inner_g/a");
   var b = pos(laid, "inner_g/b");
   var side = pos(laid, "inner_g/side");
-  assert(almost(centerY(a), centerY(b)), "inner critical collinear");
-  var waist =
-    (Math.min(a.y, b.y, side.y) +
-      Math.max(a.y + a.height, b.y + b.height, side.y + side.height)) /
-    2;
-  assert(almost(centerY(pos(laid, "left")), waist), "parent leaf = wrapper content waist");
+  assert(almost(centerY(a), centerY(b)), "inner Level 0 is collinear");
+  assert(
+    almost(centerY(pos(laid, "left")), centerY(a)),
+    "parent rail aligns with nested Level 0"
+  );
+  assert(!almost(centerY(side), centerY(a)), "inner Level 1 uses another rail");
 })();
 
-console.log("OK: eino-workflow-dag-align-critical.test.js");
+console.log("OK: eino-workflow-dag-align-levels.test.js");

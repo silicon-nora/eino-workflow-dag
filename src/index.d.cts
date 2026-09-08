@@ -116,6 +116,8 @@ export interface VisibleNode {
   readonly expandable: boolean;
   readonly subgraph: boolean;
   readonly expanded: boolean;
+  /** Graph-local layout rail, starting at Level 0. */
+  readonly level: number;
 }
 
 export interface RenderedNodeData extends VisibleNode {
@@ -134,7 +136,6 @@ export interface RenderedEdgeData {
   /** Metadata from the corresponding branch relationship, when present. */
   readonly branchMetadata: JsonObject | null;
   readonly level: number;
-  readonly main: boolean;
 }
 
 export interface WorkflowSubgraphInfo {
@@ -235,8 +236,8 @@ export interface DAGAccessibilitySummary {
 export interface VisibleGraph {
   readonly nodes: readonly VisibleNode[];
   readonly edges: readonly RenderedEdgeData[];
-  readonly highlightedPath: readonly NodePath[];
-  readonly highlightedDurationMs: number;
+  readonly levelZeroPath: readonly NodePath[];
+  readonly levelZeroDurationMs: number;
 }
 
 export interface DAGRendererDiagnostics {
