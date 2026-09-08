@@ -66,7 +66,9 @@ export function scanDirectoryForSensitiveContent(
       const stats = lstatSync(path);
       if (stats.isSymbolicLink()) continue;
       if (stats.isDirectory()) {
-        if (!excludedDirectories.has(name)) visit(path);
+        if (!excludedDirectories.has(name) && !excludedDirectories.has(entry)) {
+          visit(path);
+        }
         continue;
       }
       if (!stats.isFile() || !isTextFile(path)) continue;

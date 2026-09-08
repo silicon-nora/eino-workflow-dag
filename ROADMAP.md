@@ -61,6 +61,9 @@ JavaScript contract.
 - [x] Add exact-Registry RC integration and repeated-lifecycle validation
 - [x] Review the first RC observation and clear stale execution data on update
 - [x] Publish and validate `1.0.0-rc.2` after the RC observation fix
+- [x] Observe `1.0.0-rc.2` in an
+  [independent exact-npm host](./examples/rc-host/README.md) across execution,
+  geometry, resize, and lifecycle changes
 - [ ] Review RC feedback and resolve any newly discovered release blocker
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
@@ -85,7 +88,7 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Observe one host integration with `1.0.0-rc.2` and review feedback.
+1. Review RC feedback and reproduce any release blocker in the independent host.
 2. Fix release blockers only; publish another RC if code changes are required.
 3. Publish `1.0.0` under npm's `latest` dist-tag after RC validation.
 

@@ -5,6 +5,11 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Fixed
+
+- Excluded nested consumer dependency directories from repository sensitive-content
+  scans while continuing to scan their source manifests and lockfiles.
+
 ## [1.0.0-rc.2] - 2026-09-08
 
 ### Added

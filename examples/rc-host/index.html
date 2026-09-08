@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Eino Workflow DAG · RC 宿主验收</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="identity">
+        <span class="wordmark">EINO / DAG</span>
+        <span class="divider" aria-hidden="true"></span>
+        <div>
+          <h1>RC 宿主验收台</h1>
+          <p>独立 npm 消费者 · Go Eino 快照</p>
+        </div>
+      </div>
+      <div class="release-stamp" aria-label="候选版本信息">
+        <span>candidate</span>
+        <strong>1.0.0-rc.2</strong>
+        <i id="health-dot" aria-hidden="true"></i>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="control-panel" aria-label="验收控制">
+        <section>
+          <p class="section-label">Execution</p>
+          <h2>执行样本</h2>
+          <div class="button-stack" id="scenario-controls">
+            <button type="button" data-scenario="success" aria-pressed="true">
+              <span>成功主路</span><small>Answer 610 ms</small>
+            </button>
+            <button type="button" data-scenario="fallback" aria-pressed="false">
+              <span>回退主路</span><small>Fallback 780 ms</small>
+            </button>
+            <button type="button" data-scenario="failed" aria-pressed="false">
+              <span>失败结果</span><small>Answer failed</small>
+            </button>
+            <button type="button" data-scenario="unknown" aria-pressed="false">
+              <span>未知状态</span><small>execution omitted</small>
+            </button>
+          </div>
+        </section>
+
+        <section>
+          <p class="section-label">Geometry</p>
+          <h2>布局方向</h2>
+          <div class="direction-grid" id="direction-controls">
+            <button type="button" data-direction="RIGHT" aria-pressed="true">→ Right</button>
+            <button type="button" data-direction="DOWN" aria-pressed="false">↓ Down</button>
+            <button type="button" data-direction="LEFT" aria-pressed="false">← Left</button>
+            <button type="button" data-direction="UP" aria-pressed="false">↑ Up</button>
+          </div>
+        </section>
+
+        <section class="utility-actions">
+          <p class="section-label">Lifecycle</p>
+          <h2>宿主动作</h2>
+          <button type="button" id="toggle-expanded">收起子图</button>
+          <button type="button" id="toggle-width">切换窄容器</button>
+          <button type="button" id="remount">销毁并重挂载</button>
+          <button type="button" id="fit">适应画布</button>
+        </section>
+      </aside>
+
+      <section class="canvas-column" aria-label="Workflow 画布">
+        <div class="observation-strip">
+          <span><b id="scenario-name">成功主路</b> / <i id="direction-name">RIGHT</i></span>
+          <span id="observation-state" role="status">等待首帧</span>
+        </div>
+        <div class="canvas-frame" id="canvas-frame">
+          <div class="level-rule" aria-hidden="true">
+            <strong>LEVEL</strong>
+            <span>0</span><i></i><span>1</span><i></i><span>N</span>
+          </div>
+          <div class="eino-workflow-dag-flow flow-host" id="flow">
+            <div id="dag"></div>
+          </div>
+        </div>
+        <p class="level-note">
+          Level 0 跟随执行时间最长的路径；其他路径按 <code>(Level, 路径长度)</code> 排列。
+        </p>
+      </section>
+
+      <aside class="inspection-panel" aria-label="验收结果">
+        <section class="verdict" id="verdict">
+          <p class="section-label">Observation</p>
+          <div><strong id="verdict-title">检查中</strong><span id="verdict-copy">等待布局稳定</span></div>
+        </section>
+
+        <section>
+          <p class="section-label">Diagnostics</p>
+          <dl class="metrics">
+            <div><dt>Layout runs</dt><dd id="metric-layout">—</dd></div>
+            <div><dt>Cache hits</dt><dd id="metric-cache">—</dd></div>
+            <div><dt>Data patches</dt><dd id="metric-patches">—</dd></div>
+            <div><dt>Remounts</dt><dd id="metric-remounts">0</dd></div>
+          </dl>
+        </section>
+
+        <section class="coordinate-section">
+          <div class="section-heading">
+            <div><p class="section-label">Coordinates</p><h2>节点坐标</h2></div>
+            <span id="node-count">0 nodes</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Path</th><th>L</th><th>X</th><th>Y</th></tr></thead>
+              <tbody id="coordinate-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="event-section">
+          <div class="section-heading">
+            <div><p class="section-label">Callbacks</p><h2>事件记录</h2></div>
+            <button type="button" id="clear-events">清空</button>
+          </div>
+          <ol id="event-log"><li class="empty">点击节点或边以检查回调</li></ol>
+        </section>
+      </aside>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
