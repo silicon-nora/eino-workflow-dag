@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateRCRegistry } from "./rc-validation.js";
+import { validateReleaseRegistry } from "./release-validation.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(
@@ -19,7 +19,7 @@ const manifest = JSON.parse(
 );
 const version = process.argv[2];
 const fixtureName = process.argv[3];
-const registry = validateRCRegistry(
+const registry = validateReleaseRegistry(
   process.env.PUBLISHED_CONSUMER_REGISTRY || "https://registry.npmjs.org/",
 );
 const packageSpec =
@@ -295,7 +295,7 @@ try {
   }
 
   console.log(
-    `OK: ${manifest.name}@${version} installs from the candidate source and type-checks, bundles, and loads in ${fixtureName}`,
+    `OK: ${manifest.name}@${version} installs from the exact package source and type-checks, bundles, and loads in ${fixtureName}`,
   );
 } finally {
   rmSync(work, { recursive: true, force: true });

@@ -1,10 +1,10 @@
-name: RC validation
+name: Release validation
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Exact npm prerelease version matching package.json
+        description: Exact published npm version matching package.json
         required: true
         type: string
       cycles:
@@ -35,17 +35,17 @@ jobs:
           cache-dependency-path: integrations/go/go.sum
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
-      - name: Validate the published release candidate
+      - name: Validate the published package
         run: >-
-          npm run validate:rc --
+          npm run validate:release --
           "${{ inputs.version }}"
           --cycles "${{ inputs.cycles }}"
-          --report-dir "$RUNNER_TEMP/rc-validation"
+          --report-dir "$RUNNER_TEMP/release-validation"
       - if: always()
         name: Retain the validation report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: rc-validation-${{ inputs.version }}
-          path: ${{ runner.temp }}/rc-validation
+          name: release-validation-${{ inputs.version }}
+          path: ${{ runner.temp }}/release-validation
           if-no-files-found: error
           retention-days: 30

@@ -1,12 +1,13 @@
-const exactVersionPattern = /^\d+\.\d+\.\d+-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*$/;
+const exactVersionPattern =
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
 const officialRegistry = "https://registry.npmjs.org/";
 
-export function validateRCRegistry(value) {
+export function validateReleaseRegistry(value) {
   let registry;
   try {
     registry = new URL(value);
   } catch {
-    throw new Error(`Invalid RC package registry URL: ${value || "<empty>"}`);
+    throw new Error(`Invalid release package registry URL: ${value || "<empty>"}`);
   }
   if (
     registry.protocol !== "https:" ||
@@ -15,30 +16,32 @@ export function validateRCRegistry(value) {
     registry.search ||
     registry.hash
   ) {
-    throw new Error("RC package registry must be an uncredentialed HTTPS URL");
+    throw new Error("Release package registry must be an uncredentialed HTTPS URL");
   }
   return registry.href;
 }
 
-export function validateRCVersion(version, manifestVersion) {
+export function validateReleaseVersion(version, manifestVersion) {
   if (!exactVersionPattern.test(version || "")) {
     throw new Error(
-      "RC validation requires an exact prerelease version such as 1.0.0-rc.1",
+      "Release validation requires an exact version such as 1.0.0 or 1.1.0-rc.1",
     );
   }
   if (version !== manifestVersion) {
     throw new Error(
-      `RC version ${version} does not match package.json version ${manifestVersion}; ` +
-        "run the validation from the matching candidate checkout",
+      `Release version ${version} does not match package.json version ${manifestVersion}; ` +
+        "run the validation from the matching release checkout",
     );
   }
   return version;
 }
 
-export function parseRCValidationArguments(argv, manifestVersion, environment = {}) {
+export function parseReleaseValidationArguments(argv, manifestVersion, environment = {}) {
   let version = manifestVersion;
-  let reportDirectory = ".artifacts/rc-validation";
-  let cycles = Number(environment.RC_SOAK_CYCLES || 50);
+  let reportDirectory = ".artifacts/release-validation";
+  let cycles = Number(
+    environment.RELEASE_SOAK_CYCLES || environment.RC_SOAK_CYCLES || 50,
+  );
   let registry = officialRegistry;
   let localArtifact = null;
   let positionalVersion = false;
@@ -88,30 +91,30 @@ export function parseRCValidationArguments(argv, manifestVersion, environment = 
       continue;
     }
     if (argument.startsWith("-")) {
-      throw new Error(`Unknown RC validation option: ${argument}`);
+      throw new Error(`Unknown release validation option: ${argument}`);
     }
-    if (positionalVersion) throw new Error("Only one RC version may be provided");
+    if (positionalVersion) throw new Error("Only one release version may be provided");
     version = argument;
     positionalVersion = true;
   }
 
-  validateRCVersion(version, manifestVersion);
+  validateReleaseVersion(version, manifestVersion);
   if (!Number.isSafeInteger(cycles) || cycles < 10 || cycles > 200) {
-    throw new Error("RC soak cycles must be an integer from 10 through 200");
+    throw new Error("Release soak cycles must be an integer from 10 through 200");
   }
 
   return {
     version,
     reportDirectory,
     cycles,
-    registry: validateRCRegistry(registry),
+    registry: validateReleaseRegistry(registry),
     localArtifact,
   };
 }
 
-export function formatRCValidationReport(report) {
+export function formatReleaseValidationReport(report) {
   const lines = [
-    `# RC validation: ${report.package}@${report.version}`,
+    `# Release validation: ${report.package}@${report.version}`,
     "",
     `- Result: **${report.status.toUpperCase()}**`,
     `- Revision: \`${report.revision}\``,
@@ -119,7 +122,7 @@ export function formatRCValidationReport(report) {
     `- Finished: ${report.finishedAt}`,
     `- Soak cycles per browser: ${report.cycles}`,
     `- Package registry: ${report.registry}`,
-    `- Candidate source: ${report.candidateSource}`,
+    `- Package source: ${report.packageSource}`,
     `- Runtime: ${report.environment.node} on ${report.environment.platform}/${report.environment.arch}`,
     "",
     "| Check | Result | Duration |",

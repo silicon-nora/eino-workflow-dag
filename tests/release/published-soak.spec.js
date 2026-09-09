@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const expectedVersion = process.env.RC_VALIDATION_VERSION;
-const cycles = Number(process.env.RC_SOAK_CYCLES || 50);
+const expectedVersion = process.env.RELEASE_VALIDATION_VERSION;
+const cycles = Number(process.env.RELEASE_SOAK_CYCLES || 50);
 
 async function settle(page) {
   await page.evaluate(
@@ -14,7 +14,7 @@ async function settle(page) {
 
 async function inspectGeometry(page) {
   return page.evaluate(() => {
-    const cy = window.rcHarness.cy;
+    const cy = window.releaseHarness.cy;
     const tolerance = 1;
     const failures = [];
     const nodes = cy.nodes().filter((node) => node.visible());
@@ -70,7 +70,7 @@ async function inspectGeometry(page) {
   });
 }
 
-test("published RC survives representative integration use", async ({ page }) => {
+test("published package survives representative integration use", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   page.on("console", (message) => {
@@ -79,16 +79,16 @@ test("published RC survives representative integration use", async ({ page }) =>
 
   await page.goto("/");
   await page.waitForLoadState("networkidle");
-  await page.waitForFunction(() => window.rcReady && window.rcHarness.cy);
+  await page.waitForFunction(() => window.releaseReady && window.releaseHarness.cy);
   await page.locator("#dag canvas").first().waitFor();
 
-  expect(await page.evaluate(() => window.rcHarness.version)).toBe(expectedVersion);
-  expect(await page.evaluate(() => window.rcHarness.baseSnapshot.workflow.name)).toBe(
+  expect(await page.evaluate(() => window.releaseHarness.version)).toBe(expectedVersion);
+  expect(await page.evaluate(() => window.releaseHarness.baseSnapshot.workflow.name)).toBe(
     "support-assistant",
   );
 
   const callbacks = await page.evaluate(() => {
-    const cy = window.rcHarness.cy;
+    const cy = window.releaseHarness.cy;
     cy.getElementById("prepare").emit("tap");
     cy.edges()
       .filter(
@@ -97,8 +97,8 @@ test("published RC survives representative integration use", async ({ page }) =>
       .first()
       .emit("tap");
     return [
-      window.rcHarness.events.filter((event) => event.type === "node").at(-1),
-      window.rcHarness.events.filter((event) => event.type === "edge").at(-1),
+      window.releaseHarness.events.filter((event) => event.type === "node").at(-1),
+      window.releaseHarness.events.filter((event) => event.type === "edge").at(-1),
     ];
   });
   expect(callbacks[0]).toMatchObject({
@@ -111,7 +111,7 @@ test("published RC survives representative integration use", async ({ page }) =>
   });
 
   const executionUpdates = await page.evaluate((count) => {
-    const harness = window.rcHarness;
+    const harness = window.releaseHarness;
     const before = harness.instance.getDiagnostics();
     for (let index = 0; index < count; index += 1) {
       const next = structuredClone(harness.baseSnapshot);
@@ -130,7 +130,7 @@ test("published RC survives representative integration use", async ({ page }) =>
   expect(executionUpdates.after.layoutRuns).toBe(executionUpdates.before.layoutRuns);
 
   const updateCoverage = await page.evaluate(() => {
-    const harness = window.rcHarness;
+    const harness = window.releaseHarness;
     const withoutExecution = structuredClone(harness.baseSnapshot);
     delete withoutExecution.execution;
     harness.instance.update(withoutExecution);
@@ -163,7 +163,7 @@ test("published RC survives representative integration use", async ({ page }) =>
     for (const expanded of [false, true]) {
       await page.evaluate(
         ({ activeDirection, shouldExpand }) => {
-          const instance = window.rcHarness.instance;
+          const instance = window.releaseHarness.instance;
           instance.setDirection(activeDirection);
           instance.setExpanded(shouldExpand ? [["answer"]] : []);
           instance.resetView();
@@ -179,7 +179,7 @@ test("published RC survives representative integration use", async ({ page }) =>
   }
 
   const interaction = await page.evaluate((count) => {
-    const harness = window.rcHarness;
+    const harness = window.releaseHarness;
     const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
     const before = harness.instance.getDiagnostics();
     for (let index = 0; index < count; index += 1) {
@@ -196,7 +196,7 @@ test("published RC survives representative integration use", async ({ page }) =>
   );
 
   const lifecycle = await page.evaluate((count) =>
-    window.rcHarness.cycleLifecycle(count),
+    window.releaseHarness.cycleLifecycle(count),
   cycles);
   expect(lifecycle.failures).toEqual([]);
   expect(lifecycle.canvases).toBeGreaterThan(0);

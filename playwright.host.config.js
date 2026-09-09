@@ -24,7 +24,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev --prefix examples/rc-host -- --host 127.0.0.1 --port 4175 --force",
+    command: "npm run dev --prefix examples/registry-host -- --host 127.0.0.1 --port 4175 --force",
     url: "http://127.0.0.1:4175/",
     reuseExistingServer: !process.env.CI,
   },

@@ -5,6 +5,11 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Changed
+
+- Generalized exact-Registry integration validation for stable and prerelease
+  versions, with the independent host pinned to the stable `1.0.0` package.
+
 ## [1.0.0] - 2026-09-09
 
 ### Changed

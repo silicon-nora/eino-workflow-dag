@@ -13,9 +13,9 @@ import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  formatRCValidationReport,
-  parseRCValidationArguments,
-} from "./rc-validation.js";
+  formatReleaseValidationReport,
+  parseReleaseValidationArguments,
+} from "./release-validation.js";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifest = JSON.parse(readFileSync(resolve(projectRoot, "package.json"), "utf8"));
@@ -101,7 +101,7 @@ function installPublishedPackage(work, packageSpec, registry) {
 
 function browserConsumerSource(version, snapshot) {
   const enriched = structuredClone(snapshot);
-  enriched.metadata = { validation: "rc-host" };
+  enriched.metadata = { validation: "release-host" };
   const prepare = enriched.workflow.nodes.find((node) => node.id === "prepare");
   if (prepare) prepare.metadata = { validation: "node-callback" };
   const answerEdge = enriched.workflow.edges.find(
@@ -132,7 +132,7 @@ function mount() {
   return instance;
 }
 
-window.rcHarness = {
+window.releaseHarness = {
   version: ${JSON.stringify(version)},
   baseSnapshot,
   events,
@@ -174,13 +174,13 @@ window.rcHarness = {
 };
 
 mount();
-window.rcReady = true;
+window.releaseReady = true;
 `;
 }
 
 function prepareBrowserConsumer(version, packageSpec, registry) {
   const work = realpathSync(
-    mkdtempSync(resolve(tmpdir(), "eino-workflow-dag-rc-browser-")),
+    mkdtempSync(resolve(tmpdir(), "eino-workflow-dag-release-browser-")),
   );
   mkdirSync(resolve(work, "src"), { recursive: true });
   writeFileSync(resolve(work, ".npmrc"), `registry=${registry}\n`);
@@ -190,7 +190,7 @@ function prepareBrowserConsumer(version, packageSpec, registry) {
   );
   writeFileSync(
     resolve(work, "index.html"),
-    '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>RC validation</title><link rel="icon" href="data:,"><style>html,body{height:100%}body{box-sizing:border-box;margin:0;padding:24px;background:#f6f8fa}#flow{height:calc(100% - 48px);min-height:640px}#dag{width:100%;height:100%}</style></head><body><main id="flow" class="eino-workflow-dag-flow"><div id="dag"></div></main><script type="module" src="/src/main.js"></script></body></html>\n',
+    '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Release validation</title><link rel="icon" href="data:,"><style>html,body{height:100%}body{box-sizing:border-box;margin:0;padding:24px;background:#f6f8fa}#flow{height:calc(100% - 48px);min-height:640px}#dag{width:100%;height:100%}</style></head><body><main id="flow" class="eino-workflow-dag-flow"><div id="dag"></div></main><script type="module" src="/src/main.js"></script></body></html>\n',
   );
   writeFileSync(
     resolve(work, "src/main.js"),
@@ -223,7 +223,7 @@ function writeReports(reportDirectory, report) {
   const base = `${report.version}-${stamp}`;
   const jsonPath = resolve(resolvedDirectory, `${base}.json`);
   const markdownPath = resolve(resolvedDirectory, `${base}.md`);
-  const markdown = formatRCValidationReport(report);
+  const markdown = formatReleaseValidationReport(report);
   writeFileSync(jsonPath, `${JSON.stringify(report, null, 2)}\n`);
   writeFileSync(markdownPath, markdown);
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -234,7 +234,11 @@ function writeReports(reportDirectory, report) {
 
 let options;
 try {
-  options = parseRCValidationArguments(process.argv.slice(2), manifest.version, process.env);
+  options = parseReleaseValidationArguments(
+    process.argv.slice(2),
+    manifest.version,
+    process.env,
+  );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
@@ -245,7 +249,7 @@ const localArtifact = options.localArtifact
   ? resolve(projectRoot, options.localArtifact)
   : null;
 if (localArtifact && !existsSync(localArtifact)) {
-  console.error(`Local RC artifact does not exist: ${localArtifact}`);
+  console.error(`Local release artifact does not exist: ${localArtifact}`);
   process.exit(1);
 }
 const packageSpec = localArtifact || `${manifest.name}@${options.version}`;
@@ -259,7 +263,7 @@ const report = {
   finishedAt: started.toISOString(),
   cycles: options.cycles,
   registry: options.registry,
-  candidateSource: localArtifact ? "local-artifact" : "npm-registry",
+  packageSource: localArtifact ? "local-artifact" : "npm-registry",
   environment: {
     node: process.version,
     platform: process.platform,
@@ -273,7 +277,7 @@ let failure = null;
 
 function phase(name, operation) {
   const phaseStarted = performance.now();
-  console.log(`\n[RC] ${name}`);
+  console.log(`\n[release] ${name}`);
   try {
     operation();
     report.phases.push({
@@ -312,7 +316,7 @@ try {
       );
     });
   }
-  phase("Build browser host from the exact candidate package", () => {
+  phase("Build browser host from the exact published package", () => {
     browserConsumer = prepareBrowserConsumer(
       options.version,
       packageSpec,
@@ -322,13 +326,13 @@ try {
   phase("Chromium, Firefox, and WebKit interaction soak", () => {
     runCommand(
       executable("playwright"),
-      ["test", "--config", "playwright.rc.config.js"],
+      ["test", "--config", "playwright.release.config.js"],
       projectRoot,
       {
         ...process.env,
-        RC_VALIDATION_BUILD: browserConsumer.output,
-        RC_VALIDATION_VERSION: options.version,
-        RC_SOAK_CYCLES: String(options.cycles),
+        RELEASE_VALIDATION_BUILD: browserConsumer.output,
+        RELEASE_VALIDATION_VERSION: options.version,
+        RELEASE_SOAK_CYCLES: String(options.cycles),
       },
     );
   });
@@ -337,7 +341,7 @@ try {
   failure = error;
   report.status = "failed";
   console.error(
-    `\nRC validation failed${failurePhase ? ` during ${failurePhase}` : ""}: ` +
+    `\nRelease validation failed${failurePhase ? ` during ${failurePhase}` : ""}: ` +
       (error instanceof Error ? error.message : error),
   );
 } finally {
@@ -346,8 +350,8 @@ try {
   }
   report.finishedAt = new Date().toISOString();
   const paths = writeReports(options.reportDirectory, report);
-  console.log(`\nRC report: ${paths.markdownPath}`);
-  console.log(`RC data: ${paths.jsonPath}`);
+  console.log(`\nRelease report: ${paths.markdownPath}`);
+  console.log(`Release data: ${paths.jsonPath}`);
 }
 
 if (failure) process.exitCode = 1;

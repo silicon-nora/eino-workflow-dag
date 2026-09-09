@@ -68,9 +68,9 @@ supported concurrently.
     entry checks. Do not commit a local tarball or cross-repository `file:`
     dependency.
 12. Run the exact published version through
-    [RC validation](./RC_VALIDATION.md), review the retained report and host
-    integration observations, and resolve every release blocker. Keep all
-    prereleases on `next`; do not assign `latest` during this phase.
+    [published-release validation](./RELEASE_VALIDATION.md), review the retained
+    report and host integration observations, and resolve every release blocker.
+    Keep all prereleases on `next`; do not assign `latest` during this phase.
 
 The release workflow rejects a missing or invalid changelog date and requires
 the GitHub prerelease checkbox to match whether the package version contains a
