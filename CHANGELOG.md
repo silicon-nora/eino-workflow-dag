@@ -9,6 +9,8 @@ public contract is being validated.
 
 - Generalized exact-Registry integration validation for stable and prerelease
   versions, with the independent host pinned to the stable `1.0.0` package.
+- Made the README quick start directly runnable and added a clean-install check
+  that type-checks, bundles, styles, and renders the documented example.
 
 ## [1.0.0] - 2026-09-09
 

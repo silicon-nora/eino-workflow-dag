@@ -59,6 +59,22 @@ both reports as a workflow artifact for 30 days.
 `validate:rc` remains a compatibility alias for existing maintainer automation.
 New automation should use `validate:release`.
 
+## README installation path
+
+The README's marked Quick start blocks are executable documentation. Verify the
+same steps a new user follows with:
+
+```bash
+npm run validate:quickstart
+```
+
+The command creates a temporary empty application, runs the unqualified
+`npm install eino-workflow-dag` command against the official Registry, and then
+uses the README code as both JavaScript and TypeScript. It requires the example
+to type-check, bundle, load the packaged stylesheet, render a canvas in
+Chromium, expose the documented instance lifecycle, and produce no browser or
+console errors. The installed version is printed with the result.
+
 ## Host integration observation
 
 The automated run establishes a reproducible baseline. A host application can

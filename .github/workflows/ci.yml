@@ -85,6 +85,9 @@ jobs:
       - if: matrix.browser == 'chromium'
         name: Exercise Registry host customization controls
         run: npx playwright test --config=playwright.host.config.js --project=chromium
+      - if: matrix.browser == 'chromium'
+        name: Exercise README quick start from a clean install
+        run: npm run validate:quickstart
 
   peer-minimums:
     name: Peer minimums / Node 20
