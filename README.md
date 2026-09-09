@@ -14,18 +14,34 @@ or edit workflows.
 npm install eino-workflow-dag
 ```
 
-Import the stylesheet once in your application:
-
-```js
-import "eino-workflow-dag/styles.css";
-```
-
 ## Quick start
 
-```js
-import { createWorkflowDAG } from "eino-workflow-dag";
+Give the renderer a host element with a non-zero size:
 
-const snapshot = {
+<!-- quickstart:html:start -->
+```html
+<div style="position: relative; height: 480px">
+  <div id="workflow" style="height: 100%"></div>
+</div>
+```
+<!-- quickstart:html:end -->
+
+Then import the stylesheet and create the view:
+
+<!-- quickstart:javascript:start -->
+```js
+import {
+  createWorkflowDAG,
+  parseWorkflowSnapshot,
+} from "eino-workflow-dag";
+import "eino-workflow-dag/styles.css";
+
+const container = document.querySelector("#workflow");
+if (!(container instanceof HTMLElement)) {
+  throw new Error("Workflow container not found");
+}
+
+const snapshot = parseWorkflowSnapshot({
   schemaVersion: 1,
   workflow: {
     nodes: [
@@ -50,9 +66,9 @@ const snapshot = {
       { path: ["model"], status: "success", durationMs: 240 },
     ],
   },
-};
+});
 
-const view = createWorkflowDAG(document.querySelector("#workflow"), {
+const view = createWorkflowDAG(container, {
   snapshot,
   direction: "RIGHT",
   activeNodePath: ["model"],
@@ -60,12 +76,12 @@ const view = createWorkflowDAG(document.querySelector("#workflow"), {
     console.log(path, id);
   },
 });
-
-view.update(nextSnapshot);
-view.destroy();
 ```
+<!-- quickstart:javascript:end -->
 
-The host element must have a non-zero size. The renderer observes size changes
+Keep the returned `view` for later lifecycle operations. Call
+`view.update(nextSnapshot)` when the snapshot changes and `view.destroy()` when
+the host is permanently removed. The renderer observes container size changes
 by default.
 
 ## Snapshot protocol
