@@ -7,7 +7,7 @@ import "eino-workflow-dag/styles.css";
 import fixture from "./eino-snapshot.json";
 import "./style.css";
 
-const candidateVersion = "1.0.0-rc.3";
+const candidateVersion = "1.0.0-rc.4";
 const host = document.querySelector("#dag");
 const frame = document.querySelector("#canvas-frame");
 const eventLog = document.querySelector("#event-log");

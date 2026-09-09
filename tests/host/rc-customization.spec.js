@@ -28,7 +28,7 @@ async function openHost(page) {
   await page.waitForLoadState("networkidle");
   await page.locator("#dag canvas").first().waitFor();
   await expect(page.locator("#observation-state")).toHaveText("布局已稳定");
-  await expect(page.locator("#candidate-version")).toHaveText("1.0.0-rc.3");
+  await expect(page.locator("#candidate-version")).toHaveText("1.0.0-rc.4");
 }
 
 async function waitForStable(page) {
@@ -91,36 +91,46 @@ test("distinguishes paint-only and geometry-changing appearance presets", async 
   await waitForStable(page);
   const compact = await page.evaluate(() => {
     const node = window.rcHost.cy.getElementById("prepare");
+    const target = window.rcHost.cy.getElementById("route");
     return {
       state: window.rcHost.state,
       theme: window.rcHost.instance.getTheme(),
       diagnostics: window.rcHost.instance.getDiagnostics(),
       width: node.width(),
       height: node.height(),
+      gap:
+        target.position("x") - target.width() / 2 -
+        (node.position("x") + node.width() / 2),
     };
   });
   expect(compact.state.appearance).toBe("compact");
   expect(compact.theme.tokens.node.width).toBe(176);
   expect(compact.width).toBe(176);
   expect(compact.height).toBe(52);
+  expect(compact.gap).toBeCloseTo(34, 3);
   expect(compact.diagnostics.layoutRuns).toBe(ink.diagnostics.layoutRuns + 1);
 
   await page.locator('[data-appearance="observatory"]').click();
   await waitForStable(page);
   const observatory = await page.evaluate(() => {
     const node = window.rcHost.cy.getElementById("prepare");
+    const target = window.rcHost.cy.getElementById("route");
     return {
       state: window.rcHost.state,
       theme: window.rcHost.instance.getTheme(),
       diagnostics: window.rcHost.instance.getDiagnostics(),
       width: node.width(),
       height: node.height(),
+      gap:
+        target.position("x") - target.width() / 2 -
+        (node.position("x") + node.width() / 2),
     };
   });
   expect(observatory.state.appearance).toBe("observatory");
   expect(observatory.theme.base).toBe("midnight");
   expect(observatory.width).toBe(242);
   expect(observatory.height).toBe(68);
+  expect(observatory.gap).toBeCloseTo(58, 3);
   expect(observatory.diagnostics.layoutRuns).toBe(compact.diagnostics.layoutRuns + 1);
   expect((await inspectHost(page)).failures).toEqual([]);
   expect(errors).toEqual([]);

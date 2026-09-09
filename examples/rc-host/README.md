@@ -1,7 +1,7 @@
 # RC host observation
 
 This is an independent consumer of the exact npm release candidate. It imports
-`eino-workflow-dag@1.0.0-rc.3` from its own dependency tree and never resolves
+`eino-workflow-dag@1.0.0-rc.4` from its own dependency tree and never resolves
 the repository's `src` or `dist` directories.
 
 The checked-in snapshot matches the output of the compiled and invoked Go Eino
