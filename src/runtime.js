@@ -278,8 +278,14 @@ import {
       },
       layoutConfig: {
         direction: dir,
+        node: {
+          width: tokens.node.width,
+          height: tokens.node.height,
+        },
+        compoundPadding: Object.assign({}, COMPOUND_PAD),
         padding: { top: 8, right: 8, bottom: 8, left: 8 },
         spacing: Object.assign({}, sr),
+        nestedSpacing: Object.assign({}, sc),
       },
     };
   }

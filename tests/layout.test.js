@@ -704,4 +704,130 @@ var OUTER_LEVEL_ZERO = ["ingest", "normalize", "prepare", "classify", "dispatch"
   );
 })();
 
+(function honorsInjectedGeometryInEveryDirection() {
+  var rootVisible = {
+    nodes: [
+      { id: "source", parent: null, level: 0 },
+      { id: "target", parent: null, level: 0 },
+    ],
+    edges: [{ from: "source", to: "target" }],
+  };
+  var crossVisible = {
+    nodes: [
+      { id: "level-zero", parent: null, level: 0 },
+      { id: "level-one", parent: null, level: 1 },
+    ],
+    edges: [],
+  };
+  var nestedVisible = {
+    nodes: [
+      { id: "group", parent: null, level: 0, expanded: true, subgraph: true },
+      { id: "group/first", parent: "group", level: 0 },
+      { id: "group/second", parent: "group", level: 0 },
+    ],
+    edges: [{ from: "group/first", to: "group/second" }],
+  };
+  var dimensions = {
+    source: { width: 181, height: 43 },
+    target: { width: 237, height: 71 },
+    "level-zero": { width: 173, height: 47 },
+    "level-one": { width: 211, height: 59 },
+    "group/first": { width: 167, height: 41 },
+    "group/second": { width: 229, height: 73 },
+  };
+  var rootGap = 37;
+  var crossGap = 31;
+  var nestedGap = 29;
+  var nestedCrossGap = 43;
+  var compoundPadding = { top: 17, right: 19, bottom: 23, left: 13 };
+  var directions = ["RIGHT", "LEFT", "DOWN", "UP"];
+
+  directions.forEach(function (direction) {
+    var options = {
+      direction: direction,
+      node: { width: 199, height: 61 },
+      nodeDimensions: dimensions,
+      spacing: { nodeNode: crossGap, betweenLayers: rootGap },
+      nestedSpacing: {
+        nodeNode: nestedCrossGap,
+        betweenLayers: nestedGap,
+      },
+      compoundPadding: compoundPadding,
+    };
+    var root = Layout.layoutVisibleGraph(rootVisible, options);
+    var source = posOf(root, "source");
+    var target = posOf(root, "target");
+    assert(
+      almost(
+        progressStart(target, direction) - progressEnd(source, direction),
+        rootGap,
+        0.001,
+      ),
+      direction + " uses the injected root betweenLayers gap",
+    );
+    assert(
+      almost(source.width, dimensions.source.width, 0.001) &&
+        almost(source.height, dimensions.source.height, 0.001),
+      direction + " uses measured root node dimensions",
+    );
+
+    var cross = Layout.layoutVisibleGraph(crossVisible, options);
+    var crossAxis = direction === "RIGHT" || direction === "LEFT" ? "y" : "x";
+    assert(
+      almost(
+        gapOnCross(
+          posOf(cross, "level-zero"),
+          posOf(cross, "level-one"),
+          crossAxis,
+        ),
+        crossGap,
+        0.001,
+      ),
+      direction + " uses the injected root nodeNode gap",
+    );
+
+    var nested = Layout.layoutVisibleGraph(nestedVisible, options);
+    var first = posOf(nested, "group/first");
+    var second = posOf(nested, "group/second");
+    assert(
+      almost(
+        progressStart(second, direction) - progressEnd(first, direction),
+        nestedGap,
+        0.001,
+      ),
+      direction + " uses the injected nested betweenLayers gap",
+    );
+    var group = posOf(nested, "group");
+    var horizontal = direction === "RIGHT" || direction === "LEFT";
+    var expectedMain =
+      (horizontal
+        ? dimensions["group/first"].width + dimensions["group/second"].width
+        : dimensions["group/first"].height + dimensions["group/second"].height) +
+      nestedGap +
+      (horizontal
+        ? compoundPadding.left + compoundPadding.right
+        : compoundPadding.top + compoundPadding.bottom);
+    var expectedCross =
+      Math.max(
+        horizontal
+          ? dimensions["group/first"].height
+          : dimensions["group/first"].width,
+        horizontal
+          ? dimensions["group/second"].height
+          : dimensions["group/second"].width,
+      ) +
+      (horizontal
+        ? compoundPadding.top + compoundPadding.bottom
+        : compoundPadding.left + compoundPadding.right);
+    assert(
+      almost(horizontal ? group.width : group.height, expectedMain, 0.001),
+      direction + " includes injected padding in the nested main size",
+    );
+    assert(
+      almost(horizontal ? group.height : group.width, expectedCross, 0.001),
+      direction + " includes injected padding in the nested cross size",
+    );
+  });
+})();
+
 console.log("OK: eino-workflow-dag-layout.test.js");

@@ -68,6 +68,18 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     return k;
   };
 
+  var measureLeafNodes = function measureLeafNodes(nodes) {
+    var dimensions = createKeyMap();
+    nodes.forEach(function (node) {
+      if (node.isParent()) return;
+      dimensions[node.id()] = {
+        width: node.width(),
+        height: node.height(),
+      };
+    });
+    return dimensions;
+  };
+
   /** Keep same-parent edges in their compound for nested-layer ordering. */
   var makeGraph = function makeGraph(nodes, edges, options) {
     var layoutNodes = [];
@@ -266,8 +278,14 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
       options.axisProfile ||
       axisProfile(options.layoutConfig && options.layoutConfig.direction);
 
+    var layoutConfig = options.layoutConfig || {};
     var laid = engine.layout(visible, {
       direction: profileFromOpts.direction,
+      node: layoutConfig.node,
+      nodeDimensions: measureLeafNodes(nodes),
+      spacing: layoutConfig.spacing,
+      nestedSpacing: layoutConfig.nestedSpacing,
+      compoundPadding: layoutConfig.compoundPadding,
     });
     var graph = makeGraph(nodes, edges, options);
     graph.layoutOptions = options.layoutConfig;

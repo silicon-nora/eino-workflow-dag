@@ -378,3 +378,143 @@ test("applies instance themes and opt-out interaction policy", async ({ page }) 
     tooltipBg: "rgba(255, 255, 255, 0.97)",
   });
 });
+
+test("applies theme geometry to root and nested layout in every direction", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const results = await page.evaluate(async () => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
+    const theme = {
+      base: "classic",
+      tokens: {
+        node: { width: 181, height: 43, textMaxWidth: 160 },
+        spacing: {
+          nodeNode: 31,
+          betweenLayers: 37,
+          nestedNodeNode: 41,
+          nestedBetweenLayers: 29,
+        },
+      },
+    };
+
+    function forwardGap(source, target, direction) {
+      const sourcePosition = source.position();
+      const targetPosition = target.position();
+      if (direction === "RIGHT") {
+        return (
+          targetPosition.x - target.width() / 2 -
+          (sourcePosition.x + source.width() / 2)
+        );
+      }
+      if (direction === "LEFT") {
+        return (
+          sourcePosition.x - source.width() / 2 -
+          (targetPosition.x + target.width() / 2)
+        );
+      }
+      if (direction === "DOWN") {
+        return (
+          targetPosition.y - target.height() / 2 -
+          (sourcePosition.y + source.height() / 2)
+        );
+      }
+      return (
+        sourcePosition.y - source.height() / 2 -
+        (targetPosition.y + target.height() / 2)
+      );
+    }
+
+    async function render(snapshot, direction, expanded) {
+      const host = document.createElement("div");
+      host.style.cssText = "position:relative;width:720px;height:420px";
+      const container = document.createElement("div");
+      container.style.cssText = "width:100%;height:100%";
+      host.appendChild(container);
+      document.body.appendChild(host);
+      const instance = window.EinoWorkflowDAG.createWorkflowDAG(container, {
+        snapshot,
+        direction,
+        expanded,
+        theme,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return {
+        instance,
+        cy: instance[access](),
+        remove() {
+          instance.destroy();
+          host.remove();
+        },
+      };
+    }
+
+    const output = [];
+    for (const direction of directions) {
+      const root = await render(
+        {
+          schemaVersion: 1,
+          workflow: {
+            nodes: [{ id: "source" }, { id: "target" }],
+            edges: [{ from: "source", to: "target", channels: ["control"] }],
+          },
+        },
+        direction,
+        [],
+      );
+      const rootSource = root.cy.getElementById("source");
+      const rootTarget = root.cy.getElementById("target");
+      const rootMeasurement = {
+        gap: forwardGap(rootSource, rootTarget, direction),
+        width: rootSource.width(),
+        height: rootSource.height(),
+      };
+      root.remove();
+
+      const nested = await render(
+        {
+          schemaVersion: 1,
+          workflow: {
+            nodes: [
+              {
+                id: "group",
+                workflow: {
+                  nodes: [{ id: "first" }, { id: "second" }],
+                  edges: [
+                    { from: "first", to: "second", channels: ["control"] },
+                  ],
+                },
+              },
+            ],
+            edges: [],
+          },
+        },
+        direction,
+        [["group"]],
+      );
+      const first = nested.cy.getElementById("group/first");
+      const second = nested.cy.getElementById("group/second");
+      const nestedMeasurement = {
+        gap: forwardGap(first, second, direction),
+        width: first.width(),
+        height: first.height(),
+      };
+      nested.remove();
+
+      output.push({ direction, root: rootMeasurement, nested: nestedMeasurement });
+    }
+    return output;
+  });
+
+  for (const result of results) {
+    expect(result.root.width).toBeCloseTo(181, 3);
+    expect(result.root.height).toBeCloseTo(43, 3);
+    expect(result.root.gap).toBeCloseTo(37, 3);
+    expect(result.nested.width).toBeCloseTo(181, 3);
+    expect(result.nested.height).toBeCloseTo(43, 3);
+    expect(result.nested.gap).toBeCloseTo(29, 3);
+  }
+});

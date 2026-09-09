@@ -19,6 +19,74 @@ const runtime = {};
   var SPACE_COMPOUND = { nodeNode: 64, betweenLayers: 56 };
   var DIRS = { RIGHT: 1, LEFT: 1, DOWN: 1, UP: 1 };
 
+  function finiteAtLeast(value, minimum, fallback) {
+    return typeof value === "number" && isFinite(value) && value >= minimum
+      ? value
+      : fallback;
+  }
+
+  function resolveSpacing(value, fallback) {
+    var source = value && typeof value === "object" ? value : {};
+    return {
+      nodeNode: finiteAtLeast(source.nodeNode, 0, fallback.nodeNode),
+      betweenLayers: finiteAtLeast(
+        source.betweenLayers,
+        0,
+        fallback.betweenLayers,
+      ),
+    };
+  }
+
+  function resolvePadding(value) {
+    var source = value && typeof value === "object" ? value : {};
+    return {
+      top: finiteAtLeast(source.top, 0, PAD.top),
+      right: finiteAtLeast(source.right, 0, PAD.right),
+      bottom: finiteAtLeast(source.bottom, 0, PAD.bottom),
+      left: finiteAtLeast(source.left, 0, PAD.left),
+    };
+  }
+
+  function resolveGeometry(opts) {
+    var options = opts && typeof opts === "object" ? opts : {};
+    var node = options.node && typeof options.node === "object"
+      ? options.node
+      : {};
+    return {
+      leafWidth: finiteAtLeast(node.width, 1, LEAF_W),
+      leafHeight: finiteAtLeast(node.height, 1, LEAF_H),
+      nodeDimensions:
+        options.nodeDimensions && typeof options.nodeDimensions === "object"
+          ? options.nodeDimensions
+          : null,
+      rootSpacing: resolveSpacing(options.spacing, SPACE_ROOT),
+      compoundSpacing: resolveSpacing(
+        options.nestedSpacing,
+        SPACE_COMPOUND,
+      ),
+      compoundPadding: resolvePadding(options.compoundPadding),
+    };
+  }
+
+  function nodeDimensions(geometry, id) {
+    var dimensions = geometry.nodeDimensions;
+    var value = dimensions && Object.prototype.hasOwnProperty.call(dimensions, id)
+      ? dimensions[id]
+      : null;
+    return {
+      width: finiteAtLeast(
+        value && value.width,
+        1,
+        geometry.leafWidth,
+      ),
+      height: finiteAtLeast(
+        value && value.height,
+        1,
+        geometry.leafHeight,
+      ),
+    };
+  }
+
   function normalizeDirection(d) {
     if (typeof d === "string" && DIRS[d]) return d;
     return "RIGHT";
@@ -348,7 +416,7 @@ const runtime = {};
     }
   }
 
-  function measureItems(items) {
+  function measureItems(items, geometry) {
     var minX = Infinity;
     var minY = Infinity;
     var maxX = -Infinity;
@@ -361,7 +429,12 @@ const runtime = {};
       if (it.y + it.height > maxY) maxY = it.y + it.height;
     }
     if (!items.length || !isFinite(minX)) {
-      return { minX: 0, minY: 0, width: LEAF_W, height: LEAF_H };
+      return {
+        minX: 0,
+        minY: 0,
+        width: geometry.leafWidth,
+        height: geometry.leafHeight,
+      };
     }
     return {
       minX: minX,
@@ -371,27 +444,38 @@ const runtime = {};
     };
   }
 
-  function shiftToOrigin(items) {
-    var b = measureItems(items);
+  function shiftToOrigin(items, geometry) {
+    var b = measureItems(items, geometry);
     for (var i = 0; i < items.length; i++) {
       items[i].x -= b.minX;
       items[i].y -= b.minY;
     }
   }
 
-  function emptyLayout(wrapPad) {
+  function emptyLayout(wrapPad, geometry) {
+    var pad = wrapPad ? geometry.compoundPadding : ZERO_PAD;
     return {
       items: [],
       nested: createKeyMap(),
-      size: { width: LEAF_W, height: LEAF_H },
-      contentMid: { x: LEAF_W / 2, y: LEAF_H / 2 },
-      pad: wrapPad ? PAD : ZERO_PAD,
+      size: { width: geometry.leafWidth, height: geometry.leafHeight },
+      contentMid: {
+        x: geometry.leafWidth / 2,
+        y: geometry.leafHeight / 2,
+      },
+      pad: pad,
     };
   }
 
-  function layoutLayer(visible, parentId, profile, spacing, wrapPad) {
+  function layoutLayer(
+    visible,
+    parentId,
+    profile,
+    spacing,
+    wrapPad,
+    geometry,
+  ) {
     var nodes = nodesOf(visible, parentId);
-    if (!nodes.length) return emptyLayout(wrapPad);
+    if (!nodes.length) return emptyLayout(wrapPad, geometry);
 
     var byVis = createKeyMap();
     var i;
@@ -406,8 +490,9 @@ const runtime = {};
           visible,
           n.id,
           profile,
-          SPACE_COMPOUND,
+          geometry.compoundSpacing,
           true,
+          geometry,
         );
       }
     }
@@ -416,10 +501,11 @@ const runtime = {};
     for (i = 0; i < nodes.length; i++) {
       var node = nodes[i];
       var nest = nested[node.id];
+      var dimensions = nodeDimensions(geometry, node.id);
       items.push({
         id: node.id,
-        width: nest ? nest.size.width : LEAF_W,
-        height: nest ? nest.size.height : LEAF_H,
+        width: nest ? nest.size.width : dimensions.width,
+        height: nest ? nest.size.height : dimensions.height,
         x: 0,
         y: 0,
         frozen: !!nest,
@@ -428,9 +514,9 @@ const runtime = {};
     }
 
     placeFlatLayer(items, edges, nested, profile, spacing);
-    shiftToOrigin(items);
-    var bbox = measureItems(items);
-    var pad = wrapPad ? PAD : ZERO_PAD;
+    shiftToOrigin(items, geometry);
+    var bbox = measureItems(items, geometry);
+    var pad = wrapPad ? geometry.compoundPadding : ZERO_PAD;
     var contentMid = { x: bbox.width / 2, y: bbox.height / 2 };
     for (i = 0; i < items.length; i++) {
       if (items[i].level !== 0) continue;
@@ -444,8 +530,14 @@ const runtime = {};
       items: items,
       nested: nested,
       size: {
-        width: Math.max(LEAF_W, bbox.width + pad.left + pad.right),
-        height: Math.max(LEAF_H, bbox.height + pad.top + pad.bottom),
+        width: Math.max(
+          geometry.leafWidth,
+          bbox.width + pad.left + pad.right,
+        ),
+        height: Math.max(
+          geometry.leafHeight,
+          bbox.height + pad.top + pad.bottom,
+        ),
       },
       contentMid: contentMid,
       pad: pad,
@@ -475,7 +567,15 @@ const runtime = {};
 
   function layoutVisibleGraph(visible, opts) {
     var profile = axisProfile(opts && opts.direction);
-    var laid = layoutLayer(visible, null, profile, SPACE_ROOT, false);
+    var geometry = resolveGeometry(opts);
+    var laid = layoutLayer(
+      visible,
+      null,
+      profile,
+      geometry.rootSpacing,
+      false,
+      geometry,
+    );
     var abs = createKeyMap();
     var railAnchors = createKeyMap();
     flatten(laid, 0, 0, abs, railAnchors);

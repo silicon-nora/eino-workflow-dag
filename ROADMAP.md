@@ -70,6 +70,9 @@ JavaScript contract.
   independent exact-npm host
 - [x] Automate the RC-host customization matrix and lifecycle state checks in CI
 - [x] Review RC feedback and complete the final release-blocker audit
+- [x] Apply theme node dimensions and root/nested spacing to actual layout geometry
+- [ ] Publish and validate `1.0.0-rc.4` after the focused geometry correction
+- [ ] Repeat the final release-blocker audit against the exact published RC
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
 ## Alpha.3 — public boundary
@@ -93,9 +96,10 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Prepare the `1.0.0` version and changelog from the validated RC contract.
-2. Run the complete release gate and inspect the exact final tarball.
-3. Publish `1.0.0` under npm's `latest` dist-tag and create the GitHub release.
+1. Publish `1.0.0-rc.4` under npm's `next` dist-tag.
+2. Run exact-Registry validation and repeat the final release-blocker audit.
+3. Prepare and publish `1.0.0` under npm's `latest` dist-tag, then create the
+   GitHub release.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
