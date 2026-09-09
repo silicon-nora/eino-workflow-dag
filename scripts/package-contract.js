@@ -118,6 +118,12 @@ export function validatePackageReport(report, manifest, tarball) {
   for (const target of Object.values(manifest?.exports || {})) {
     collectExportTargets(target, required);
   }
+  for (const field of ["unpkg", "jsdelivr"]) {
+    const target = manifest?.[field];
+    if (typeof target === "string") {
+      required.add(target.startsWith("./") ? target.slice(2) : target);
+    }
+  }
   collectBinTargets(manifest?.bin, required);
   for (const path of required) {
     if (!pathSet.has(path)) failures.push(`required file is absent: ${path}`);

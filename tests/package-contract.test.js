@@ -13,6 +13,8 @@ const manifest = {
   name: "example-package",
   version: "1.2.3",
   exports: { ".": "./dist/index.js" },
+  unpkg: "./dist/browser.umd.js",
+  jsdelivr: "./dist/browser.umd.js",
 };
 const required = [
   "package.json",
@@ -25,6 +27,7 @@ const required = [
   "THIRD_PARTY_NOTICES.md",
   "TYPE_SURFACE.json",
   "dist/index.js",
+  "dist/browser.umd.js",
 ];
 
 const work = mkdtempSync(resolve(tmpdir(), "eino-workflow-dag-contract-test-"));

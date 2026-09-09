@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
         name: "EinoWorkflowDAG",
         formats: [isESM ? "es" : isCJS ? "cjs" : "umd"],
         fileName: (format, entryName) => {
-          if (format === "umd") return "eino-workflow-dag.umd.cjs";
+          if (format === "umd") return "eino-workflow-dag.umd.js";
           if (format === "cjs") {
             return entryName === "index"
               ? "eino-workflow-dag.cjs"

@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 const dist = resolve(projectRoot, "dist");
@@ -15,7 +16,8 @@ function requireFile(name) {
   return statSync(resolve(dist, name)).size;
 }
 
-const umdBytes = requireFile("eino-workflow-dag.umd.cjs");
+const umdFile = "eino-workflow-dag.umd.js";
+const umdBytes = requireFile(umdFile);
 const cssBytes = requireFile("eino-workflow-dag.css");
 requireFile("eino-workflow-dag.js");
 requireFile("eino-workflow-dag.cjs");
@@ -61,9 +63,12 @@ if (cssBytes > 20 * 1024) {
 }
 
 const require = createRequire(import.meta.url);
-const umd = require(resolve(dist, "eino-workflow-dag.umd.cjs"));
+delete globalThis.EinoWorkflowDAG;
+await import(`${pathToFileURL(resolve(dist, umdFile)).href}?dist-check`);
+const umd = globalThis.EinoWorkflowDAG;
+delete globalThis.EinoWorkflowDAG;
 if (typeof umd.createWorkflowDAG !== "function" || umd.CURRENT_SCHEMA_VERSION !== 1) {
-  throw new Error("CommonJS/UMD entry does not expose the expected public API");
+  throw new Error("Browser UMD entry does not expose the expected public API");
 }
 const commonjs = require(manifest.name);
 const cjsValidation = require(`${manifest.name}/validation`);

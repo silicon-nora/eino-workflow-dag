@@ -5,6 +5,13 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-09-09
+
+### Added
+
+- Published the browser UMD build as `dist/eino-workflow-dag.umd.js` and made
+  it the explicit `unpkg` and `jsdelivr` entry.
+
 ### Changed
 
 - Run the full clean-consumer and three-browser release soak against the exact

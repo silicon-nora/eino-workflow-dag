@@ -52,7 +52,7 @@ test("runs the exact packed UMD and CSS", async ({ page }) => {
     </div>
   `);
   await page.addStyleTag({ url: `${publicRoot}/dist/eino-workflow-dag.css` });
-  await page.addScriptTag({ url: `${publicRoot}/dist/eino-workflow-dag.umd.cjs` });
+  await page.addScriptTag({ url: `${publicRoot}/dist/eino-workflow-dag.umd.js` });
 
   expect(await page.evaluate(() => Object.keys(window.EinoWorkflowDAG).sort())).toEqual([
     "CURRENT_SCHEMA_VERSION",
