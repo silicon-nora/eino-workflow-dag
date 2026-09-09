@@ -5,6 +5,21 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-09
+
+### Added
+
+- Added the optional, closed `WorkflowNode.kind` enum to
+  `EinoWorkflowSnapshot` schema version 1 as a compatible protocol extension.
+- Added Go `ProjectWithOptions` and `MarshalWithOptions` projection APIs for
+  mapping full Eino node paths to standardized node kinds, released with the
+  aligned `integrations/go/v1.2.0` module tag.
+
+### Changed
+
+- Defined schema-v1 evolution as backward-compatible addition of optional,
+  library-owned fields; incompatible changes still require a new schema.
+
 ## [1.1.1] - 2026-09-09
 
 ### Added

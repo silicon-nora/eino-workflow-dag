@@ -16,6 +16,14 @@ export type WorkflowNodeStatus =
   | "success"
   | "failed"
   | "skipped";
+/** Stable renderer semantics for a workflow node. */
+export type WorkflowNodeKind =
+  | "llm"
+  | "io"
+  | "cpu"
+  | "branch"
+  | "merge"
+  | "graph";
 /** Dependency channels exposed by Eino GraphInfo.Edges and DataEdges. */
 export type WorkflowEdgeChannel = "control" | "data";
 /** Relationships that can appear in the rendered graph. */
@@ -37,6 +45,8 @@ export interface WorkflowNode {
   readonly name?: string;
   /** Eino component category, for example ChatModel, Lambda, or Retriever. */
   readonly component?: string;
+  /** Explicit visual-semantic category; takes precedence over component inference. */
+  readonly kind?: WorkflowNodeKind;
   readonly workflow?: WorkflowGraph | null;
   readonly metadata?: JsonObject | null;
 }
@@ -377,6 +387,7 @@ export type WorkflowSnapshotIssueCode =
   | "invalid_node"
   | "missing_node_id"
   | "invalid_node_id"
+  | "invalid_node_kind"
   | "duplicate_node_id"
   | "invalid_nested_workflow"
   | "invalid_edge"

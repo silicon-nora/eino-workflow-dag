@@ -45,8 +45,8 @@ const snapshot = parseWorkflowSnapshot({
   schemaVersion: 1,
   workflow: {
     nodes: [
-      { id: "input", name: "Input", component: "Lambda" },
-      { id: "model", name: "Generate", component: "ChatModel" },
+      { id: "input", name: "Input", component: "Lambda", kind: "io" },
+      { id: "model", name: "Generate", component: "ChatModel", kind: "llm" },
     ],
     edges: [
       { from: "start", to: "input", channels: ["control", "data"] },
@@ -119,6 +119,9 @@ interface EinoWorkflowSnapshot {
 - `workflow` is a JSON-safe projection of Eino
   [`compose.GraphInfo`](https://github.com/cloudwego/eino/blob/main/compose/introspect.go).
 - Node `component` values map from Eino `GraphNodeInfo.Component`.
+- Nodes may declare a fixed visual-semantic `kind`: `llm`, `io`,
+  `cpu`, `branch`, `merge`, or `graph`. This keeps a node's Eino component
+  identity separate from its rendering role.
 - Control and data dependencies are normalized into edges whose required
   `channels` are `control`, `data`, or both.
 - Eino branches remain separate `branches`; they are not edge channels.
@@ -245,10 +248,10 @@ option independently enables or disables built-in expansion, tooltip, route
 highlight, keyboard, pan, and wheel-zoom behavior. See the normative
 [customization contract](./CUSTOMIZATION.md).
 
-Eino component values remain open
-strings, while execution status is the fixed `success`, `failed`, or `skipped`
-outcome. The renderer maps known component categories to visual kinds such as
-`llm`, `io`, `cpu`, `merge`, and `graph` for styling and formatter data.
+Eino component values remain open strings. An explicit node `kind` takes
+precedence over component inference; nodes that omit `kind` retain the existing
+component fallback. Execution status is the fixed `success`, `failed`, or
+`skipped` outcome.
 Resolved kind and status labels remain available through `locale.kinds` and
 `locale.statuses`.
 

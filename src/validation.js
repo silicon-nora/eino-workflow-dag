@@ -4,6 +4,7 @@ export const CURRENT_SCHEMA_VERSION = 1;
 export const SUPPORTED_SCHEMA_VERSIONS = Object.freeze([1]);
 
 const EDGE_CHANNELS = new Set(["control", "data"]);
+const NODE_KINDS = new Set(["llm", "io", "cpu", "branch", "merge", "graph"]);
 const NODE_EXECUTION_STATUSES = new Set(["success", "failed", "skipped"]);
 const START = "start";
 const END = "end";
@@ -185,7 +186,12 @@ export function validateWorkflowSnapshot(input) {
         errors.push(issue("invalid_node", nodeObjectPath, "Expected a workflow node object."));
         continue;
       }
-      validateKnownFields(node, nodeObjectPath, new Set(["id", "name", "component", "workflow", "metadata"]), errors);
+      validateKnownFields(
+        node,
+        nodeObjectPath,
+        new Set(["id", "name", "component", "kind", "workflow", "metadata"]),
+        errors,
+      );
       const id = own(node, "id");
       if (typeof id !== "string" || id.length === 0) {
         errors.push(issue("missing_node_id", `${nodeObjectPath}.id`, "A node requires a non-empty string id."));
@@ -200,8 +206,23 @@ export function validateWorkflowSnapshot(input) {
       validateString(node, nodeObjectPath, "name", errors);
       validateString(node, nodeObjectPath, "component", errors);
       validateMetadata(node, nodeObjectPath, "metadata", errors);
+      const kind = own(node, "kind");
+      if (kind !== undefined && !NODE_KINDS.has(kind)) {
+        errors.push(issue(
+          "invalid_node_kind",
+          `${nodeObjectPath}.kind`,
+          "Expected kind to be llm, io, cpu, branch, merge, or graph.",
+        ));
+      }
       const nested = own(node, "workflow");
       if (nested !== undefined && nested !== null) {
+        if (NODE_KINDS.has(kind) && kind !== "graph") {
+          errors.push(issue(
+            "invalid_node_kind",
+            `${nodeObjectPath}.kind`,
+            'A node containing workflow must use kind "graph" or omit kind.',
+          ));
+        }
         if (!isObject(nested)) {
           errors.push(issue("invalid_nested_workflow", `${nodeObjectPath}.workflow`, "Expected a nested workflow graph or null."));
         } else if (typeof id === "string" && id) {
@@ -211,6 +232,12 @@ export function validateWorkflowSnapshot(input) {
             nodePathPrefix: [...nodePathPrefix, id],
           });
         }
+      } else if (kind === "graph") {
+        errors.push(issue(
+          "invalid_node_kind",
+          `${nodeObjectPath}.kind`,
+          'A node using kind "graph" must contain workflow.',
+        ));
       }
     }
 

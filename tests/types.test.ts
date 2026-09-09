@@ -6,6 +6,7 @@ import {
   type EinoWorkflowSnapshot,
   type NodePath,
   type ResolvedDAGLocale,
+  type WorkflowNodeKind,
 } from "../src/index.js";
 import {
   createCytoscapeWorkflowDAG,
@@ -33,6 +34,18 @@ const snapshot: EinoWorkflowSnapshot = {
     nodes: [{ path: ["model"], status: "success", durationMs: 100 }],
   },
 };
+const explicitKind: WorkflowNodeKind = "branch";
+const explicitKindSnapshot: EinoWorkflowSnapshot = {
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "route", component: "Lambda", kind: explicitKind }],
+    edges: [],
+  },
+};
+void explicitKindSnapshot;
+// @ts-expect-error node kinds are a closed enum
+const invalidKind: WorkflowNodeKind = "custom";
+void invalidKind;
 const invalidStatusSnapshot: EinoWorkflowSnapshot = {
   schemaVersion: 1,
   workflow: { nodes: [{ id: "model" }], edges: [] },

@@ -30,12 +30,13 @@ a `metadata` object.
 The projection preserves the public topology available from Eino
 `compose.GraphInfo`:
 
-| Eino value | Snapshot value |
+| Projection source | Snapshot value |
 | --- | --- |
 | `GraphInfo.Name` | `workflow.name` |
 | key in `GraphInfo.Nodes` | `workflow.nodes[].id` |
 | `GraphNodeInfo.Name` | `workflow.nodes[].name` |
 | `GraphNodeInfo.Component` | `workflow.nodes[].component` |
+| producer node-kind resolver | `workflow.nodes[].kind` |
 | `GraphNodeInfo.GraphInfo` | `workflow.nodes[].workflow` |
 | `GraphInfo.Edges` | edge channel `control` |
 | `GraphInfo.DataEdges` | edge channel `data` |
@@ -51,6 +52,8 @@ Eino values that cannot cross a JSON boundary, including component instances,
 static input values, are not part of the protocol. Path-only mapping records
 created by `SetStaticValue` do not form topology edges and are also omitted. A
 producer may export useful JSON-safe business descriptions through `metadata`.
+Because Eino does not expose a general business-role field, a producer that
+needs `kind` supplies it while projecting `GraphInfo`.
 
 ## Workflow topology
 
@@ -67,6 +70,7 @@ interface WorkflowNode {
   id: string;
   name?: string;
   component?: string;
+  kind?: "llm" | "io" | "cpu" | "branch" | "merge" | "graph";
   workflow?: WorkflowGraph | null;
   metadata?: JsonObject | null;
 }
@@ -80,6 +84,12 @@ represented as an array path.
 `ChatModel`, `Lambda`, `Retriever`, `Graph`, or `Workflow`. It remains an open
 string so new Eino components do not require a schema revision. A nested
 `workflow` is the projection of `GraphNodeInfo.GraphInfo`.
+
+`kind` is the renderer's closed, cross-producer visual-semantic category and
+does not replace `component`. Explicit `kind` takes precedence over
+component-based inference. When it is omitted, the renderer retains its
+component fallback. A node containing a nested `workflow` may omit `kind` or
+use `graph`; `graph` is invalid without a nested workflow.
 
 The endpoint IDs `start` and `end` are reserved. `start` is valid as a
 dependency or branch source and `end` as a dependency or branch target. All
@@ -202,7 +212,7 @@ inactive topology edge are deliberately absent from the input protocol.
 
 `metadata` is opaque, application-owned JSON data. It may appear on the
 snapshot, graph, node, edge, field mapping, branch, or execution. The renderer
-does not reinterpret metadata as topology or execution state.
+does not reinterpret metadata as topology, execution state, or node kind.
 
 The complete snapshot must be valid JSON data. `undefined`, functions,
 symbols, bigint values, non-finite numbers, sparse arrays, accessors, class
@@ -213,9 +223,12 @@ Validation is descriptor-safe and does not invoke getters.
 
 ## Evolution
 
-Schema version `1` is closed: field names, types, and meanings are frozen.
-Application extensions belong in `metadata`. Any new protocol field or other
-incompatible protocol change requires a new `schemaVersion` and an appropriate
+Schema version `1` evolves compatibly: existing fields are never removed,
+renamed, or given new meanings, while new library-owned optional fields may be
+added in a minor package release. Older snapshots remain valid in newer
+renderers. A producer using a newly added field must require a renderer version
+that understands it. Application extensions still belong in `metadata`;
+incompatible protocol changes require a new `schemaVersion` and an appropriate
 package-version change.
 
 Validation issue codes and renderer error codes are stable machine-readable

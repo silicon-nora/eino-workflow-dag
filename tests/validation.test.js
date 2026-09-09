@@ -49,8 +49,37 @@ const valid = {
 
 assert(validateWorkflowSnapshot(valid).valid, "valid nested snapshot is accepted");
 assert(parseWorkflowSnapshot(valid) === valid, "parse returns the validated value");
-assert(CURRENT_SCHEMA_VERSION === 1, "the first public schema is v1");
+assert(CURRENT_SCHEMA_VERSION === 1, "schema v1 remains the current protocol");
 assert(JSON.stringify(SUPPORTED_SCHEMA_VERSIONS) === "[1]", "exactly one schema is supported");
+
+const explicitKinds = structuredClone(valid);
+explicitKinds.workflow.nodes[0].kind = "branch";
+explicitKinds.workflow.nodes[1].kind = "graph";
+explicitKinds.workflow.nodes[1].workflow.nodes[0].kind = "llm";
+assert(validateWorkflowSnapshot(explicitKinds).valid, "schema v1 accepts explicit node kinds");
+
+for (const kind of ["custom", "", false]) {
+  const invalidKind = structuredClone(explicitKinds);
+  invalidKind.workflow.nodes[0].kind = kind;
+  assert(
+    validateWorkflowSnapshot(invalidKind).errors.some((entry) => entry.code === "invalid_node_kind"),
+    `${String(kind)} is rejected by the closed node-kind enum`,
+  );
+}
+
+const graphKindWithoutWorkflow = structuredClone(explicitKinds);
+graphKindWithoutWorkflow.workflow.nodes[0].kind = "graph";
+assert(
+  validateWorkflowSnapshot(graphKindWithoutWorkflow).errors.some((entry) => entry.code === "invalid_node_kind"),
+  "graph kind requires a nested workflow",
+);
+
+const nonGraphNestedKind = structuredClone(explicitKinds);
+nonGraphNestedKind.workflow.nodes[1].kind = "cpu";
+assert(
+  validateWorkflowSnapshot(nonGraphNestedKind).errors.some((entry) => entry.code === "invalid_node_kind"),
+  "nested workflows cannot declare a non-graph kind",
+);
 
 for (const [status, durationMs] of [["success", 0], ["failed", null], ["skipped", null]]) {
   const outcome = structuredClone(valid);
@@ -235,12 +264,12 @@ assert(strict.errors.some((entry) => entry.code === "unknown_field"), "extension
 const rendererFields = validateWorkflowSnapshot({
   schemaVersion: 1,
   workflow: {
-    nodes: [{ id: "a", kind: "llm" }],
+    nodes: [{ id: "a" }],
     edges: [{ from: "start", to: "a", channels: ["control"], active: true }],
     levelZeroPath: ["a"],
   },
 });
-assert(rendererFields.errors.filter((entry) => entry.code === "unknown_field").length === 3, "renderer-only fields are outside the Eino projection");
+assert(rendererFields.errors.filter((entry) => entry.code === "unknown_field").length === 2, "renderer-only fields are outside the Eino projection");
 
 const unsafe = validateWorkflowSnapshot({
   schemaVersion: 1,

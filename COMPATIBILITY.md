@@ -30,10 +30,13 @@ while exact counter values are diagnostic rather than application state.
 
 ## Snapshot schema and errors
 
-`EinoWorkflowSnapshot` schema version `1` is closed. Existing field meanings and
-validation issue-code meanings do not change within `1.x`, and new protocol
-fields require a new `schemaVersion`. Application data belongs in `metadata`,
-so a renderer upgrade is not required for business extensions.
+`EinoWorkflowSnapshot` schema version `1` permits additive, library-owned
+optional fields in minor releases. Existing fields are not removed, renamed,
+or repurposed, so older snapshots remain valid in newer renderers. A producer
+using a newly added field must require the renderer version that introduced it.
+Incompatible protocol changes require a new `schemaVersion`. Application data
+belongs in `metadata`, so a renderer upgrade is not required for business
+extensions.
 
 `WorkflowSnapshotError.code`, `WorkflowDAGError.code`, and individual
 `WorkflowSnapshotIssue.code` values are machine-readable contracts. Human
@@ -45,7 +48,9 @@ errors introduced by a future schema or package major.
 
 Eino component categories are open strings. Known values receive built-in
 labels and visual treatment; unknown component values remain visible and use
-the generic fallback.
+the generic fallback. A node may instead declare the closed node-kind enum
+`llm`, `io`, `cpu`, `branch`, `merge`, or `graph`; explicit kind wins over
+component inference without changing the original component identity.
 
 Node execution status is the closed final-outcome enum `success`, `failed`, or
 `skipped`. A node without a final outcome is omitted from `execution.nodes`.
