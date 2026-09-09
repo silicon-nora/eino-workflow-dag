@@ -86,7 +86,7 @@ The checked-in exact-npm host has a repeatable Chromium observation suite:
 
 ```bash
 npm ci --prefix examples/rc-host --ignore-scripts
-npm run test:rc-host:browser
+npx playwright test --config=playwright.host.config.js --project=chromium
 ```
 
 It exercises theme layout boundaries, every interaction-policy remount, state

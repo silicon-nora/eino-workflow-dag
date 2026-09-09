@@ -84,7 +84,7 @@ jobs:
         run: npm ci --prefix examples/rc-host --ignore-scripts
       - if: matrix.browser == 'chromium'
         name: Exercise RC host customization controls
-        run: npm run test:rc-host:browser -- --project=chromium
+        run: npx playwright test --config=playwright.host.config.js --project=chromium
 
   peer-minimums:
     name: Peer minimums / Node 20
