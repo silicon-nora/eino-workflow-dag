@@ -9,6 +9,8 @@ public contract is being validated.
 
 - Extended the independent RC host with live visual presets and interaction
   policy controls for the published customization contract.
+- Added a Chromium RC-host suite covering paint and geometry theme boundaries,
+  every interaction-policy remount, and representative configuration combinations.
 
 ## [1.0.0-rc.3] - 2026-09-08
 

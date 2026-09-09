@@ -19,3 +19,14 @@ event callbacks, and destroy/remount. Interaction changes remount the renderer
 because they are constructor options; visual changes use `setTheme()`. The
 coordinate table and verdict are computed from the rendered instance rather
 than copied from fixture data.
+
+The root project also automates the release-candidate observation controls in
+Chromium:
+
+```bash
+npm run test:rc-host:browser
+```
+
+The suite checks paint-only and geometry-changing themes separately, toggles
+every interaction policy off and back on, preserves host state across remounts,
+and samples direction, appearance, execution, and expansion combinations.
