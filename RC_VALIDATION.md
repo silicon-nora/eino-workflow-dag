@@ -69,6 +69,8 @@ and component lifecycle. Observe at least:
 - 100- to 500-node snapshots when the host expects that scale;
 - expansion and collapse, every enabled direction, active-node updates, and
   mount/unmount behavior under the host framework;
+- paint-only and geometry-changing theme updates, plus each enabled or disabled
+  built-in interaction policy;
 - browser console and unhandled errors, DOM or listener growth after repeated
   navigation, node overlap, branch-side jumps, diagonal routes, and unexpected
   full layout runs for execution-only updates;

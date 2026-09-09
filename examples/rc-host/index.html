@@ -19,7 +19,7 @@
       </div>
       <div class="release-stamp" aria-label="候选版本信息">
         <span>candidate</span>
-        <strong>1.0.0-rc.2</strong>
+        <strong>1.0.0-rc.3</strong>
         <i id="health-dot" aria-hidden="true"></i>
       </div>
     </header>
@@ -56,6 +56,32 @@
           </div>
         </section>
 
+        <section>
+          <p class="section-label">Appearance</p>
+          <h2>视觉预设</h2>
+          <div class="appearance-grid" id="appearance-controls">
+            <button type="button" data-appearance="classic" aria-pressed="true">Classic</button>
+            <button type="button" data-appearance="ink" aria-pressed="false">Ink</button>
+            <button type="button" data-appearance="compact" aria-pressed="false">Compact</button>
+            <button type="button" data-appearance="observatory" aria-pressed="false">Observatory</button>
+          </div>
+        </section>
+
+        <section>
+          <p class="section-label">Interaction</p>
+          <h2>默认行为</h2>
+          <div class="toggle-list" id="interaction-controls">
+            <label><span>点击展开</span><input type="checkbox" data-interaction="expandOnNodeClick" checked /></label>
+            <label><span>悬停提示</span><input type="checkbox" data-interaction="tooltipOnHover" checked /></label>
+            <label><span>点击固定提示</span><input type="checkbox" data-interaction="pinTooltipOnNodeClick" /></label>
+            <label><span>点击高亮连线</span><input type="checkbox" data-interaction="highlightEdgeOnClick" checked /></label>
+            <label><span>空白处清除高亮</span><input type="checkbox" data-interaction="clearHighlightOnCanvasClick" checked /></label>
+            <label><span>键盘导航</span><input type="checkbox" data-interaction="keyboardNavigation" checked /></label>
+            <label><span>拖动画布</span><input type="checkbox" data-interaction="panOnDrag" checked /></label>
+            <label><span>Ctrl 滚轮缩放</span><input type="checkbox" data-interaction="zoomOnCtrlWheel" checked /></label>
+          </div>
+        </section>
+
         <section class="utility-actions">
           <p class="section-label">Lifecycle</p>
           <h2>宿主动作</h2>
@@ -68,7 +94,7 @@
 
       <section class="canvas-column" aria-label="Workflow 画布">
         <div class="observation-strip">
-          <span><b id="scenario-name">成功主路</b> / <i id="direction-name">RIGHT</i></span>
+          <span><b id="scenario-name">成功主路</b> / <i id="direction-name">RIGHT</i> / <em id="appearance-name">Classic</em></span>
           <span id="observation-state" role="status">等待首帧</span>
         </div>
         <div class="canvas-frame" id="canvas-frame">

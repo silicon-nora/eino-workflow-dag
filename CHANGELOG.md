@@ -5,6 +5,11 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Added
+
+- Extended the independent RC host with live visual presets and interaction
+  policy controls for the published customization contract.
+
 ## [1.0.0-rc.3] - 2026-09-08
 
 ### Added
