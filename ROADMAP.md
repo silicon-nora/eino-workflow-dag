@@ -46,7 +46,7 @@ JavaScript contract.
 - [x] Publish compatibility, deprecation, component/status, and theme policies
 - [x] Verify React 18/19 and Vue 3 from clean installations of the published package
 - [x] Publish `1.0.0-rc.1` and resolve every release-blocking defect
-- [ ] Publish `1.0.0` under npm's `latest` dist-tag
+- [x] Publish `1.0.0` under npm's `latest` dist-tag
 
 ## Current milestone — 1.0.0 stabilization
 
@@ -73,7 +73,7 @@ JavaScript contract.
 - [x] Apply theme node dimensions and root/nested spacing to actual layout geometry
 - [x] Publish and validate `1.0.0-rc.4` after the focused geometry correction
 - [x] Repeat the final release-blocker audit against the exact published RC
-- [ ] Publish `1.0.0` under npm's `latest` dist-tag
+- [x] Publish `1.0.0` under npm's `latest` dist-tag
 
 ## Alpha.3 — public boundary
 
@@ -96,9 +96,9 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Prepare the `1.0.0` version and changelog from the validated RC contract.
-2. Run the complete release gate and inspect the exact final tarball.
-3. Publish `1.0.0` under npm's `latest` dist-tag, then create the GitHub release.
+1. Observe the stable Registry package in real consumers and triage reported issues.
+2. Keep `1.x` fixes compatible with the frozen protocol and public API contracts.
+3. Plan `1.1` only from measured adoption needs and documented proposals.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
