@@ -491,9 +491,11 @@ export function mountRenderer(container, options) {
         direction: profile.direction,
         elements: elements,
         themeGeometry: layoutThemeKey,
-        runtimeDataAffectsGeometry:
-          additionalStyles.length > 0 ||
-          typeof options.nodeLabelFormatter === "function",
+        geometryData: additionalStyles.length > 0
+          ? "runtime"
+          : typeof options.nodeLabelFormatter === "function"
+            ? "labels"
+            : false,
       });
       var renderChange = classifyRenderChange(lastRenderState, {
         geometrySignature: geometrySignature,

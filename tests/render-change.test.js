@@ -18,6 +18,35 @@ const signature = renderGeometrySignature({
   elements,
   themeGeometry,
 });
+const labelSignature = renderGeometrySignature({
+  direction: "RIGHT",
+  elements,
+  themeGeometry,
+  geometryData: "labels",
+});
+const runtimeChanged = structuredClone(elements);
+runtimeChanged[0].data.status = "failed";
+assert.equal(
+  labelSignature,
+  renderGeometrySignature({
+    direction: "RIGHT",
+    elements: runtimeChanged,
+    themeGeometry,
+    geometryData: "labels",
+  }),
+  "formatter-independent runtime data does not invalidate unchanged labels",
+);
+runtimeChanged[0].data.label = "A\nfailed";
+assert.notEqual(
+  labelSignature,
+  renderGeometrySignature({
+    direction: "RIGHT",
+    elements: runtimeChanged,
+    themeGeometry,
+    geometryData: "labels",
+  }),
+  "formatter output changes invalidate label geometry",
+);
 
 assert.equal(
   classifyRenderChange(null, { geometrySignature: signature }),

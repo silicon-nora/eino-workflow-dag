@@ -40,6 +40,18 @@ assert(
     layoutCacheKey("RIGHT", multilineLabel, true),
   "formatted node labels participate in geometry-sensitive cache keys",
 );
+const runtimeOnlyChange = structuredClone(shortLabel);
+runtimeOnlyChange[0].data.status = "failed";
+assert(
+  layoutCacheKey("RIGHT", shortLabel, "labels") ===
+    layoutCacheKey("RIGHT", runtimeOnlyChange, "labels"),
+  "labels-only keys ignore runtime fields when formatted output is unchanged",
+);
+assert(
+  layoutCacheKey("RIGHT", shortLabel, "runtime") !==
+    layoutCacheKey("RIGHT", runtimeOnlyChange, "runtime"),
+  "custom-style keys retain runtime fields that may affect selectors",
+);
 assert(
   layoutCacheKey("RIGHT", shortLabel) ===
     layoutCacheKey("RIGHT", multilineLabel),

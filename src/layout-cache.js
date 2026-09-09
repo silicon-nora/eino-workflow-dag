@@ -9,7 +9,9 @@ const ROUTE_STYLE_KEYS = [
   "segment-distances",
 ];
 
-export function layoutCacheKey(direction, elements, includeRuntimeData = false) {
+export function layoutCacheKey(direction, elements, geometryData = false) {
+  const includeLabels = geometryData === true || geometryData === "labels" || geometryData === "runtime";
+  const includeRuntimeData = geometryData === true || geometryData === "runtime";
   const parts = [["direction", String(direction || "RIGHT")]];
   for (const spec of elements || []) {
     const data = spec.data || {};
@@ -21,9 +23,8 @@ export function layoutCacheKey(direction, elements, includeRuntimeData = false) 
         data.subgraph ? 1 : 0,
         data.expanded ? 1 : 0,
       ]);
-      if (includeRuntimeData) {
-        parts.push(["nd", data.label, data.kind, data.status, data.cost_ms]);
-      }
+      if (includeLabels) parts.push(["nl", data.label]);
+      if (includeRuntimeData) parts.push(["nd", data.kind, data.status, data.cost_ms]);
     } else {
       parts.push([
         "e",

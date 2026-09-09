@@ -20,10 +20,10 @@ export function renderGeometrySignature({
   direction,
   elements,
   themeGeometry,
-  runtimeDataAffectsGeometry = false,
+  geometryData = false,
 }) {
   return (
-    layoutCacheKey(direction, elements, runtimeDataAffectsGeometry) +
+    layoutCacheKey(direction, elements, geometryData) +
     String(themeGeometry || "")
   );
 }
