@@ -33,17 +33,18 @@ No compatibility polyfills are bundled.
 
 ## Keyboard and assistive technology
 
-The renderer host is one focusable composite graphic. Its accessible name
+The renderer host is one focusable composite group. Its accessible name
 summarizes the visible node, edge, status, and subgraph counts. Arrow keys,
 Home, and End move the visual node focus; the accessible name then announces
 the focused node's name, component, and status. Enter or Space activates that
 node through the same callback as a pointer, and Escape clears node focus and
 restores the graph summary.
 
+Expanded-subgraph title buttons remain operable descendants of the group.
 Individual canvas nodes are not DOM controls and are not exposed as a virtual
 list. Applications that need editable nodes, per-node form controls, or a full
 tabular workflow representation should provide those controls alongside the
-read-only graphic. Automated WCAG A/AA checks cannot certify every
+read-only group. Automated WCAG A/AA checks cannot certify every
 browser-and-screen-reader combination, so reproducible assistive-technology
 defects remain supported browser defects.
 

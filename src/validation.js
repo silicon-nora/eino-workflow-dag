@@ -102,15 +102,26 @@ function pathKey(path) {
   return JSON.stringify(path);
 }
 
-function validateFieldPath(value, path, errors) {
-  if (
-    !Array.isArray(value) ||
-    !value.every((segment) => typeof segment === "string" && segment.length > 0)
-  ) {
-    errors.push(issue("invalid_field_path", path, "Expected an array of non-empty field-name strings."));
-    return false;
+function readStringArray(value, requireNonEmpty = false) {
+  if (!Array.isArray(value) || (requireNonEmpty && value.length === 0)) return null;
+  const copy = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (!descriptor || !("value" in descriptor)) return null;
+    const segment = descriptor.value;
+    if (typeof segment !== "string" || segment.length === 0) return null;
+    copy.push(segment);
   }
-  return true;
+  return copy;
+}
+
+function validateFieldPath(value, path, errors) {
+  const safePath = readStringArray(value);
+  if (safePath === null) {
+    errors.push(issue("invalid_field_path", path, "Expected an array of non-empty field-name strings."));
+    return null;
+  }
+  return safePath;
 }
 
 /** Validate the library-owned, JSON-safe Eino workflow visualization snapshot. */
@@ -289,16 +300,16 @@ export function validateWorkflowSnapshot(input) {
             validateMetadata(mapping, mappingPath, "metadata", errors);
             const fromPath = own(mapping, "fromPath");
             const toPath = own(mapping, "toPath");
-            const validFrom = validateFieldPath(fromPath, `${mappingPath}.fromPath`, errors);
-            const validTo = validateFieldPath(toPath, `${mappingPath}.toPath`, errors);
-            if (validFrom && validTo) {
-              const key = JSON.stringify([fromPath, toPath]);
+            const safeFromPath = validateFieldPath(fromPath, `${mappingPath}.fromPath`, errors);
+            const safeToPath = validateFieldPath(toPath, `${mappingPath}.toPath`, errors);
+            if (safeFromPath !== null && safeToPath !== null) {
+              const key = JSON.stringify([safeFromPath, safeToPath]);
               if (seenMappings.has(key)) {
                 errors.push(issue("duplicate_field_mapping", mappingPath, "Duplicate field mapping on the same edge."));
               } else {
                 seenMappings.add(key);
               }
-              if (fromPath.length === 0 && toPath.length === 0) {
+              if (safeFromPath.length === 0 && safeToPath.length === 0) {
                 errors.push(issue("invalid_field_mapping", mappingPath, "A whole-value dependency does not need a field mapping."));
               }
             }
@@ -309,7 +320,6 @@ export function validateWorkflowSnapshot(input) {
       addTopologyArc(from, to);
     }
 
-    const branchKeys = new Set();
     for (let index = 0; index < (Array.isArray(branches) ? branches.length : 0); index += 1) {
       const branch = own(branches, String(index));
       const branchPath = `${path}.branches[${index}]`;
@@ -332,7 +342,6 @@ export function validateWorkflowSnapshot(input) {
         continue;
       }
       const seenTargets = new Set();
-      const validTargets = [];
       for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
         const target = own(targets, String(targetIndex));
         const targetPath = `${branchPath}.targets[${targetIndex}]`;
@@ -346,16 +355,7 @@ export function validateWorkflowSnapshot(input) {
           errors.push(issue("duplicate_branch_target", targetPath, `Duplicate branch target "${target}".`));
         } else {
           seenTargets.add(target);
-          validTargets.push(target);
           addTopologyArc(from, target);
-        }
-      }
-      if (typeof from === "string" && from && validTargets.length) {
-        const key = JSON.stringify([from, [...validTargets].sort()]);
-        if (branchKeys.has(key)) {
-          errors.push(issue("duplicate_branch", branchPath, "Duplicate branch definition."));
-        } else {
-          branchKeys.add(key);
         }
       }
     }
@@ -420,15 +420,12 @@ export function validateWorkflowSnapshot(input) {
         validateTimeRange(state, statePath, errors);
         validateMetadata(state, statePath, "metrics", errors);
         const nodePath = own(state, "path");
-        const validPath =
-          Array.isArray(nodePath) &&
-          nodePath.length > 0 &&
-          nodePath.every((segment) => typeof segment === "string" && segment.length > 0);
-        if (!validPath) {
+        const safeNodePath = readStringArray(nodePath, true);
+        if (safeNodePath === null) {
           errors.push(issue("invalid_node_path", `${statePath}.path`, "Expected a non-empty array of non-empty node IDs."));
           continue;
         }
-        const key = pathKey(nodePath);
+        const key = pathKey(safeNodePath);
         if (!knownNodePaths.has(key)) {
           errors.push(issue("unknown_node_path", `${statePath}.path`, `Unknown node path ${key}.`));
         } else if (seenPaths.has(key)) {

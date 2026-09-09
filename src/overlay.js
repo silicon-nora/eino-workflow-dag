@@ -1,8 +1,7 @@
 function findOrCreateHost(container) {
-  const wrap = container && container.parentElement;
-  if (!wrap) return { element: null, created: false };
+  if (!container) return { element: null, created: false };
   let host = null;
-  for (const child of wrap.children) {
+  for (const child of container.children) {
     if (child.classList.contains("cy-overlays")) {
       host = child;
       break;
@@ -12,7 +11,7 @@ function findOrCreateHost(container) {
   if (!host) {
     host = document.createElement("div");
     host.className = "cy-overlays";
-    wrap.appendChild(host);
+    container.appendChild(host);
     created = true;
   }
   return { element: host, created };

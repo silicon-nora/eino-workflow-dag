@@ -117,7 +117,7 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
     .poll(() => page.evaluate(() => window.getDAGCy(window.dagInstance).nodes().length))
     .toBe(7);
 
-  await expect(page.locator("#dag")).toHaveAttribute("role", "img");
+  await expect(page.locator("#dag")).toHaveAttribute("role", "group");
   await expect(page.locator("#dag")).toHaveAttribute("aria-label", /7 nodes and 5 edges/);
 
   const specialPath = await page.evaluate(() => {
@@ -213,6 +213,164 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
   expect(errors).toEqual([]);
 });
 
+test("isolates host callback failures after applying built-in behavior", async ({ page }) => {
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:720px;height:420px";
+    const container = document.createElement("div");
+    container.style.cssText = "width:100%;height:100%";
+    host.appendChild(container);
+    document.body.appendChild(host);
+
+    const reported = [];
+    const expandedObservations = [];
+    let instance;
+    instance = window.EinoWorkflowDAG.createWorkflowDAG(container, {
+      snapshot: {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [
+            {
+              id: "nested",
+              name: "Nested",
+              workflow: { nodes: [{ id: "inside", name: "Inside" }], edges: [] },
+            },
+            { id: "finish", name: "Finish" },
+          ],
+          edges: [{ from: "nested", to: "finish", channels: ["control"] }],
+        },
+      },
+      expanded: [],
+      onExpandedChange(value) {
+        const access = Symbol.for("eino-workflow-dag.cytoscape");
+        expandedObservations.push({
+          value,
+          renderedNodes: instance[access]().nodes().map((node) => node.id()).sort(),
+        });
+        throw new Error("expanded observer failed");
+      },
+      onNodeClick() {
+        return Promise.reject(new Error("node observer failed"));
+      },
+      onEdgeClick() {
+        throw new Error("edge observer failed");
+      },
+      onError(error) {
+        reported.push({
+          code: error.code,
+          message: error.message,
+          recoverable: error.recoverable,
+        });
+        throw new Error("error observer failed");
+      },
+      tooltipFormatter() {
+        throw new Error("tooltip formatter failed");
+      },
+      nodeLabelFormatter() {
+        throw new Error("node label formatter failed");
+      },
+      accessibilityLabelFormatter() {
+        throw new Error("accessibility formatter failed");
+      },
+    });
+
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    const edge = cy.edges().first();
+    edge.emit("tap");
+    const highlightedAfterThrow = edge.hasClass("highlight");
+
+    cy.getElementById("nested").emit("tap");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const expandedAfterThrow = instance.getExpanded();
+    const nodesAfterThrow = cy.nodes().map((node) => node.id()).sort();
+
+    let setExpandedThrew = false;
+    try {
+      instance.setExpanded([]);
+    } catch {
+      setExpandedThrew = true;
+    }
+    const collapsedAfterThrow = instance.getExpanded();
+    const nodesAfterCollapse = cy.nodes().map((node) => node.id()).sort();
+    const labelsAfterFallback = cy.nodes().map((node) => node.data("label"));
+    const accessibilityLabel = container.getAttribute("aria-label");
+
+    instance.destroy();
+    host.remove();
+    return {
+      collapsedAfterThrow,
+      expandedAfterThrow,
+      expandedObservations,
+      highlightedAfterThrow,
+      labelsAfterFallback,
+      nodesAfterCollapse,
+      nodesAfterThrow,
+      reported,
+      setExpandedThrew,
+      accessibilityLabel,
+    };
+  });
+
+  expect(result.highlightedAfterThrow).toBe(true);
+  expect(result.expandedAfterThrow).toEqual([["nested"]]);
+  expect(result.nodesAfterThrow).toEqual(["finish", "nested", "nested/inside"]);
+  expect(result.collapsedAfterThrow).toEqual([]);
+  expect(result.nodesAfterCollapse).toEqual(["finish", "nested"]);
+  expect(result.labelsAfterFallback).toEqual(["Nested", "Finish"]);
+  expect(result.accessibilityLabel).toContain("2 nodes and 1 edge");
+  expect(result.setExpandedThrew).toBe(false);
+  expect(result.expandedObservations).toEqual([
+    {
+      value: [["nested"]],
+      renderedNodes: ["finish", "nested", "nested/inside"],
+    },
+    {
+      value: [],
+      renderedNodes: ["finish", "nested"],
+    },
+  ]);
+  expect(result.reported).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "onEdgeClick callback failed: edge observer failed",
+      recoverable: true,
+    }),
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "tooltipFormatter callback failed: tooltip formatter failed",
+      recoverable: true,
+    }),
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "nodeLabelFormatter callback failed: node label formatter failed",
+      recoverable: true,
+    }),
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "accessibilityLabelFormatter callback failed: accessibility formatter failed",
+      recoverable: true,
+    }),
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "onNodeClick callback failed: node observer failed",
+      recoverable: true,
+    }),
+    expect.objectContaining({
+      code: "RENDERER_RECOVERED",
+      message: "onExpandedChange callback failed: expanded observer failed",
+      recoverable: true,
+    }),
+  ]));
+  expect(pageErrors).toEqual([]);
+});
+
 test("restores host state on destroy", async ({ page }) => {
   await page.goto("/examples/plain/");
   await page.locator("#dag canvas").first().waitFor();
@@ -221,7 +379,19 @@ test("restores host state on destroy", async ({ page }) => {
     host.setAttribute("data-theme", "consumer");
     host.style.cssText = "position:relative;width:320px;height:180px";
     const container = document.createElement("div");
-    container.style.cssText = "width:100%;height:100%;background:rgb(1, 2, 3)";
+    container.style.cssText = "width:100%;height:100%;background:rgb(1, 2, 3);cursor:crosshair!important";
+    container.style.setProperty(
+      "-webkit-tap-highlight-color",
+      "rgb(4, 5, 6)",
+      "important",
+    );
+    const consumerChild = document.createElement("span");
+    consumerChild.textContent = "consumer-owned";
+    container.appendChild(consumerChild);
+    const tapHighlightBefore = {
+      value: container.style.getPropertyValue("-webkit-tap-highlight-color"),
+      priority: container.style.getPropertyPriority("-webkit-tap-highlight-color"),
+    };
     host.appendChild(container);
     document.body.appendChild(host);
     const instance = window.EinoWorkflowDAG.createWorkflowDAG(container, {
@@ -231,27 +401,230 @@ test("restores host state on destroy", async ({ page }) => {
       },
     });
     const during = {
-      marked: host.classList.contains("eino-workflow-dag-host"),
-      overlays: host.querySelectorAll(":scope > .cy-overlays").length,
-      theme: host.getAttribute("data-theme"),
+      marked: container.classList.contains("eino-workflow-dag-host"),
+      overlays: container.querySelectorAll(":scope > .cy-overlays").length,
+      hostTheme: host.getAttribute("data-theme"),
+      theme: container.getAttribute("data-theme"),
+      position: getComputedStyle(container).position,
+      cursor: container.style.cursor,
     };
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const node = instance[access]().nodes().first();
+    node.emit("mouseover");
+    const cursorDuringHover = container.style.cursor;
+    node.emit("mouseout");
+    const cursorAfterHover = container.style.cursor;
+    node.emit("mouseover");
     instance.destroy();
     const after = {
-      marked: host.classList.contains("eino-workflow-dag-host"),
-      overlays: host.querySelectorAll(":scope > .cy-overlays").length,
-      theme: host.getAttribute("data-theme"),
+      marked: container.classList.contains("eino-workflow-dag-host"),
+      overlays: container.querySelectorAll(":scope > .cy-overlays").length,
+      hostTheme: host.getAttribute("data-theme"),
+      theme: container.getAttribute("data-theme"),
+      position: getComputedStyle(container).position,
       background: container.style.background,
+      cursor: container.style.cursor,
+      cursorPriority: container.style.getPropertyPriority("cursor"),
+      canvases: container.querySelectorAll("canvas").length,
+      consumerChildPreserved:
+        container.firstChild === consumerChild &&
+        consumerChild.textContent === "consumer-owned",
+      tapHighlightPreserved:
+        container.style.getPropertyValue("-webkit-tap-highlight-color") ===
+          tapHighlightBefore.value &&
+        container.style.getPropertyPriority("-webkit-tap-highlight-color") ===
+          tapHighlightBefore.priority,
     };
     host.remove();
-    return { during, after };
+    return { during, cursorDuringHover, cursorAfterHover, after };
   });
   expect(result).toEqual({
-    during: { marked: true, overlays: 1, theme: "classic" },
+    during: {
+      marked: true,
+      overlays: 1,
+      hostTheme: "consumer",
+      theme: "classic",
+      position: "relative",
+      cursor: "crosshair",
+    },
+    cursorDuringHover: "pointer",
+    cursorAfterHover: "crosshair",
     after: {
       marked: false,
       overlays: 0,
-      theme: "consumer",
+      hostTheme: "consumer",
+      theme: null,
+      position: "relative",
       background: "rgb(1, 2, 3)",
+      cursor: "crosshair",
+      cursorPriority: "important",
+      canvases: 0,
+      consumerChildPreserved: true,
+      tapHighlightPreserved: true,
+    },
+  });
+});
+
+test("rolls back a partial mount and silences callbacks after destroy", async ({ page }) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(async () => {
+    const snapshot = {
+      schemaVersion: 1,
+      workflow: { nodes: [{ id: "standalone" }], edges: [] },
+    };
+    const failedContainer = document.createElement("div");
+    failedContainer.style.cssText = "width:320px;height:180px;background:salmon";
+    failedContainer.setAttribute("role", "region");
+    failedContainer.setAttribute("aria-label", "Consumer graph");
+    document.body.appendChild(failedContainer);
+
+    const NativeResizeObserver = window.ResizeObserver;
+    let mountMessage = null;
+    try {
+      window.ResizeObserver = class BrokenResizeObserver {
+        constructor() {
+          throw new Error("observer unavailable");
+        }
+      };
+      window.EinoWorkflowDAG.createWorkflowDAG(failedContainer, { snapshot });
+    } catch (error) {
+      mountMessage = error.message;
+    } finally {
+      window.ResizeObserver = NativeResizeObserver;
+    }
+    const failedMount = {
+      message: mountMessage,
+      canvases: failedContainer.querySelectorAll("canvas").length,
+      overlays: failedContainer.querySelectorAll(":scope > .cy-overlays").length,
+      marked: failedContainer.classList.contains("eino-workflow-dag-host"),
+      theme: failedContainer.getAttribute("data-theme"),
+      role: failedContainer.getAttribute("role"),
+      label: failedContainer.getAttribute("aria-label"),
+      background: failedContainer.style.background,
+      children: Array.from(failedContainer.children).map((child) => ({
+        tag: child.tagName,
+        className: child.className,
+        childTags: Array.from(child.children).map((nested) => nested.tagName),
+      })),
+    };
+    failedContainer.remove();
+
+    const callbackContainer = document.createElement("div");
+    callbackContainer.style.cssText = "width:320px;height:180px";
+    document.body.appendChild(callbackContainer);
+    const errors = [];
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(callbackContainer, {
+      snapshot,
+      onNodeClick() {
+        return Promise.reject(new Error("late callback failure"));
+      },
+      onError(error) {
+        errors.push(error.message);
+      },
+    });
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    instance[access]().nodes().first().emit("tap");
+    instance.destroy();
+    await Promise.resolve();
+    await Promise.resolve();
+    callbackContainer.remove();
+    return { failedMount, errors };
+  });
+
+  expect(result).toEqual({
+    failedMount: {
+      message: "observer unavailable",
+      canvases: 0,
+      overlays: 0,
+      marked: false,
+      theme: null,
+      role: "region",
+      label: "Consumer graph",
+      background: "salmon",
+      children: [],
+    },
+    errors: [],
+  });
+});
+
+test("isolates vanilla instances that share one parent", async ({ page }) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(async () => {
+    const parent = document.createElement("div");
+    parent.style.cssText = "display:flex;width:900px;height:360px";
+    const firstContainer = document.createElement("div");
+    const secondContainer = document.createElement("div");
+    firstContainer.style.cssText = "width:50%;height:100%";
+    secondContainer.style.cssText = "width:50%;height:100%";
+    parent.append(firstContainer, secondContainer);
+    document.body.appendChild(parent);
+
+    const snapshot = {
+      schemaVersion: 1,
+      workflow: {
+        nodes: [{
+          id: "nested",
+          workflow: { nodes: [{ id: "inside" }], edges: [] },
+        }],
+        edges: [],
+      },
+    };
+    const first = window.EinoWorkflowDAG.createWorkflowDAG(firstContainer, {
+      snapshot,
+      expanded: [["nested"]],
+      theme: "ink",
+    });
+    const second = window.EinoWorkflowDAG.createWorkflowDAG(secondContainer, {
+      snapshot,
+      expanded: [["nested"]],
+      theme: "midnight",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    const mounted = {
+      parentMarked: parent.classList.contains("eino-workflow-dag-host"),
+      firstTheme: firstContainer.getAttribute("data-theme"),
+      secondTheme: secondContainer.getAttribute("data-theme"),
+      firstOverlays: firstContainer.querySelectorAll(":scope > .cy-overlays").length,
+      secondOverlays: secondContainer.querySelectorAll(":scope > .cy-overlays").length,
+    };
+    first.destroy();
+    const afterFirstDestroy = {
+      firstMarked: firstContainer.classList.contains("eino-workflow-dag-host"),
+      firstTheme: firstContainer.getAttribute("data-theme"),
+      firstOverlays: firstContainer.querySelectorAll(":scope > .cy-overlays").length,
+      secondMarked: secondContainer.classList.contains("eino-workflow-dag-host"),
+      secondTheme: secondContainer.getAttribute("data-theme"),
+      secondOverlays: secondContainer.querySelectorAll(":scope > .cy-overlays").length,
+      secondCanvases: secondContainer.querySelectorAll("canvas").length,
+      secondExpanded: second.getExpanded(),
+    };
+    second.destroy();
+    parent.remove();
+    return { mounted, afterFirstDestroy };
+  });
+
+  expect(result).toEqual({
+    mounted: {
+      parentMarked: false,
+      firstTheme: "ink",
+      secondTheme: "midnight",
+      firstOverlays: 1,
+      secondOverlays: 1,
+    },
+    afterFirstDestroy: {
+      firstMarked: false,
+      firstTheme: null,
+      firstOverlays: 0,
+      secondMarked: true,
+      secondTheme: "midnight",
+      secondOverlays: 1,
+      secondCanvases: 3,
+      secondExpanded: [["nested"]],
     },
   });
 });
@@ -353,7 +726,7 @@ test("applies instance themes and opt-out interaction policy", async ({ page }) 
       themeWidth: stableTheme.tokens.node.width,
       paintCanvas,
       canvas: container.style.background,
-      tooltipBg: host.style.getPropertyValue("--eino-workflow-dag-tooltip-bg"),
+      tooltipBg: container.style.getPropertyValue("--eino-workflow-dag-tooltip-bg"),
     };
     instance.destroy();
     host.remove();
@@ -402,30 +775,19 @@ test("applies theme geometry to root and nested layout in every direction", asyn
     };
 
     function forwardGap(source, target, direction) {
-      const sourcePosition = source.position();
-      const targetPosition = target.position();
+      const boxOptions = { includeLabels: false, includeOverlays: false };
+      const sourceBox = source.boundingBox(boxOptions);
+      const targetBox = target.boundingBox(boxOptions);
       if (direction === "RIGHT") {
-        return (
-          targetPosition.x - target.width() / 2 -
-          (sourcePosition.x + source.width() / 2)
-        );
+        return targetBox.x1 - sourceBox.x2;
       }
       if (direction === "LEFT") {
-        return (
-          sourcePosition.x - source.width() / 2 -
-          (targetPosition.x + target.width() / 2)
-        );
+        return sourceBox.x1 - targetBox.x2;
       }
       if (direction === "DOWN") {
-        return (
-          targetPosition.y - target.height() / 2 -
-          (sourcePosition.y + source.height() / 2)
-        );
+        return targetBox.y1 - sourceBox.y2;
       }
-      return (
-        sourcePosition.y - source.height() / 2 -
-        (targetPosition.y + target.height() / 2)
-      );
+      return sourceBox.y1 - targetBox.y2;
     }
 
     async function render(snapshot, direction, expanded) {
@@ -517,4 +879,263 @@ test("applies theme geometry to root and nested layout in every direction", asyn
     expect(result.nested.height).toBeCloseTo(43, 3);
     expect(result.nested.gap).toBeCloseTo(29, 3);
   }
+});
+
+test("renders an empty nested workflow as a labeled non-expandable node", async ({ page }) => {
+  await page.goto("/examples/plain/");
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:480px;height:260px";
+    document.body.appendChild(host);
+    const expansionEvents = [];
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [{
+            id: "empty",
+            name: "Empty workflow",
+            workflow: { nodes: [], edges: [] },
+          }],
+          edges: [],
+        },
+      },
+      onExpandedChange(paths) {
+        expansionEvents.push(paths);
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    const node = cy.getElementById("empty");
+    node.emit("tap");
+    const output = {
+      nodes: cy.nodes().length,
+      label: node.data("label"),
+      subgraph: node.data("subgraph"),
+      expandable: node.data("expandable"),
+      expanded: node.data("expanded"),
+      isParent: node.isParent(),
+      configuredExpanded: instance.getExpanded(),
+      expansionEvents,
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result).toEqual({
+    nodes: 1,
+    label: "Empty workflow",
+    subgraph: true,
+    expandable: false,
+    expanded: false,
+    isParent: false,
+    configuredExpanded: [],
+    expansionEvents: [],
+  });
+});
+
+test("retains an edge when a legal node ID resembles its generated ID", async ({ page }) => {
+  await page.goto("/examples/plain/");
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:480px;height:260px";
+    document.body.appendChild(host);
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [
+            { id: "a" },
+            { id: "b" },
+            { id: "e0_a__b" },
+          ],
+          edges: [{ from: "a", to: "b", channels: ["control"] }],
+        },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    const edge = cy.edges().first();
+    const output = {
+      nodes: cy.nodes().length,
+      edges: cy.edges().length,
+      collisionNodePresent: cy.getElementById("e0_a__b").isNode(),
+      edgeId: edge.id(),
+      source: edge.source().id(),
+      target: edge.target().id(),
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result).toEqual({
+    nodes: 3,
+    edges: 1,
+    collisionNodePresent: true,
+    edgeId: "e0_a__b:1",
+    source: "a",
+    target: "b",
+  });
+});
+
+test("invalidates measured geometry without relayout for paint-only theme changes", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(() => {
+    const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
+    return directions.map((direction, index) => {
+      window.dagInstance.setDirection(direction);
+      const nodeTokens = {
+        borderWidth: 2 + index * 0.25,
+        fontSize: 17 + index,
+        fontWeight: 600,
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        textOutlineWidth: index % 2,
+      };
+      const before = window.dagInstance.getDiagnostics();
+      window.dagInstance.setTheme({
+        base: "classic",
+        tokens: { node: nodeTokens },
+      });
+      const afterGeometry = window.dagInstance.getDiagnostics();
+      window.dagInstance.setTheme({
+        base: "classic",
+        tokens: {
+          node: nodeTokens,
+          colors: { paper: index % 2 ? "#f8fafc" : "#fff7ed" },
+        },
+      });
+      const afterPaint = window.dagInstance.getDiagnostics();
+      return {
+        geometryDelta: afterGeometry.layoutRuns - before.layoutRuns,
+        paintDelta: afterPaint.layoutRuns - afterGeometry.layoutRuns,
+      };
+    });
+  });
+
+  expect(result).toEqual([
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+  ]);
+});
+
+test("invalidates formatted-label layouts and shares complete node callback data", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.style.cssText = "width:760px;height:420px";
+    document.body.appendChild(host);
+    const formatterInputs = [];
+    const clickInputs = [];
+    const makeSnapshot = (status, detail) => ({
+      schemaVersion: 1,
+      workflow: {
+        nodes: [
+          {
+            id: "inspect",
+            name: "Inspect",
+            component: "Lambda",
+            metadata: { detail },
+            workflow: { nodes: [{ id: "inside" }], edges: [] },
+          },
+          { id: "finish", name: "Finish" },
+        ],
+        edges: [{ from: "inspect", to: "finish", channels: ["control"] }],
+      },
+      execution: {
+        nodes: [
+          {
+            path: ["inspect"],
+            status,
+            durationMs: 8,
+            metrics: { attempts: 1 },
+          },
+        ],
+      },
+    });
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: makeSnapshot("success", "one"),
+      expanded: [],
+      nodeLabelFormatter: (node) => `${node.name}\n${node.status}:${node.metadata.detail}`,
+      tooltipFormatter: (node) => {
+        formatterInputs.push(node);
+        return node.label;
+      },
+      onNodeClick: (node) => clickInputs.push(node),
+    });
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+
+    const beforeStatus = instance.getDiagnostics();
+    instance.update(makeSnapshot("failed", "one"));
+    const afterStatus = instance.getDiagnostics();
+
+    const directionDeltas = [];
+    ["RIGHT", "LEFT", "DOWN", "UP"].forEach((direction, index) => {
+      instance.setDirection(direction);
+      const before = instance.getDiagnostics();
+      instance.update(makeSnapshot("failed", `detail-${index}\nextra-${index}`));
+      const after = instance.getDiagnostics();
+      directionDeltas.push({
+        layout: after.layoutRuns - before.layoutRuns,
+        cache: after.layoutCacheHits - before.layoutCacheHits,
+      });
+    });
+
+    const node = cy.getElementById("inspect");
+    node.emit("mouseover");
+    node.emit("tap");
+    const output = {
+      statusLayoutDelta: afterStatus.layoutRuns - beforeStatus.layoutRuns,
+      statusPatchDelta: afterStatus.dataPatches - beforeStatus.dataPatches,
+      directionDeltas,
+      tooltip: formatterInputs.at(-1),
+      click: clickInputs.at(-1),
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result.statusLayoutDelta).toBe(1);
+  expect(result.statusPatchDelta).toBe(0);
+  expect(result.directionDeltas).toEqual([
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+  ]);
+  expect(result.tooltip).toEqual(result.click);
+  expect(result.click).toMatchObject({
+    path: ["inspect"],
+    id: "inspect",
+    name: "Inspect",
+    label: "Inspect\nfailed:detail-3\nextra-3",
+    kind: "graph",
+    component: "Lambda",
+    metadata: { detail: "detail-3\nextra-3" },
+    status: "failed",
+    durationMs: 8,
+    metrics: { attempts: 1 },
+    errorMessage: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: expect.any(Number),
+  });
 });

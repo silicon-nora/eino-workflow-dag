@@ -60,8 +60,12 @@ function graphEdges(workflow) {
     for (const channel of channels) entry.channels.add(channel);
     if (details.mappings !== undefined) entry.mappings = details.mappings;
     if (details.metadata !== undefined) entry.metadata = details.metadata;
-    if (details.branchMetadata !== undefined) {
-      entry.branchMetadata = details.branchMetadata;
+    if (details.branchMetadataRecord) {
+      if (!entry.branchMetadataList) entry.branchMetadataList = [];
+      entry.branchMetadataList.push(details.branchMetadata ?? null);
+      if (entry.branchMetadataList.length === 1) {
+        entry.branchMetadata = details.branchMetadata ?? null;
+      }
     }
   }
 
@@ -75,6 +79,7 @@ function graphEdges(workflow) {
     for (const target of branch.targets) {
       add(branch.from, target, ["branch"], {
         branchMetadata: branch.metadata,
+        branchMetadataRecord: true,
       });
     }
   }
@@ -89,6 +94,9 @@ function graphEdges(workflow) {
     ...(edge.branchMetadata === undefined
       ? {}
       : { branchMetadata: edge.branchMetadata }),
+    ...(edge.branchMetadataList === undefined
+      ? {}
+      : { branchMetadataList: edge.branchMetadataList }),
   }));
 }
 
@@ -179,6 +187,9 @@ export function normalizeDAGSnapshot(snapshot) {
       ...(edge.branchMetadata === undefined
         ? {}
         : { branchMetadata: edge.branchMetadata }),
+      ...(edge.branchMetadataList === undefined
+        ? {}
+        : { branchMetadataList: edge.branchMetadataList }),
     }));
 
     target.nodes = source.nodes.map((node) => {

@@ -34,7 +34,24 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
   };
 
   var makeNode = function makeNode(node, options) {
-    var k = { _cyEle: node, id: node.id() };
+    var ancestors = [];
+    var parent = node.parent();
+    while (parent && parent.nonempty()) {
+      ancestors.push(parent.id());
+      parent = parent.parent();
+    }
+    var k = {
+      _cyEle: node,
+      _isParent: node.isParent(),
+      _isGraphWrapper:
+        node.isParent() && !!(node.data("subgraph") || node.data("expandable")),
+      _level: node.data("level"),
+      _ancestorIds: ancestors,
+      _descendantIds: node.isParent()
+        ? node.descendants().map(function (descendant) { return descendant.id(); })
+        : [],
+      id: node.id(),
+    };
     if (options.nodeLayoutOptions) {
       k.layoutOptions = options.nodeLayoutOptions(node);
     }
@@ -53,6 +70,7 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
   var makeEdge = function makeEdge(edge, options) {
     var k = {
       _cyEle: edge,
+      _level: edge.data("level"),
       id: edge.id(),
       source: edge.data("source"),
       target: edge.data("target"),
@@ -68,13 +86,18 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     return k;
   };
 
-  var measureLeafNodes = function measureLeafNodes(nodes) {
+  var measureLeafNodes = function measureLeafNodes(nodes, options) {
     var dimensions = createKeyMap();
     nodes.forEach(function (node) {
       if (node.isParent()) return;
+      // Use the same outer dimensions that layoutPositions() uses to place
+      // node centres.  node.width()/height() omit borders; mixing those two
+      // boxes makes side ports sit inside the rendered node and lets a route
+      // that only clears the content box clip an intervening node border.
+      var measured = node.layoutDimensions(options);
       dimensions[node.id()] = {
-        width: node.width(),
-        height: node.height(),
+        width: measured.w,
+        height: measured.h,
       };
     });
     return dimensions;
@@ -282,7 +305,7 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     var laid = engine.layout(visible, {
       direction: profileFromOpts.direction,
       node: layoutConfig.node,
-      nodeDimensions: measureLeafNodes(nodes),
+      nodeDimensions: measureLeafNodes(nodes, options),
       spacing: layoutConfig.spacing,
       nestedSpacing: layoutConfig.nestedSpacing,
       compoundPadding: layoutConfig.compoundPadding,

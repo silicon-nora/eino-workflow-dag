@@ -190,10 +190,7 @@ export const EinoWorkflowDAGVue = defineComponent({
               ? props.theme
               : props.theme?.base || "classic",
         }),
-        [
-          h("div", { ref: container, class: "cy-root" }),
-          h("div", { class: "cy-overlays", "aria-hidden": "true" }),
-        ],
+        [h("div", { ref: container, class: "cy-root" })],
       );
   },
 });

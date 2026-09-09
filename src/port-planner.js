@@ -5,6 +5,7 @@ import {
   profileIsCrossSide,
 } from "./axis-profile.js";
 import { createKeyMap, hasOwnKey } from "./key-map.js";
+import { edgeLevel } from "./routing-context.js";
 
 export const SAME_ROW_TOL = 48;
 
@@ -144,14 +145,6 @@ export function isSameCrossRow(left, right, profile, tolerance) {
   if (!left || !right) return false;
   const limit = tolerance == null ? SAME_ROW_TOL : tolerance;
   return crossCenterDistance(left, right, profile) <= limit;
-}
-
-function edgeLevel(edge) {
-  if (!edge || !edge._cyEle || typeof edge._cyEle.data !== "function") {
-    return 0;
-  }
-  const level = edge._cyEle.data("level");
-  return Number.isInteger(+level) && +level >= 0 ? +level : 0;
 }
 
 function claimIfEmpty(owners, key, edge) {

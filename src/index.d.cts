@@ -138,6 +138,11 @@ export interface RenderedEdgeData {
   readonly metadata: JsonObject | null;
   /** Metadata from the corresponding branch relationship, when present. */
   readonly branchMetadata: JsonObject | null;
+  /**
+   * Metadata for every corresponding branch relationship, in snapshot order.
+   * Null entries preserve branches that do not declare metadata.
+   */
+  readonly branchMetadataList: readonly (JsonObject | null)[];
   readonly level: number;
 }
 
@@ -397,6 +402,7 @@ export type WorkflowSnapshotIssueCode =
   | "invalid_branch_target"
   | "unknown_branch_target"
   | "duplicate_branch_target"
+  /** @deprecated Reserved for compatibility because schema v1 permits distinct branches with identical endpoints. */
   | "duplicate_branch"
   | "directed_cycle"
   | "invalid_execution"

@@ -109,14 +109,12 @@ export function createNodeTooltip(container, options = {}) {
 
   function ensureTip() {
     if (tip) return tip;
-    const wrap = container.parentElement;
-    if (!wrap) return null;
     tip = document.createElement("div");
     tip.className = "cy-node-tip";
     tip.hidden = true;
     tip.addEventListener("mouseenter", onTipEnter);
     tip.addEventListener("mouseleave", onTipLeave);
-    wrap.appendChild(tip);
+    container.appendChild(tip);
     return tip;
   }
 
@@ -163,19 +161,9 @@ export function createNodeTooltip(container, options = {}) {
       element.classList.remove("pinned");
       return;
     }
-    const data = {
-      id: node.id(),
-      key: node.data("key"),
-      title: node.data("title"),
-      kind: node.data("kind"),
-      component: node.data("component"),
-      metadata: node.data("metadata"),
-      parent: node.data("parent"),
-      status: node.data("status"),
-      cost_ms: node.data("cost_ms"),
-      err_msg: node.data("err_msg"),
-      metrics: node.data("metrics"),
-    };
+    // Keep the formatter input identical to the data sent by node click.
+    // The runtime owns the one public-data conversion for both callbacks.
+    const data = { ...node.data() };
     const content = formatter
       ? formatter({ ...data })
       : formatNodeTooltip(data, formatDuration, locale);

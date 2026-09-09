@@ -16,6 +16,19 @@ export type EinoWorkflowDAGVueEmits = {
   error: (error: WorkflowDAGError | WorkflowSnapshotError) => void;
 };
 
+/**
+ * Vue adapter props.
+ *
+ * `snapshot`, `direction`, `theme`, `locale`, `expanded`, and
+ * `activeNodePath` update the mounted renderer. `preserveExpanded` and
+ * `fitOnUpdate` are read on the next `snapshot` update. Renderer construction
+ * options (`interaction`, its deprecated aliases, `autoResize`, `debug`,
+ * accessibility options, formatters, and `layoutCacheSize`) are mount-only;
+ * change the component `key` to apply new values.
+ *
+ * Structured reactive props should be replaced rather than mutated in place.
+ * Event listeners always use the latest handler; `ready` runs once per mount.
+ */
 export interface EinoWorkflowDAGVueProps
   extends Omit<CreateWorkflowDAGOptions, "snapshot"> {
   snapshot: EinoWorkflowSnapshot;

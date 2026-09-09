@@ -234,10 +234,6 @@ export const EinoWorkflowDAGReact = forwardRef(function EinoWorkflowDAGReact(
       "data-theme": typeof theme === "string" ? theme : theme?.base || "classic",
     },
     createElement("div", { ref: containerRef, className: "cy-root" }),
-    createElement("div", {
-      className: "cy-overlays",
-      "aria-hidden": "true",
-    }),
   );
 });
 

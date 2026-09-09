@@ -1,4 +1,4 @@
-import { GRAPH_COMPOUND_PAD } from "./routing.js";
+import { GRAPH_COMPOUND_PAD } from "./geometry-config.js";
 import { mergePlainRecords } from "./key-map.js";
 
 const COMPOUND_PAD_CY = GRAPH_COMPOUND_PAD.top;

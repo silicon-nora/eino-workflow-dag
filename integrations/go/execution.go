@@ -49,15 +49,11 @@ func (recorder *ExecutionRecorder) Handler() callbacks.Handler {
 			return ctx
 		}).
 		OnEndFn(func(ctx context.Context, _ *callbacks.RunInfo, _ callbacks.CallbackOutput) context.Context {
-			recorder.recordEnd(nodePath(ctx), "")
+			recorder.recordEnd(nodePath(ctx), nil)
 			return ctx
 		}).
 		OnErrorFn(func(ctx context.Context, _ *callbacks.RunInfo, err error) context.Context {
-			message := ""
-			if err != nil {
-				message = err.Error()
-			}
-			recorder.recordEnd(nodePath(ctx), message)
+			recorder.recordEnd(nodePath(ctx), err)
 			return ctx
 		}).
 		OnStartWithStreamInputFn(func(
@@ -79,7 +75,7 @@ func (recorder *ExecutionRecorder) Handler() callbacks.Handler {
 			if output != nil {
 				output.Close()
 			}
-			recorder.recordEnd(nodePath(ctx), "")
+			recorder.recordEnd(nodePath(ctx), nil)
 			return ctx
 		}).
 		Build()
@@ -164,7 +160,7 @@ func (recorder *ExecutionRecorder) recordStart(path []string) {
 	node.errorMessage = ""
 }
 
-func (recorder *ExecutionRecorder) recordEnd(path []string, errorMessage string) {
+func (recorder *ExecutionRecorder) recordEnd(path []string, err error) {
 	now := recorder.now()
 	recorder.mu.Lock()
 	defer recorder.mu.Unlock()
@@ -187,12 +183,12 @@ func (recorder *ExecutionRecorder) recordEnd(path []string, errorMessage string)
 		recorder.nodes[key] = node
 	}
 	node.finished = timePointer(now)
-	if errorMessage == "" {
+	if err == nil {
 		node.status = NodeStatusSuccess
 		node.errorMessage = ""
 	} else {
 		node.status = NodeStatusFailed
-		node.errorMessage = errorMessage
+		node.errorMessage = err.Error()
 	}
 }
 

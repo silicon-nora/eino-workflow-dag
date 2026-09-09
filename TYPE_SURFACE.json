@@ -1,7 +1,7 @@
 {
   ".": {
     "path": "src/index.d.ts",
-    "sha256": "8d05259236333b52752289268cf7dc707f451e817dd500b180e3aee3d03ab7d1"
+    "sha256": "fcf46a9cf2852ce440ef5d15fbc62e44126d6209c0800fe9d7740af737703e3f"
   },
   "./validation": {
     "path": "src/validation.d.ts",
@@ -13,10 +13,10 @@
   },
   "./vue": {
     "path": "src/vue.d.ts",
-    "sha256": "1d12869f2533ace4ec8509b6f89b2934cfcdd02f6e55e10c1dda280d72d488eb"
+    "sha256": "3fcdebbb4f90fc43b37bce3220e211ae628e0a891991b8f2a0ca8f8936b1bd88"
   },
   "./react": {
     "path": "src/react.d.ts",
-    "sha256": "4b6ee9a1bdf5d19407ba8f2b57e6d28e7dec80c33a1f4c8c70a098a550e1681f"
+    "sha256": "485e4c2bb4de3568e22fc79c3562f0d2b73d3398b9ee8a8c3e1c232dbd686bd0"
   }
 }

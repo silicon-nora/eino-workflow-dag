@@ -86,7 +86,13 @@ jobs:
         name: Exercise Registry host customization controls
         run: npx playwright test --config=playwright.host.config.js --project=chromium
       - if: matrix.browser == 'chromium'
-        name: Exercise README quick start from a clean install
+        id: quickstart-package
+        name: Create exact README quick start package
+        run: node scripts/create-release-artifact.js .artifacts/quickstart >> "$GITHUB_OUTPUT"
+      - if: matrix.browser == 'chromium'
+        name: Exercise README quick start from the release candidate
+        env:
+          QUICKSTART_PACKAGE_SPEC: ${{ steps.quickstart-package.outputs.tarball }}
         run: npm run validate:quickstart
 
   peer-minimums:

@@ -3,6 +3,16 @@
 This module converts Eino `compose.GraphInfo` into the JSON-safe
 `EinoWorkflowSnapshot` protocol consumed by the renderer.
 
+## Install
+
+```bash
+go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.0.0
+```
+
+The module is versioned independently from the npm package. Because its
+`go.mod` lives in this repository subdirectory, Go releases use tags prefixed
+with the module directory, such as `integrations/go/v1.0.0`.
+
 ```go
 package main
 

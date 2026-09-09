@@ -133,13 +133,27 @@ stable error code and structured validation issues. The non-throwing
 JSON files can also be checked from a producer or CI job:
 
 ```bash
-npm run validate:snapshot -- ./workflow.json
+npx eino-workflow-dag-validate ./workflow.json
+```
+
+The validator also accepts JSON from standard input:
+
+```bash
+cat workflow.json | npx eino-workflow-dag-validate
 ```
 
 Go producers can use the repository's
 [`compose.GraphInfo` projection](https://github.com/silicon-nora/eino-workflow-dag/tree/main/integrations/go).
 It captures the compiled Eino topology, normalizes it deterministically, and
 emits the same snapshot consumed by the JavaScript validator.
+
+```bash
+go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.0.0
+```
+
+The Go projection is an independently versioned module. Its `v1.0.0` release
+uses the immutable Git tag `integrations/go/v1.0.0`; npm package tags and Go
+module tags do not share a version clock.
 
 ## Instance API
 

@@ -17,6 +17,7 @@ const manifest = {
 const required = [
   "package.json",
   "API_SURFACE.json",
+  "CHANGELOG.md",
   "LICENSE",
   "PROVENANCE.md",
   "PUBLIC_ASSETS.json",

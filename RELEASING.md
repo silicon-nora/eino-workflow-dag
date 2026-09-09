@@ -11,6 +11,15 @@ for each published version: `v<package.json version>`. The tag, GitHub Release,
 and npm version identify the same source and must never be moved or reused.
 Stable versions do not need a separate stable branch.
 
+The nested Go module in `integrations/go` has an independent version line. Tag
+its releases as `integrations/go/v<module version>` on a commit already present
+on `main`. A Go module tag does not create an npm release and does not need a
+GitHub Release entry. After pushing it, verify public resolution with:
+
+```bash
+go list -m github.com/silicon-nora/eino-workflow-dag/integrations/go@v<module version>
+```
+
 Use a temporary `release/<version>` branch only for a prolonged candidate
 freeze, and merge its final changes back to `main` before tagging. Introduce a
 long-lived maintenance branch only when more than one stable major line is

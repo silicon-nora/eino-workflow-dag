@@ -1,4 +1,4 @@
-# Roadmap to 1.0
+# Roadmap
 
 The `1.0.0` target is a small, read-only, Eino-specific workflow renderer with
 one portable snapshot protocol. Version 1 does not execute or edit workflows,
@@ -75,6 +75,16 @@ JavaScript contract.
 - [x] Repeat the final release-blocker audit against the exact published RC
 - [x] Publish `1.0.0` under npm's `latest` dist-tag
 
+## 1.1 maintenance milestone
+
+- [x] Complete a whole-repository defect and architecture audit
+- [x] Separate pure routing geometry and A* from route orchestration
+- [x] Isolate rendering-engine context from the portable routing pipeline
+- [x] Centralize render and theme invalidation around geometry signatures
+- [x] Split runtime public data, host callbacks, host DOM lifecycle, and layout options
+- [x] Lock the resulting dependency boundaries with architecture tests
+- [ ] Validate the exact `1.1.0` candidate artifact and publish it
+
 ## Alpha.3 — public boundary
 
 - [x] Define one library-owned `EinoWorkflowSnapshot` schema
@@ -96,9 +106,9 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Observe the stable Registry package in real consumers and triage reported issues.
-2. Keep `1.x` fixes compatible with the frozen protocol and public API contracts.
-3. Plan `1.1` only from measured adoption needs and documented proposals.
+1. Validate the exact `1.1.0` candidate artifact across package, browser, and Go gates.
+2. Publish `1.1.0` without changing the frozen protocol or public API contracts.
+3. Observe the stable package in real consumers and triage reported issues.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle

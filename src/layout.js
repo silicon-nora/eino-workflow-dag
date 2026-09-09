@@ -1,4 +1,5 @@
 import { createKeyMap, toPlainRecord } from "./key-map.js";
+import { GRAPH_COMPOUND_PAD } from "./geometry-config.js";
 
 /**
  * Eino Workflow DAG — recursive layered layout.
@@ -13,7 +14,7 @@ const runtime = {};
 
   var LEAF_W = 220;
   var LEAF_H = 64;
-  var PAD = { top: 29, right: 24, bottom: 24, left: 24 };
+  var PAD = GRAPH_COMPOUND_PAD;
   var ZERO_PAD = { top: 0, right: 0, bottom: 0, left: 0 };
   var SPACE_ROOT = { nodeNode: 56, betweenLayers: 48 };
   var SPACE_COMPOUND = { nodeNode: 64, betweenLayers: 56 };

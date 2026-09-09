@@ -1,8 +1,8 @@
 # Compatibility and evolution
 
-This document defines the compatibility promises that begin with `1.0.0`.
-Prerelease versions may still refine them, but every change must be recorded in
-the changelog before the release candidate.
+This document defines the compatibility promises in effect since `1.0.0`.
+Every compatibility-affecting public change is recorded in the changelog before
+release.
 
 ## Stable public surface
 

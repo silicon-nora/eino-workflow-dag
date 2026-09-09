@@ -3,6 +3,7 @@ import {
   kindLabel,
   syncCytoscapeElements,
   toCytoscapeElements,
+  toRenderedNodeData,
 } from "../src/elements.js";
 import cytoscape from "cytoscape";
 import { patchCytoscapeElements } from "../src/elements.js";
@@ -37,6 +38,7 @@ const elements = toCytoscapeElements(
       mappings: [{ fromPath: ["value"], toPath: ["input"] }],
       metadata: { transport: "typed" },
       branchMetadata: { route: "fallback" },
+      branchMetadataList: [{ route: "fallback" }, null],
     }],
   },
   { nodeLabelFormatter: (node) => `${node.name}:${node.component}:${node.metadata.owner}:${node.status}:${node.durationMs}` },
@@ -52,6 +54,11 @@ const renderedEdge = elements.find((element) => element.group === "edges");
 assert(renderedEdge.data.mappings[0].fromPath[0] === "value", "edge mappings are rendered data");
 assert(renderedEdge.data.metadata.transport === "typed", "edge metadata is rendered data");
 assert(renderedEdge.data.branchMetadata.route === "fallback", "branch metadata is rendered data");
+assert(
+  renderedEdge.data.branchMetadataList.length === 2 &&
+    renderedEdge.data.branchMetadataList[1] === null,
+  "all branch metadata is rendered data",
+);
 assert(renderedEdge.data.level === 1, "rendered edges preserve their graph-local Level");
 assert(!("main" in renderedEdge.data), "rendered edges use Level as their only path classification");
 
@@ -72,6 +79,45 @@ toCytoscapeElements(
   { nodeLabelFormatter: (node) => { untimedPublicNode = node; return "Untimed"; } },
 );
 assert(!("durationMs" in untimedPublicNode), "missing duration stays absent in public formatter data");
+
+assert(
+  JSON.stringify(toRenderedNodeData({
+    id: "outer/inner",
+    key: "inner",
+    title: "Inner",
+    label: "Inner\nLambda",
+    parent: "outer",
+    kind: "cpu",
+    component: "Lambda",
+    metadata: { owner: "host" },
+    status: "success",
+    cost_ms: 12,
+    metrics: { attempts: 1 },
+    err_msg: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: 2,
+  })) === JSON.stringify({
+    path: ["outer", "inner"],
+    id: "inner",
+    name: "Inner",
+    parentPath: ["outer"],
+    kind: "cpu",
+    component: "Lambda",
+    metadata: { owner: "host" },
+    status: "success",
+    durationMs: 12,
+    metrics: { attempts: 1 },
+    errorMessage: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: 2,
+    label: "Inner\nLambda",
+  }),
+  "rendered node callbacks share one complete public data conversion",
+);
 
 const cy = cytoscape({ headless: true, elements });
 const updated = structuredClone(elements);

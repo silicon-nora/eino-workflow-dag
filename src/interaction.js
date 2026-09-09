@@ -52,6 +52,22 @@ export function bindGraphInteractions(cy, container, handlers) {
   let keyboardNodeId = null;
   const originalTabIndex = container.getAttribute("tabindex");
   const originalKeyShortcuts = container.getAttribute("aria-keyshortcuts");
+  const originalCursor = {
+    value: container.style.getPropertyValue("cursor"),
+    priority: container.style.getPropertyPriority("cursor"),
+  };
+
+  function restoreCursor() {
+    if (originalCursor.value) {
+      container.style.setProperty(
+        "cursor",
+        originalCursor.value,
+        originalCursor.priority,
+      );
+    } else {
+      container.style.removeProperty("cursor");
+    }
+  }
 
   if (handlers.policy.keyboardNavigation) {
     if (originalTabIndex == null) container.setAttribute("tabindex", "0");
@@ -131,7 +147,7 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("mouseout", "node", (event) => {
     event.target.removeClass("hover");
     event.target.removeClass("press");
-    container.style.cursor = "default";
+    restoreCursor();
     if (handlers.policy.tooltipOnHover) handlers.tooltip.scheduleHide();
   });
   cy.on("mousedown", "node", (event) => {
@@ -142,32 +158,33 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("tap", "node", (event) => {
     const node = event.target;
     if (node.isParent()) return;
-    handlers.onNodeClick(eventData(node));
     if (handlers.policy.pinTooltipOnNodeClick) handlers.tooltip.togglePin(node);
-    if (!handlers.policy.expandOnNodeClick || !isExpandableCollapsed(node)) return;
-    node.addClass("press");
-    const id = node.id();
-    if (expandTimer) clearTimeout(expandTimer);
-    expandTimer = setTimeout(() => {
-      expandTimer = null;
-      node.removeClass("press");
-      handlers.togglePath(id);
-    }, 90);
+    if (handlers.policy.expandOnNodeClick && isExpandableCollapsed(node)) {
+      node.addClass("press");
+      const id = node.id();
+      if (expandTimer) clearTimeout(expandTimer);
+      expandTimer = setTimeout(() => {
+        expandTimer = null;
+        node.removeClass("press");
+        handlers.togglePath(id);
+      }, 90);
+    }
+    handlers.onNodeClick(eventData(node));
   });
 
   cy.on("mouseover", "edge", () => {
     container.style.cursor = "pointer";
   });
   cy.on("mouseout", "edge", () => {
-    container.style.cursor = "default";
+    restoreCursor();
   });
   cy.on("tap", "edge", (event) => {
     const edge = event.target;
-    handlers.onEdgeClick(eventData(edge));
     if (handlers.policy.highlightEdgeOnClick) {
       if (edge.hasClass("highlight")) handlers.clearEdgeHighlight();
       else handlers.setEdgeHighlight(edge);
     }
+    handlers.onEdgeClick(eventData(edge));
   });
   cy.on("tap", (event) => {
     if (event.target === cy && handlers.policy.clearHighlightOnCanvasClick) {
@@ -185,6 +202,7 @@ export function bindGraphInteractions(cy, container, handlers) {
       if (expandTimer) clearTimeout(expandTimer);
       expandTimer = null;
       container.removeEventListener("keydown", onKeyDown);
+      restoreCursor();
       cy.nodes(".keyboard-focus").removeClass("keyboard-focus");
       if (originalTabIndex == null) container.removeAttribute("tabindex");
       else container.setAttribute("tabindex", originalTabIndex);
