@@ -24,7 +24,7 @@ The root project also automates the release-candidate observation controls in
 Chromium:
 
 ```bash
-npm run test:rc-host:browser
+npx playwright test --config=playwright.host.config.js --project=chromium
 ```
 
 The suite checks paint-only and geometry-changing themes separately, toggles
