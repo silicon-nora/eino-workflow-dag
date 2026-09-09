@@ -54,6 +54,11 @@ jobs:
           node scripts/create-release-artifact.js
           "$RUNNER_TEMP/eino-workflow-dag-release"
           >> "$GITHUB_OUTPUT"
+      - name: Validate the exact release artifact
+        run: >-
+          node scripts/validate-release.js
+          "${{ steps.release.outputs.version }}"
+          --local-artifact "${{ steps.artifact.outputs.tarball }}"
       - name: Record release artifact
         run: |
           echo "### npm artifact" >> "$GITHUB_STEP_SUMMARY"
