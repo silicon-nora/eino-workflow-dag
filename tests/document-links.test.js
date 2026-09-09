@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findBrokenLocalDocumentationLinks } from "../scripts/document-links.js";
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const work = mkdtempSync(resolve(tmpdir(), "eino-workflow-dag-docs-test-"));
 try {
@@ -28,5 +37,43 @@ try {
 } finally {
   rmSync(work, { recursive: true, force: true });
 }
+
+const customization = readFileSync(
+  resolve(projectRoot, "CUSTOMIZATION.md"),
+  "utf8",
+);
+const adapterContract = customization.match(
+  /## React and Vue update contract\n([\s\S]*?)(?=\n## )/,
+)?.[1];
+assert(adapterContract, "CUSTOMIZATION.md must define the adapter update contract");
+
+for (const prop of [
+  "snapshot",
+  "direction",
+  "theme",
+  "locale",
+  "expanded",
+  "activeNodePath",
+  "preserveExpanded",
+  "fitOnUpdate",
+  "interaction",
+  "pinNodeTip",
+  "autoResize",
+  "debug",
+  "ariaLabel",
+  "accessibilityLabelFormatter",
+  "keyboardNavigation",
+  "tooltipFormatter",
+  "nodeLabelFormatter",
+  "layoutCacheSize",
+]) {
+  assert(
+    adapterContract.includes(`\`${prop}\``),
+    `adapter update contract must classify ${prop}`,
+  );
+}
+assert.match(adapterContract, /mount-only option/);
+assert.match(adapterContract, /new array or object reference/);
+assert.match(adapterContract, /`onReady` and Vue `ready`/);
 
 console.log("OK: documentation link tests passed");

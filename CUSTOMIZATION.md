@@ -122,6 +122,30 @@ implement its own interaction.
 `pinNodeTip` and `keyboardNavigation` are deprecated compatibility aliases.
 When the same setting is present in `interaction`, the `interaction` value wins.
 
+## React and Vue update contract
+
+The framework adapters keep one renderer instance alive across ordinary
+component updates. Renderer props fall into three groups:
+
+| Update behavior | Props |
+| --- | --- |
+| Applied to the mounted renderer | `snapshot`, `direction`, `theme`, `locale`, `expanded`, `activeNodePath` |
+| Read when the next `snapshot` update is applied | `preserveExpanded`, `fitOnUpdate` |
+| Read only when the renderer is mounted | `interaction`, `pinNodeTip`, `autoResize`, `debug`, `ariaLabel`, `accessibilityLabelFormatter`, `keyboardNavigation`, `tooltipFormatter`, `nodeLabelFormatter`, `layoutCacheSize` |
+
+Pass a new array or object reference when changing a reactive structured prop.
+This is the portable behavior across both adapters; in-place mutation is not a
+cross-framework contract.
+
+To change a mount-only option, remount the adapter deliberately, for example by
+changing its React `key` or Vue `:key`. Remounting creates a fresh renderer and
+resets renderer-owned viewport, expansion, focus, tooltip, and highlight state,
+unless the host passes the corresponding controlled state back as props.
+
+React callback props and Vue event listeners use the latest handler without a
+renderer remount. React `onReady` and Vue `ready` are emitted once for each
+successful mount, not for incremental prop updates.
+
 ## Fixed renderer semantics
 
 Customization does not change protocol or graph semantics. The renderer keeps

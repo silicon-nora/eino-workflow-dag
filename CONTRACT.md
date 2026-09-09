@@ -135,6 +135,13 @@ edge channels.
 Cycle detection considers control dependencies, data dependencies, and branch
 targets together. All graph layers must remain acyclic.
 
+Multiple Eino branches from one source may include the same target. The
+renderer coalesces relationships with the same source and target into one
+visual edge without discarding branch identity: `branchMetadataList` contains
+one entry per matching branch in snapshot order, including `null` for a branch
+without metadata. The existing singular `branchMetadata` field is the first
+entry and remains a convenience for consumers that only expect one branch.
+
 ## Execution state
 
 ```ts

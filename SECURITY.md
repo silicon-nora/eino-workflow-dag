@@ -3,7 +3,7 @@
 Please do not disclose security vulnerabilities in public issues. Report them
 privately through the repository's security advisory feature.
 
-Only the latest released minor version receives security fixes before 1.0.
+Security fixes are provided for the latest released minor version.
 
 The repository runs a high-severity production dependency audit in CI and
 uses automated dependency update proposals. The renderer treats graph labels,

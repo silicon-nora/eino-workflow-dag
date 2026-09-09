@@ -154,21 +154,21 @@ window.releaseHarness = {
       previous.destroy();
       if (getCytoscape(previous) !== null) failures.push(index + ":engine-retained");
       if (host.childElementCount !== 0) failures.push(index + ":host-not-empty");
-      if (flow.querySelectorAll(":scope > .cy-overlays").length !== 0) {
+      if (host.querySelectorAll(":scope > .cy-overlays").length !== 0) {
         failures.push(index + ":overlay-retained");
       }
       host.replaceChildren();
       mount();
       if (!getCytoscape(instance)) failures.push(index + ":engine-missing");
       if (host.querySelectorAll("canvas").length === 0) failures.push(index + ":canvas-missing");
-      if (flow.querySelectorAll(":scope > .cy-overlays").length !== 1) {
+      if (host.querySelectorAll(":scope > .cy-overlays").length !== 1) {
         failures.push(index + ":overlay-count");
       }
     }
     return {
       failures,
       canvases: host.querySelectorAll("canvas").length,
-      overlays: flow.querySelectorAll(":scope > .cy-overlays").length,
+      overlays: host.querySelectorAll(":scope > .cy-overlays").length,
     };
   },
 };

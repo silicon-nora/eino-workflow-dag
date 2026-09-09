@@ -109,14 +109,12 @@ export function createNodeTooltip(container, options = {}) {
 
   function ensureTip() {
     if (tip) return tip;
-    const wrap = container.parentElement;
-    if (!wrap) return null;
     tip = document.createElement("div");
     tip.className = "cy-node-tip";
     tip.hidden = true;
     tip.addEventListener("mouseenter", onTipEnter);
     tip.addEventListener("mouseleave", onTipLeave);
-    wrap.appendChild(tip);
+    container.appendChild(tip);
     return tip;
   }
 

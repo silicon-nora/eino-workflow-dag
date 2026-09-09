@@ -133,7 +133,13 @@ stable error code and structured validation issues. The non-throwing
 JSON files can also be checked from a producer or CI job:
 
 ```bash
-npm run validate:snapshot -- ./workflow.json
+npx eino-workflow-dag-validate ./workflow.json
+```
+
+The validator also accepts JSON from standard input:
+
+```bash
+cat workflow.json | npx eino-workflow-dag-validate
 ```
 
 Go producers can use the repository's

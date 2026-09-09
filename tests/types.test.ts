@@ -78,7 +78,7 @@ const instance = createWorkflowDAG(container, {
   tooltipFormatter: (node) => `${node.name}: ${node.status}`,
   nodeLabelFormatter: (node) => `${node.name}: ${node.status}:L${node.level}`,
   onNodeClick: (node) => `${node.path.join("/")}:${node.id}:${node.durationMs ?? "untimed"}:L${node.level}`,
-  onEdgeClick: (edge) => `${edge.source.join("/")}:${edge.mappings.length}:${edge.metadata?.owner ?? ""}:${edge.branchMetadata?.route ?? ""}:L${edge.level}`,
+  onEdgeClick: (edge) => `${edge.source.join("/")}:${edge.mappings.length}:${edge.metadata?.owner ?? ""}:${edge.branchMetadata?.route ?? ""}:${edge.branchMetadataList.length}:L${edge.level}`,
   onError: (error) => `${error.code}:${"recoverable" in error ? error.recoverable : false}`,
 });
 

@@ -2,7 +2,7 @@ import cytoscape from "cytoscape";
 import { EinoWorkflowDAGModel } from "./model.js";
 import { registerWorkflowDAGLayout } from "./cytoscape-layout.js";
 import { createSubgraphOverlay } from "./overlay.js";
-import { createNodeTooltip } from "./tooltip.js";
+import { createNodeTooltip, formatNodeTooltip } from "./tooltip.js";
 import { observeElementResize } from "./resize-observer.js";
 import {
   formatDuration,
@@ -171,6 +171,9 @@ import {
       metadata: edge.metadata == null ? null : edge.metadata,
       branchMetadata:
         edge.branchMetadata == null ? null : edge.branchMetadata,
+      branchMetadataList: Array.isArray(edge.branchMetadataList)
+        ? edge.branchMetadataList
+        : [],
       level: Number(edge.level) || 0,
     };
   }
@@ -334,7 +337,7 @@ export function mountRenderer(container, options) {
 
     assertExpandablePaths(expanded);
 
-    var hostElement = container.parentElement;
+    var hostElement = container;
     var addedHostClass = false;
     var hadHostTheme = false;
     var previousHostTheme = null;
@@ -416,9 +419,11 @@ export function mountRenderer(container, options) {
       labelFormatter:
         typeof options.accessibilityLabelFormatter === "function"
           ? function (summary, visible) {
-              return options.accessibilityLabelFormatter(
-                summary,
-                publicVisibleGraph(visible),
+              return callHost(
+                "accessibilityLabelFormatter",
+                options.accessibilityLabelFormatter,
+                [summary, publicVisibleGraph(visible)],
+                summary.text,
               );
             }
           : null,
@@ -446,7 +451,17 @@ export function mountRenderer(container, options) {
             { recoverable: true, cause: error },
           );
       try {
-        listeners.onError(normalized);
+        var result = listeners.onError(normalized);
+        if (result && typeof result.then === "function") {
+          Promise.resolve(result).catch(function (listenerError) {
+            if (options.debug && typeof console !== "undefined" && console.error) {
+              console.error(
+                "[eino-workflow-dag] onError callback failed",
+                listenerError,
+              );
+            }
+          });
+        }
       } catch (listenerError) {
         if (options.debug && typeof console !== "undefined" && console.error) {
           console.error(
@@ -460,11 +475,43 @@ export function mountRenderer(container, options) {
       }
     }
 
+    function reportCallbackError(name, error) {
+      reportError(new WorkflowDAGError(
+        "RENDERER_RECOVERED",
+        name + " callback failed: " + (
+          error instanceof Error ? error.message : String(error)
+        ),
+        { recoverable: true, cause: error },
+      ));
+    }
+
+    function callHost(name, callback, args, fallback) {
+      try {
+        return callback.apply(null, args);
+      } catch (error) {
+        reportCallbackError(name, error);
+        return typeof fallback === "function" ? fallback() : fallback;
+      }
+    }
+
+    function notifyHost(name, callback, value) {
+      var result = callHost(name, callback, [value]);
+      try {
+        if (result && typeof result.then === "function") {
+          Promise.resolve(result).catch(function (error) {
+            reportCallbackError(name, error);
+          });
+        }
+      } catch (error) {
+        reportCallbackError(name, error);
+      }
+    }
+
     function graphStylesheet() {
       return stylesheet(themeInput).concat(additionalStyles);
     }
 
-    /** 画布底色 + .cy-wrap data-theme / overlay CSS 变量（不触碰 cy layout） */
+    /** 画布底色 + 实例宿主 data-theme / overlay CSS 变量（不触碰 cy layout） */
     function applyThemeChrome() {
       var tid = themeName(themeInput);
       container.style.background = tokens.canvas.bg;
@@ -579,8 +626,8 @@ export function mountRenderer(container, options) {
       assertExpandablePaths(normalized);
       if (sameExpandedMap(expanded, normalized)) return;
       expanded = normalized;
-      listeners.onExpandedChange(getExpanded());
       render();
+      notifyHost("onExpandedChange", listeners.onExpandedChange, getExpanded());
     }
 
     function resolveActiveNode() {
@@ -639,13 +686,14 @@ export function mountRenderer(container, options) {
       var canPatchRuntime =
         normalizedSnapshot.layoutKey === nextSnapshot.layoutKey;
       normalizedSnapshot = nextSnapshot;
-      if (!sameExpandedMap(previousExpanded, expanded)) {
-        listeners.onExpandedChange(getExpanded());
-      }
+      var expandedChanged = !sameExpandedMap(previousExpanded, expanded);
       render({
         fit: !!(updateOptions && updateOptions.fit),
         patchData: canPatchRuntime,
       });
+      if (expandedChanged) {
+        notifyHost("onExpandedChange", listeners.onExpandedChange, getExpanded());
+      }
     }
 
     function toggleEncodedPath(path) {
@@ -657,8 +705,8 @@ export function mountRenderer(container, options) {
       else next[path] = true;
       if (sameExpandedMap(expanded, next)) return;
       expanded = next;
-      listeners.onExpandedChange(getExpanded());
       render();
+      notifyHost("onExpandedChange", listeners.onExpandedChange, getExpanded());
     }
 
     function toggle(path) {
@@ -678,8 +726,8 @@ export function mountRenderer(container, options) {
       });
       if (sameExpandedMap(expanded, next)) return;
       expanded = next;
-      listeners.onExpandedChange(getExpanded());
       render();
+      notifyHost("onExpandedChange", listeners.onExpandedChange, getExpanded());
     }
 
     function collapseAll() {
@@ -695,12 +743,19 @@ export function mountRenderer(container, options) {
       formatter:
         typeof options.tooltipFormatter === "function"
           ? function (node) {
-              return options.tooltipFormatter(publicNodeData({
-                ...node,
-                key: node.key || decodeNodePath(node.id).at(-1) || "",
-                label: "",
-                title: node.title,
-              }));
+              return callHost(
+                "tooltipFormatter",
+                options.tooltipFormatter,
+                [publicNodeData({
+                  ...node,
+                  key: node.key || decodeNodePath(node.id).at(-1) || "",
+                  label: "",
+                  title: node.title,
+                })],
+                function () {
+                  return formatNodeTooltip(node, formatDuration, locale);
+                },
+              );
             }
           : null,
       pinning: interactionPolicy.pinTooltipOnNodeClick,
@@ -770,7 +825,21 @@ export function mountRenderer(container, options) {
         locale: locale,
         nodeLabelFormatter:
           typeof options.nodeLabelFormatter === "function"
-            ? options.nodeLabelFormatter
+            ? function (node) {
+                return callHost(
+                  "nodeLabelFormatter",
+                  options.nodeLabelFormatter,
+                  [node],
+                  function () {
+                    var detail = [
+                      node.component || "",
+                      node.durationMs == null ? "" : formatDuration(node.durationMs),
+                    ].filter(Boolean).join("  ·  ");
+                    var title = node.name || node.id;
+                    return detail ? title + "\n" + detail : title;
+                  },
+                );
+              }
             : null,
       });
       if (
@@ -820,11 +889,11 @@ export function mountRenderer(container, options) {
         interaction = bindGraphInteractions(cy, container, {
           clearEdgeHighlight: edgeState.clear,
           onEdgeClick: function (edge) {
-            listeners.onEdgeClick(publicEdgeData(edge));
+            notifyHost("onEdgeClick", listeners.onEdgeClick, publicEdgeData(edge));
           },
           onKeyboardFocus: accessibility.focusNode,
           onNodeClick: function (node) {
-            listeners.onNodeClick(publicNodeData(node));
+            notifyHost("onNodeClick", listeners.onNodeClick, publicNodeData(node));
           },
           onViewport: viewport.onViewport,
           setEdgeHighlight: edgeState.set,

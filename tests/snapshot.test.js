@@ -3,6 +3,7 @@ import {
   encodeNodePath,
   normalizeDAGSnapshot,
 } from "../src/snapshot.js";
+import { validateWorkflowSnapshot } from "../src/validation.js";
 
 function assert(condition, message) {
   if (!condition) throw new Error(`FAIL: ${message}`);
@@ -22,6 +23,7 @@ const snapshot = {
           edges: [],
         },
       },
+      { id: "fallback", name: "Fallback" },
     ],
     edges: [{
       from: "input",
@@ -30,7 +32,11 @@ const snapshot = {
       mappings: [{ fromPath: ["content"], toPath: ["prompt"] }],
       metadata: { transport: "typed" },
     }],
-    branches: [{ from: "input", targets: ["end"], metadata: { route: "fallback" } }],
+    branches: [
+      { from: "input", targets: ["end"], metadata: { route: "fallback" } },
+      { from: "input", targets: ["fallback", "end"], metadata: { route: "primary" } },
+      { from: "input", targets: ["fallback"] },
+    ],
   },
   execution: {
     nodes: [
@@ -41,6 +47,7 @@ const snapshot = {
   },
 };
 
+assert(validateWorkflowSnapshot(snapshot).valid, "overlapping Eino branch targets are valid");
 const normalized = normalizeDAGSnapshot(snapshot);
 assert(normalized.definition.nodes[0].status === undefined, "definition omits execution state");
 assert(normalized.runtimeByPath.input.status === "success", "root execution is indexed");
@@ -65,7 +72,22 @@ assert(
 assert(normalized.root.edges[1].kind === "branch", "Eino branches project to renderer edges");
 assert(
   normalized.root.edges[1].branchMetadata.route === "fallback",
-  "branch metadata survives renderer projection",
+  "the first branch metadata remains the singular compatibility value",
+);
+const overlappingBranchEdge = normalized.root.edges.find(
+  (edge) => edge.from === "input" && edge.to === "fallback",
+);
+assert(
+  JSON.stringify(overlappingBranchEdge.branchMetadataList) ===
+    '[{"route":"primary"},null]',
+  "all overlapping branch metadata survives renderer projection in snapshot order",
+);
+assert(
+  JSON.stringify(normalized.definition.edges.find(
+    (edge) => edge.from === "input" && edge.to === "fallback",
+  ).branchMetadataList) ===
+    '[{"route":"primary"},null]',
+  "all overlapping branch metadata survives structural normalization",
 );
 assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");
 assert(normalized.definition.nodes[1].graph.nodes[0].kind === "llm", "Eino components map to visual kinds");

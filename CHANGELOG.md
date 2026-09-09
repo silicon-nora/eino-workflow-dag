@@ -5,12 +5,39 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-09
+
+### Added
+
+- Added the packaged `eino-workflow-dag-validate` command for validating a
+  snapshot file or standard input with the same schema-v1 validator as the
+  JavaScript API.
+- Added `branchMetadataList` to rendered edge data so multiple Eino branch
+  records sharing one source-target pair retain every opaque metadata value in
+  snapshot order.
+
 ### Changed
 
 - Generalized exact-Registry integration validation for stable and prerelease
   versions, with the independent host pinned to the stable `1.0.0` package.
 - Made the README quick start directly runnable and added a clean-install check
   that type-checks, bundles, styles, and renders the documented example.
+- Made each renderer container own its theme, tooltip, and subgraph overlay DOM
+  instead of sharing those resources through the container's parent.
+- Documented which React and Vue props update a mounted renderer and which
+  construction options require an explicit keyed remount.
+
+### Fixed
+
+- Isolated synchronous and asynchronous host callback failures so they cannot
+  suppress built-in interactions or leave expansion state ahead of the
+  rendered graph.
+- Kept sibling Vanilla renderer instances independent when they share a parent,
+  including after either instance is destroyed.
+- Used composite-group semantics for the interactive renderer host so its
+  instance-owned subgraph controls are not nested inside an image role.
+- Updated compatibility and security wording now that the stable contract is
+  in effect.
 
 ## [1.0.0] - 2026-09-09
 

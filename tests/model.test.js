@@ -53,7 +53,8 @@ var fixture = {
       kind: "data",
       mappings: [{ fromPath: ["value"], toPath: ["input"] }],
       metadata: { transport: "typed" },
-      branchMetadata: { route: "fallback" }
+      branchMetadata: { route: "fallback" },
+      branchMetadataList: [{ route: "fallback" }, { route: "retry" }]
     },
     { from: "g", to: "b" },
     { from: "a", to: "b", entry: "pin_internal" },
@@ -82,6 +83,11 @@ assert(outerToG.length === 1, "external edge anchors wrapper g");
 assert(outerToG[0].mappings[0].toPath[0] === "input", "field mappings survive visible-edge materialization");
 assert(outerToG[0].metadata.transport === "typed", "edge metadata survives visible-edge materialization");
 assert(outerToG[0].branchMetadata.route === "fallback", "branch metadata survives visible-edge materialization");
+assert(
+  outerToG[0].branchMetadataList.length === 2 &&
+    outerToG[0].branchMetadataList[1].route === "retry",
+  "all branch metadata survives visible-edge materialization"
+);
 var inner = expanded.edges.filter(function (e) { return e.from === "g/c1" && e.to === "g/c2"; });
 assert(inner.length === 1, "internal edge from graph.edges");
 assert(!expanded.edges.some(function (e) { return e.toParent || e.entry; }), "no legacy fields on edges");

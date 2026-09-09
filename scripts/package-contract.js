@@ -23,6 +23,7 @@ export const maximumPackedSize = 350 * 1024;
 const alwaysRequired = [
   "package.json",
   "API_SURFACE.json",
+  "CHANGELOG.md",
   "LICENSE",
   "PROVENANCE.md",
   "PUBLIC_ASSETS.json",
@@ -38,6 +39,16 @@ function collectExportTargets(target, required) {
   }
   for (const nested of Object.values(target || {})) {
     collectExportTargets(nested, required);
+  }
+}
+
+function collectBinTargets(target, required) {
+  if (typeof target === "string") {
+    required.add(target.startsWith("./") ? target.slice(2) : target);
+    return;
+  }
+  for (const nested of Object.values(target || {})) {
+    collectBinTargets(nested, required);
   }
 }
 
@@ -107,6 +118,7 @@ export function validatePackageReport(report, manifest, tarball) {
   for (const target of Object.values(manifest?.exports || {})) {
     collectExportTargets(target, required);
   }
+  collectBinTargets(manifest?.bin, required);
   for (const path of required) {
     if (!pathSet.has(path)) failures.push(`required file is absent: ${path}`);
   }

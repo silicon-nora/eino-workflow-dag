@@ -142,17 +142,18 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("tap", "node", (event) => {
     const node = event.target;
     if (node.isParent()) return;
-    handlers.onNodeClick(eventData(node));
     if (handlers.policy.pinTooltipOnNodeClick) handlers.tooltip.togglePin(node);
-    if (!handlers.policy.expandOnNodeClick || !isExpandableCollapsed(node)) return;
-    node.addClass("press");
-    const id = node.id();
-    if (expandTimer) clearTimeout(expandTimer);
-    expandTimer = setTimeout(() => {
-      expandTimer = null;
-      node.removeClass("press");
-      handlers.togglePath(id);
-    }, 90);
+    if (handlers.policy.expandOnNodeClick && isExpandableCollapsed(node)) {
+      node.addClass("press");
+      const id = node.id();
+      if (expandTimer) clearTimeout(expandTimer);
+      expandTimer = setTimeout(() => {
+        expandTimer = null;
+        node.removeClass("press");
+        handlers.togglePath(id);
+      }, 90);
+    }
+    handlers.onNodeClick(eventData(node));
   });
 
   cy.on("mouseover", "edge", () => {
@@ -163,11 +164,11 @@ export function bindGraphInteractions(cy, container, handlers) {
   });
   cy.on("tap", "edge", (event) => {
     const edge = event.target;
-    handlers.onEdgeClick(eventData(edge));
     if (handlers.policy.highlightEdgeOnClick) {
       if (edge.hasClass("highlight")) handlers.clearEdgeHighlight();
       else handlers.setEdgeHighlight(edge);
     }
+    handlers.onEdgeClick(eventData(edge));
   });
   cy.on("tap", (event) => {
     if (event.target === cy && handlers.policy.clearHighlightOnCanvasClick) {

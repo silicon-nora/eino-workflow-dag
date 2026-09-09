@@ -6,6 +6,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
@@ -21,10 +22,11 @@ function fail(message) {
   throw new Error(`Packed consumer check failed: ${message}`);
 }
 
-function run(command, args, cwd = work) {
+function run(command, args, cwd = work, input) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
+    input,
     env: {
       ...process.env,
       npm_config_audit: "false",
@@ -80,6 +82,46 @@ try {
   const installed = resolve(work, "node_modules", packageName);
   mkdirSync(dirname(installed), { recursive: true });
   renameSync(resolve(work, "package"), installed);
+
+  const packedManifest = JSON.parse(
+    readFileSync(resolve(installed, "package.json"), "utf8"),
+  );
+  const cliTarget = packedManifest.bin?.["eino-workflow-dag-validate"];
+  if (cliTarget !== "./bin/eino-workflow-dag-validate.js") {
+    fail("packed manifest does not expose the snapshot validator executable");
+  }
+  const cli = resolve(installed, cliTarget);
+  if (process.platform !== "win32" && !(statSync(cli).mode & 0o111)) {
+    fail("packed snapshot validator is not executable");
+  }
+
+  const snapshotFixture = {
+    schemaVersion: 1,
+    workflow: {
+      nodes: [
+        {
+          id: "group",
+          workflow: { nodes: [{ id: "work" }], edges: [] },
+        },
+      ],
+      edges: [],
+    },
+  };
+  const cliFromStdin = run(
+    process.execPath,
+    [cli],
+    work,
+    JSON.stringify(snapshotFixture),
+  );
+  if (!cliFromStdin.stdout.includes("2 graphs, 2 nodes, 0 edges")) {
+    fail("packed snapshot validator did not validate stdin with the expected summary");
+  }
+
+  writeFixture("workflow.json", JSON.stringify(snapshotFixture));
+  const cliFromFile = run(process.execPath, [cli, "workflow.json"]);
+  if (!cliFromFile.stdout.includes(resolve(work, "workflow.json"))) {
+    fail("packed snapshot validator did not identify its file input");
+  }
 
   writeFixture(
     "package.json",

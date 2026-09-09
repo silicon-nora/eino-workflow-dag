@@ -37,6 +37,7 @@ const elements = toCytoscapeElements(
       mappings: [{ fromPath: ["value"], toPath: ["input"] }],
       metadata: { transport: "typed" },
       branchMetadata: { route: "fallback" },
+      branchMetadataList: [{ route: "fallback" }, null],
     }],
   },
   { nodeLabelFormatter: (node) => `${node.name}:${node.component}:${node.metadata.owner}:${node.status}:${node.durationMs}` },
@@ -52,6 +53,11 @@ const renderedEdge = elements.find((element) => element.group === "edges");
 assert(renderedEdge.data.mappings[0].fromPath[0] === "value", "edge mappings are rendered data");
 assert(renderedEdge.data.metadata.transport === "typed", "edge metadata is rendered data");
 assert(renderedEdge.data.branchMetadata.route === "fallback", "branch metadata is rendered data");
+assert(
+  renderedEdge.data.branchMetadataList.length === 2 &&
+    renderedEdge.data.branchMetadataList[1] === null,
+  "all branch metadata is rendered data",
+);
 assert(renderedEdge.data.level === 1, "rendered edges preserve their graph-local Level");
 assert(!("main" in renderedEdge.data), "rendered edges use Level as their only path classification");
 

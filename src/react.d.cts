@@ -7,6 +7,19 @@ import type {
   WorkflowDAGInstance,
 } from "./index.cjs";
 
+/**
+ * React adapter props.
+ *
+ * `snapshot`, `direction`, `theme`, `locale`, `expanded`, and
+ * `activeNodePath` update the mounted renderer. `preserveExpanded` and
+ * `fitOnUpdate` are read on the next `snapshot` update. Renderer construction
+ * options (`interaction`, its deprecated aliases, `autoResize`, `debug`,
+ * accessibility options, formatters, and `layoutCacheSize`) are mount-only;
+ * change the component `key` to apply new values.
+ *
+ * Structured reactive props should be replaced rather than mutated in place.
+ * Callback props always use the latest handler; `onReady` runs once per mount.
+ */
 export interface EinoWorkflowDAGReactProps
   extends Omit<HTMLAttributes<HTMLDivElement>, "children" | "onError">,
     Omit<CreateWorkflowDAGOptions, "snapshot" | "onError"> {

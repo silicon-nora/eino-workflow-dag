@@ -87,7 +87,12 @@ function appendPath(prefix, id) {
         kind: e.kind || '',
         mappings: Array.isArray(e.mappings) ? e.mappings : [],
         metadata: e.metadata == null ? null : e.metadata,
-        branchMetadata: e.branchMetadata == null ? null : e.branchMetadata
+        branchMetadata: e.branchMetadata == null ? null : e.branchMetadata,
+        branchMetadataList: Array.isArray(e.branchMetadataList)
+          ? e.branchMetadataList
+          : (e.kind || '').split('+').indexOf('branch') >= 0
+            ? [e.branchMetadata == null ? null : e.branchMetadata]
+            : []
       });
     });
     return out;
@@ -528,7 +533,12 @@ function appendPath(prefix, id) {
           kind: e.kind || '',
           mappings: Array.isArray(e.mappings) ? e.mappings : [],
           metadata: e.metadata == null ? null : e.metadata,
-          branchMetadata: e.branchMetadata == null ? null : e.branchMetadata
+          branchMetadata: e.branchMetadata == null ? null : e.branchMetadata,
+          branchMetadataList: Array.isArray(e.branchMetadataList)
+            ? e.branchMetadataList
+            : (e.kind || '').split('+').indexOf('branch') >= 0
+              ? [e.branchMetadata == null ? null : e.branchMetadata]
+              : []
         });
       });
     }

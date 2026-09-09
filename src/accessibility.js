@@ -56,7 +56,7 @@ export function createAccessibilityPresenter(container, options = {}) {
   const originalRole = container.getAttribute("role");
   const originalLabel = container.getAttribute("aria-label");
   let graphLabel = "";
-  if (!originalRole) container.setAttribute("role", "img");
+  if (!originalRole) container.setAttribute("role", "group");
 
   function update(visible) {
     const summary = summarizeVisibleGraph(visible);

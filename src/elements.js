@@ -94,6 +94,11 @@ export function toCytoscapeElements(visible, options = {}) {
       metadata: edge.metadata == null ? null : edge.metadata,
       branchMetadata:
         edge.branchMetadata == null ? null : edge.branchMetadata,
+      branchMetadataList: Array.isArray(edge.branchMetadataList)
+        ? edge.branchMetadataList
+        : edge.kind?.split("+").includes("branch")
+          ? [edge.branchMetadata == null ? null : edge.branchMetadata]
+          : [],
       level: Number.isInteger(edge.level) && edge.level >= 0 ? edge.level : 0,
     };
     elements.push({ group: "edges", data });

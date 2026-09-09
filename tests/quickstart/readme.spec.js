@@ -13,14 +13,14 @@ test("README quick start renders its first workflow with packaged styles", async
   await page.waitForLoadState("networkidle");
   await page.locator("#workflow canvas").first().waitFor();
 
-  await expect(page.locator("#workflow").locator("..")).toHaveClass(
+  await expect(page.locator("#workflow")).toHaveClass(
     /eino-workflow-dag-host/,
   );
   await expect(page.locator("#workflow")).toHaveAttribute("tabindex", "0");
   await expect(page.locator("#workflow")).toHaveAttribute("aria-label", /2 nodes/);
   expect(await page.locator("#workflow canvas").count()).toBeGreaterThan(0);
-  expect(await page.locator("#workflow + .cy-overlays").count()).toBe(1);
-  expect(await page.locator("#workflow + .cy-overlays").evaluate(
+  expect(await page.locator("#workflow > .cy-overlays").count()).toBe(1);
+  expect(await page.locator("#workflow > .cy-overlays").evaluate(
     (element) => getComputedStyle(element).position,
   )).toBe("absolute");
   expect(await page.evaluate(() => ({

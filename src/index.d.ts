@@ -137,6 +137,11 @@ export interface RenderedEdgeData {
   readonly metadata: JsonObject | null;
   /** Metadata from the corresponding branch relationship, when present. */
   readonly branchMetadata: JsonObject | null;
+  /**
+   * Metadata for every corresponding branch relationship, in snapshot order.
+   * Null entries preserve branches that do not declare metadata.
+   */
+  readonly branchMetadataList: readonly (JsonObject | null)[];
   readonly level: number;
 }
 
