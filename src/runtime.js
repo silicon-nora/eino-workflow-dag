@@ -10,7 +10,6 @@ import {
   syncCytoscapeElements,
   toCytoscapeElements,
   toRenderedNodeData,
-  toVisibleNodeData,
 } from "./elements.js";
 import {
   bindGraphInteractions,
@@ -20,30 +19,36 @@ import { createViewportController } from "./viewport.js";
 import { createEdgeStateController } from "./edge-state.js";
 import {
   axisProfile,
-  defaultAxisProfile,
   normalizeDirection,
 } from "./axis-profile.js";
-import {
-  GRAPH_COMPOUND_PAD,
-  WorkflowDAGRules,
-} from "./routing.js";
+import { WorkflowDAGRules } from "./routing.js";
 import { createAccessibilityPresenter } from "./accessibility.js";
 import {
   captureCytoscapeLayout,
   createLayoutCache,
-  layoutCacheKey,
   restoreCytoscapeLayout,
 } from "./layout-cache.js";
 import { resolveLocale } from "./locale.js";
 import { exportWorkflowDAGSVG } from "./svg-export.js";
-import { createKeyMap, hasOwnKey, toPlainRecord } from "./key-map.js";
+import { createKeyMap, toPlainRecord } from "./key-map.js";
 import { parseWorkflowSnapshot } from "./validation.js";
 import {
   decodeNodePath,
   encodeNodePath,
   normalizeDAGSnapshot,
 } from "./snapshot.js";
-import { WorkflowDAGError } from "./workflow-error.js";
+import {
+  expandedMapToPaths,
+  expandedPathsToMap,
+  listPublicSubgraphs,
+  normalizeActiveNodePath,
+  normalizeExpandedMap,
+  normalizeNodePath,
+  publicEdgeData,
+  publicVisibleGraph,
+  sameExpandedMap,
+  sameLocale,
+} from "./runtime-public.js";
 import { attachCytoscapeAccess } from "./cytoscape-access.js";
 import {
   normalizeThemeInput,
@@ -52,29 +57,19 @@ import {
   themeName,
   themeTokens,
 } from "./theme.js";
+import { workflowLayoutOptions } from "./runtime-layout.js";
+import {
+  createHostCallbackBoundary,
+  createHostDomLifecycle,
+} from "./runtime-host.js";
+import {
+  classifyRenderChange,
+  classifyThemeChange,
+  layoutGeometrySignature,
+  renderGeometrySignature,
+} from "./render-change.js";
 
 /* ---------- Cytoscape mount / 样式 / 交互 ---------- */
-
-  // Cytoscape compound nodes only support uniform padding. Use the top value
-  // so the title overlay has five extra pixels of breathing room.
-  var COMPOUND_PAD = GRAPH_COMPOUND_PAD;
-  // Routing clearance remains invariant. Themes can tune only the public
-  // node and layer gaps.
-  var SPACE_ROOT_BASE = {
-    // Edge-to-node clearance also controls the outer detour channel.
-    edgeNode: 44,
-    edgeEdge: 28,
-    portPort: 20,
-    edgeNodeBetweenLayers: 44,
-    edgeEdgeBetweenLayers: 28,
-  };
-  var SPACE_COMPOUND_BASE = {
-    edgeNode: 52,
-    edgeEdge: 30,
-    portPort: 22,
-    edgeNodeBetweenLayers: 52,
-    edgeEdgeBetweenLayers: 28,
-  };
 
   function ensureWorkflowLayoutRegistered() {
     var cytoLib = cytoscape;
@@ -85,216 +80,6 @@ import {
       /* 可能已注册 */
     }
   }
-
-  function sameExpandedMap(left, right) {
-    var leftKeys = Object.keys(left || {});
-    var rightKeys = Object.keys(right || {});
-    if (leftKeys.length !== rightKeys.length) return false;
-    return leftKeys.every(function (key) {
-      return hasOwnKey(right, key) && left[key] === right[key];
-    });
-  }
-
-  function normalizeExpandedMap(source) {
-    var normalized = createKeyMap();
-    if (!source || typeof source !== "object") return normalized;
-    Object.keys(source).forEach(function (path) {
-      if (source[path]) normalized[path] = true;
-    });
-    return normalized;
-  }
-
-  function normalizeNodePath(value, name) {
-    if (!Array.isArray(value) || !value.length || value.some(function (id) {
-      return typeof id !== "string" || !id;
-    })) {
-      throw new TypeError(name + " must be a non-empty array of node IDs");
-    }
-    return value.slice();
-  }
-
-  function expandedPathsToMap(source) {
-    var normalized = createKeyMap();
-    if (!Array.isArray(source)) {
-      throw new TypeError("expanded must be an array of node paths");
-    }
-    source.forEach(function (path) {
-      normalized[encodeNodePath(normalizeNodePath(path, "expanded path"))] = true;
-    });
-    return normalized;
-  }
-
-  function expandedMapToPaths(source) {
-    return Object.keys(source || {}).filter(function (path) {
-      return source[path];
-    }).map(decodeNodePath);
-  }
-
-  function normalizeActiveNodePath(value) {
-    if (value == null) return null;
-    return encodeNodePath(normalizeNodePath(value, "activeNodePath"));
-  }
-
-  function edgeChannels(kind) {
-    if (!kind) return [];
-    return kind.split("+").filter(function (channel) {
-      return channel === "control" || channel === "data" || channel === "branch";
-    });
-  }
-
-  function publicEdgeData(edge) {
-    return {
-      id: edge.id,
-      source: decodeNodePath(edge.source),
-      target: decodeNodePath(edge.target),
-      channels: edgeChannels(edge.kind),
-      mappings: Array.isArray(edge.mappings) ? edge.mappings : [],
-      metadata: edge.metadata == null ? null : edge.metadata,
-      branchMetadata:
-        edge.branchMetadata == null ? null : edge.branchMetadata,
-      branchMetadataList: Array.isArray(edge.branchMetadataList)
-        ? edge.branchMetadataList
-        : [],
-      level: Number(edge.level) || 0,
-    };
-  }
-
-  function publicVisibleGraph(visible) {
-    return {
-      nodes: visible.nodes.map(function (node) {
-        return toVisibleNodeData({
-          ...node,
-          title: node.name,
-          key: node.key,
-          parent: node.parent,
-        });
-      }),
-      edges: visible.edges.map(function (edge) {
-        return publicEdgeData({ ...edge, source: edge.from, target: edge.to });
-      }),
-      levelZeroPath: visible.levelZeroPath.map(function (id) {
-        return decodeNodePath(id);
-      }),
-      levelZeroDurationMs: visible.levelZeroDurationMs,
-    };
-  }
-
-  function listPublicSubgraphs(snapshot) {
-    var result = [];
-    var pending = [{ graph: snapshot.workflow, prefix: [] }];
-    while (pending.length) {
-      var current = pending.pop();
-      var graph = current.graph;
-      var prefix = current.prefix;
-      graph.nodes.forEach(function (node) {
-        var path = prefix.concat(node.id);
-        if (node.workflow !== undefined && node.workflow !== null) {
-          result.push({ path: path, name: node.name || node.id, node: node });
-          pending.push({ graph: node.workflow, prefix: path });
-        }
-      });
-    }
-    return result;
-  }
-
-  function sameRecord(left, right) {
-    var leftKeys = Object.keys(left || {});
-    var rightKeys = Object.keys(right || {});
-    if (leftKeys.length !== rightKeys.length) return false;
-    return leftKeys.every(function (key) {
-      return hasOwnKey(right, key) && left[key] === right[key];
-    });
-  }
-
-  function sameLocale(left, right) {
-    return (
-      left.collapseSubgraphTitle === right.collapseSubgraphTitle &&
-      sameRecord(left.kinds, right.kinds) &&
-      sameRecord(left.statuses, right.statuses) &&
-      sameRecord(left.tooltip, right.tooltip)
-    );
-  }
-
-  function layoutThemeFingerprint(tokens) {
-    return JSON.stringify({
-      node: [
-        tokens.node.width,
-        tokens.node.height,
-        tokens.node.textMaxWidth,
-        tokens.node.borderWidth,
-        tokens.node.fontSize,
-        tokens.node.fontWeight,
-        tokens.node.fontFamily || "",
-        tokens.node.textOutlineWidth || 0,
-      ],
-      spacing: tokens.spacing,
-    });
-  }
-
-  function sameFormattedLabels(cy, elements) {
-    if (!cy) return false;
-    return elements.every(function (spec) {
-      if (spec.group !== "nodes") return true;
-      var node = cy.getElementById(spec.data.id);
-      return !!node && !node.empty() && node.data("label") === spec.data.label;
-    });
-  }
-
-  /** Theme-driven styles; see THEMES for the built-in visual systems. */
-
-  /**
-   * @param {object} [profile] AxisProfile（含 direction）；缺省 RIGHT
-   * @param {object} [visible] WorkflowDAGModel.buildVisibleGraph 结果
-   */
-  function workflowLayoutOptions(profile, visible, fit, tokens) {
-    var sr = Object.assign({}, SPACE_ROOT_BASE, {
-      nodeNode: tokens.spacing.nodeNode,
-      betweenLayers: tokens.spacing.betweenLayers,
-      fitPadding: tokens.spacing.fitPadding,
-    });
-    var sc = Object.assign({}, SPACE_COMPOUND_BASE, {
-      nodeNode: tokens.spacing.nestedNodeNode,
-      betweenLayers: tokens.spacing.nestedBetweenLayers,
-    });
-    var p = profile || defaultAxisProfile();
-    var dir = p.direction;
-    return {
-      // 递归 layoutLayer 排点 + 流程线计算画边
-      name: "eino-workflow-dag",
-      animate: false,
-      fit: fit !== false,
-      padding: sr.fitPadding,
-      nodeDimensionsIncludeLabels: true,
-      axisProfile: p,
-      visibleGraph: visible,
-      // Nested graph spacing; top padding reserves room for the title overlay.
-      nodeLayoutOptions: function (node) {
-        if (!node.isParent()) return undefined;
-        var pad = COMPOUND_PAD;
-        return {
-          direction: dir,
-          padding: Object.assign({}, pad),
-          spacing: Object.assign({}, sc),
-        };
-      },
-      layoutConfig: {
-        direction: dir,
-        node: {
-          width: tokens.node.width,
-          height: tokens.node.height,
-        },
-        compoundPadding: Object.assign({}, COMPOUND_PAD),
-        padding: { top: 8, right: 8, bottom: 8, left: 8 },
-        spacing: Object.assign({}, sr),
-        nestedSpacing: Object.assign({}, sc),
-      },
-    };
-  }
-
-  /**
-   * @param {HTMLElement} container
-   * @param {{ snapshot: object, direction?: 'RIGHT'|'LEFT'|'DOWN'|'UP', onExpandedChange?: Function, onError?: Function }} options
-   */
 export function mountRenderer(container, options) {
     ensureWorkflowLayoutRegistered();
     var Model = EinoWorkflowDAGModel;
@@ -310,7 +95,7 @@ export function mountRenderer(container, options) {
     var themeInput = normalizeThemeInput(options.theme);
     var themeKey = themeFingerprint(themeInput);
     var tokens = themeTokens(themeInput);
-    var layoutThemeKey = layoutThemeFingerprint(tokens);
+    var layoutThemeKey = layoutGeometrySignature(tokens);
     var interactionPolicy = resolveInteractionPolicy(options);
     var activeNodeKey = normalizeActiveNodePath(options.activeNodePath);
     var expanded = options.expanded
@@ -335,49 +120,7 @@ export function mountRenderer(container, options) {
 
     assertExpandablePaths(expanded);
 
-    var hostElement = container;
-    var initialHostChildren = Array.from(container.childNodes);
-    var addedHostClass = false;
-    var hadHostTheme = false;
-    var previousHostTheme = null;
-    var previousContainerBackground = {
-      value: container.style.getPropertyValue("background"),
-      priority: container.style.getPropertyPriority("background"),
-    };
-    var hostStyleProperties = [
-      "-webkit-tap-highlight-color",
-      "--eino-workflow-dag-title-bg",
-      "--eino-workflow-dag-title-color",
-      "--eino-workflow-dag-title-hover-bg",
-      "--eino-workflow-dag-title-hover-border",
-      "--eino-workflow-dag-title-font",
-      "--eino-workflow-dag-tooltip-bg",
-      "--eino-workflow-dag-tooltip-color",
-      "--eino-workflow-dag-tooltip-border",
-      "--eino-workflow-dag-tooltip-pinned-border",
-      "--eino-workflow-dag-tooltip-shadow",
-      "--eino-workflow-dag-tooltip-pinned-shadow",
-      "--eino-workflow-dag-tooltip-radius",
-      "--eino-workflow-dag-tooltip-max-width",
-      "--eino-workflow-dag-tooltip-max-height",
-      "--eino-workflow-dag-tooltip-font-size",
-      "--eino-workflow-dag-tooltip-line-height",
-      "--eino-workflow-dag-tooltip-padding-x",
-      "--eino-workflow-dag-tooltip-padding-y",
-    ];
-    var previousHostStyles = createKeyMap();
-    if (hostElement && hostElement.classList) {
-      addedHostClass = !hostElement.classList.contains("eino-workflow-dag-host");
-      hostElement.classList.add("eino-workflow-dag-host");
-      hadHostTheme = hostElement.hasAttribute("data-theme");
-      previousHostTheme = hostElement.getAttribute("data-theme");
-      hostStyleProperties.forEach(function (property) {
-        previousHostStyles[property] = {
-          value: hostElement.style.getPropertyValue(property),
-          priority: hostElement.style.getPropertyPriority(property),
-        };
-      });
-    }
+    var hostLifecycle = createHostDomLifecycle(container);
 
     var ZOOM_STEP = 1.2;
     var MIN_ZOOM = 0.45;
@@ -413,6 +156,14 @@ export function mountRenderer(container, options) {
     var childrenBeforeCytoscape = null;
     var layoutGeneration = 0;
     var destroyed = false;
+    var callbackBoundary = createHostCallbackBoundary({
+      debug: !!options.debug,
+      isDestroyed: function () { return destroyed; },
+      onError: function () { return listeners.onError; },
+    });
+    var callHost = callbackBoundary.callHost;
+    var notifyHost = callbackBoundary.notifyHost;
+    var reportError = callbackBoundary.reportError;
     var additionalStyles = Array.isArray(options.additionalStyles)
       ? options.additionalStyles.slice()
       : [];
@@ -437,6 +188,7 @@ export function mountRenderer(container, options) {
       layoutRuns: 0,
       layoutCacheHits: 0,
     };
+    var lastRenderState = null;
 
     function assertActive() {
       if (destroyed) {
@@ -444,124 +196,12 @@ export function mountRenderer(container, options) {
       }
     }
 
-    function reportError(error) {
-      var normalized = error instanceof WorkflowDAGError
-        ? error
-        : new WorkflowDAGError(
-            "RENDERER_RECOVERED",
-            error instanceof Error ? error.message : String(error),
-            { recoverable: true, cause: error },
-          );
-      try {
-        var result = listeners.onError(normalized);
-        if (result && typeof result.then === "function") {
-          Promise.resolve(result).catch(function (listenerError) {
-            if (options.debug && typeof console !== "undefined" && console.error) {
-              console.error(
-                "[eino-workflow-dag] onError callback failed",
-                listenerError,
-              );
-            }
-          });
-        }
-      } catch (listenerError) {
-        if (options.debug && typeof console !== "undefined" && console.error) {
-          console.error(
-            "[eino-workflow-dag] onError callback failed",
-            listenerError,
-          );
-        }
-      }
-      if (options.debug && typeof console !== "undefined" && console.error) {
-        console.error("[eino-workflow-dag] renderer recovered from an error", normalized);
-      }
-    }
-
-    function reportCallbackError(name, error) {
-      // Promise callbacks can settle after destroy(). A destroyed renderer must
-      // not re-enter host code or produce new lifecycle notifications.
-      if (destroyed) return;
-      reportError(new WorkflowDAGError(
-        "RENDERER_RECOVERED",
-        name + " callback failed: " + (
-          error instanceof Error ? error.message : String(error)
-        ),
-        { recoverable: true, cause: error },
-      ));
-    }
-
-    function callHost(name, callback, args, fallback) {
-      try {
-        return callback.apply(null, args);
-      } catch (error) {
-        reportCallbackError(name, error);
-        return typeof fallback === "function" ? fallback() : fallback;
-      }
-    }
-
-    function notifyHost(name, callback, value) {
-      var result = callHost(name, callback, [value]);
-      try {
-        if (result && typeof result.then === "function") {
-          Promise.resolve(result).catch(function (error) {
-            reportCallbackError(name, error);
-          });
-        }
-      } catch (error) {
-        reportCallbackError(name, error);
-      }
-    }
 
     function graphStylesheet() {
       return stylesheet(themeInput).concat(additionalStyles);
     }
 
     /** 画布底色 + 实例宿主 data-theme / overlay CSS 变量（不触碰 cy layout） */
-    function applyThemeChrome() {
-      var tid = themeName(themeInput);
-      container.style.background = tokens.canvas.bg;
-      var wrap = hostElement;
-      if (wrap && wrap.classList) {
-        wrap.setAttribute("data-theme", tid);
-        wrap.style.setProperty("--eino-workflow-dag-title-bg", tokens.overlay.titleBg);
-        wrap.style.setProperty("--eino-workflow-dag-title-color", tokens.overlay.titleColor);
-        wrap.style.setProperty(
-          "--eino-workflow-dag-title-hover-bg",
-          tokens.overlay.titleHoverBg,
-        );
-        wrap.style.setProperty(
-          "--eino-workflow-dag-title-hover-border",
-          tokens.overlay.titleHoverBorder,
-        );
-        if (tokens.overlay.titleFont) {
-          wrap.style.setProperty(
-            "--eino-workflow-dag-title-font",
-            tokens.overlay.titleFont,
-          );
-        } else {
-          wrap.style.removeProperty("--eino-workflow-dag-title-font");
-        }
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-bg", tokens.tooltip.bg);
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-color", tokens.tooltip.color);
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-border", tokens.tooltip.borderColor);
-        wrap.style.setProperty(
-          "--eino-workflow-dag-tooltip-pinned-border",
-          tokens.tooltip.pinnedBorderColor,
-        );
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-shadow", tokens.tooltip.shadow);
-        wrap.style.setProperty(
-          "--eino-workflow-dag-tooltip-pinned-shadow",
-          tokens.tooltip.pinnedShadow,
-        );
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-radius", tokens.tooltip.radius + "px");
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-max-width", tokens.tooltip.maxWidth + "px");
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-max-height", tokens.tooltip.maxHeight + "px");
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-font-size", tokens.tooltip.fontSize + "px");
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-line-height", String(tokens.tooltip.lineHeight));
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-padding-x", tokens.tooltip.paddingX + "px");
-        wrap.style.setProperty("--eino-workflow-dag-tooltip-padding-y", tokens.tooltip.paddingY + "px");
-      }
-    }
 
     function getTheme() {
       if (typeof themeInput === "string") return themeInput;
@@ -575,18 +215,23 @@ export function mountRenderer(container, options) {
       assertActive();
       var nextInput = normalizeThemeInput(next);
       var nextKey = themeFingerprint(nextInput);
-      if (nextKey === themeKey) return;
-      var previousGeometry = layoutThemeKey;
+      var nextTokens = themeTokens(nextInput);
+      var nextGeometry = layoutGeometrySignature(nextTokens);
+      var change = classifyThemeChange(
+        { themeSignature: themeKey, geometrySignature: layoutThemeKey },
+        { themeSignature: nextKey, geometrySignature: nextGeometry },
+      );
+      if (change === "none") return;
       themeInput = nextInput;
       themeKey = nextKey;
-      tokens = themeTokens(themeInput);
-      layoutThemeKey = layoutThemeFingerprint(tokens);
+      tokens = nextTokens;
+      layoutThemeKey = nextGeometry;
       if (cy) {
         cy.style(graphStylesheet());
       }
-      applyThemeChrome();
+      hostLifecycle.applyThemeChrome(tokens, themeName(themeInput));
       viewport.setFitPadding(tokens.spacing.fitPadding);
-      if (previousGeometry !== layoutThemeKey) {
+      if (change === "layout") {
         layoutCache.clear();
         render();
         return;
@@ -842,15 +487,25 @@ export function mountRenderer(container, options) {
               }
             : null,
       });
+      var geometrySignature = renderGeometrySignature({
+        direction: profile.direction,
+        elements: elements,
+        themeGeometry: layoutThemeKey,
+        runtimeDataAffectsGeometry:
+          additionalStyles.length > 0 ||
+          typeof options.nodeLabelFormatter === "function",
+      });
+      var renderChange = classifyRenderChange(lastRenderState, {
+        geometrySignature: geometrySignature,
+        allowDataPatch: !!(renderOptions && renderOptions.patchData),
+        patchSafe: additionalStyles.length === 0,
+      });
       if (
         cy &&
-        renderOptions &&
-        renderOptions.patchData &&
-        additionalStyles.length === 0 &&
-        (typeof options.nodeLabelFormatter !== "function" ||
-          sameFormattedLabels(cy, elements)) &&
+        renderChange === "data" &&
         patchCytoscapeElements(cy, elements)
       ) {
+        lastRenderState = { geometrySignature: geometrySignature };
         diagnostics.dataPatches += 1;
         accessibility.update(visible);
         edgeState.refresh();
@@ -915,15 +570,11 @@ export function mountRenderer(container, options) {
       }
       if (interaction) interaction.refreshKeyboardFocus();
       syncActiveNode();
+      lastRenderState = { geometrySignature: geometrySignature };
       runLayout(
         visible,
         !renderOptions || renderOptions.fit !== false,
-        layoutCacheKey(
-          profile.direction,
-          elements,
-          additionalStyles.length > 0 ||
-            typeof options.nodeLabelFormatter === "function",
-        ) + layoutThemeKey,
+        geometrySignature,
       );
       if (childrenBeforeCytoscape) {
         cytoscapeHostChildren = Array.from(container.children).filter(function (child) {
@@ -955,50 +606,11 @@ export function mountRenderer(container, options) {
       overlay.destroy();
       accessibility.destroy();
       layoutCache.clear();
-      if (cy) {
-        // Cytoscape clears every container child during destroy(), including
-        // nodes that predated this renderer. Restore only original nodes that
-        // the host had not itself moved or removed in the meantime.
-        var hostChildrenToRestore = initialHostChildren.filter(function (child) {
-          return child.parentNode === container;
-        });
-        cy.destroy();
-        cy = null;
-        hostChildrenToRestore.forEach(function (child) {
-          container.appendChild(child);
-        });
-      }
-      cytoscapeHostChildren.forEach(function (child) {
-        if (child.parentNode === container) child.remove();
-      });
+      lastRenderState = null;
+      hostLifecycle.restore(cy, cytoscapeHostChildren);
+      cy = null;
       cytoscapeHostChildren = [];
       childrenBeforeCytoscape = null;
-      initialHostChildren = [];
-      if (previousContainerBackground.value) {
-        container.style.setProperty(
-          "background",
-          previousContainerBackground.value,
-          previousContainerBackground.priority,
-        );
-      } else {
-        container.style.removeProperty("background");
-      }
-      if (hostElement && hostElement.classList) {
-        if (hadHostTheme) hostElement.setAttribute("data-theme", previousHostTheme);
-        else hostElement.removeAttribute("data-theme");
-        hostStyleProperties.forEach(function (property) {
-          var previous = previousHostStyles[property];
-          if (previous && previous.value) {
-            hostElement.style.setProperty(
-              property,
-              previous.value,
-              previous.priority,
-            );
-          }
-          else hostElement.style.removeProperty(property);
-        });
-        if (addedHostClass) hostElement.classList.remove("eino-workflow-dag-host");
-      }
     }
 
     function resize() {
@@ -1053,7 +665,7 @@ export function mountRenderer(container, options) {
           viewport.resize({ fit: false });
         });
       }
-      applyThemeChrome();
+      hostLifecycle.applyThemeChrome(tokens, themeName(themeInput));
       render();
     } catch (error) {
       destroy();

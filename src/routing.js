@@ -16,6 +16,26 @@ import {
   selectBestPortCandidate,
 } from "./port-planner.js";
 import { createKeyMap } from "./key-map.js";
+import { GRAPH_COMPOUND_PAD } from "./geometry-config.js";
+import {
+  countRouteBends,
+  orthogonalAStarRoute,
+  orthogonalSegmentHitsRectInterior,
+  removeDuplicatePoints,
+  routeEndStubLength,
+  routeHitsRects,
+  routeTotalLength,
+  segmentsProperlyIntersect,
+  simplifyOrthogonalPoints,
+} from "./routing-geometry.js";
+import {
+  edgeLevel,
+  nodeAncestorIds,
+  nodeDescendantIds,
+  nodeIsGraphWrapper,
+  nodeIsParent,
+  nodeLevel,
+} from "./routing-context.js";
 
 export {
   claimPreferredPortOwners,
@@ -25,9 +45,6 @@ export {
 } from "./port-planner.js";
 
 /* ---------- 选口 + 流程线 ---------- */
-
-  var ORTHO_JOG_TOL = 14;
-  var ORTHO_SNAP_TOL = 0.75;
 
   var collectGraphEdges = function collectGraphEdges(layoutGraph, out) {
     out = out || [];
@@ -61,102 +78,6 @@ export {
       points.push({ x: sec.endPoint.x, y: sec.endPoint.y });
     }
     return points;
-  };
-
-  var almostEq = function almostEq(a, b, tol) {
-    return Math.abs(a - b) <= tol;
-  };
-
-  var removeDuplicatePoints = function removeDuplicatePoints(pts, tol) {
-    if (!pts || !pts.length) return pts || [];
-    var out = [pts[0]];
-    for (var i = 1; i < pts.length; i++) {
-      var prev = out[out.length - 1];
-      if (!almostEq(prev.x, pts[i].x, tol) || !almostEq(prev.y, pts[i].y, tol))
-        out.push(pts[i]);
-    }
-    return out;
-  };
-
-  var removeCollinearOrtho = function removeCollinearOrtho(pts, tol) {
-    if (pts.length < 3) return pts;
-    var out = [pts[0]];
-    for (var i = 1; i < pts.length - 1; i++) {
-      var a = out[out.length - 1];
-      var b = pts[i];
-      var c = pts[i + 1];
-      var colH = almostEq(a.y, b.y, tol) && almostEq(b.y, c.y, tol);
-      var colV = almostEq(a.x, b.x, tol) && almostEq(b.x, c.x, tol);
-      if (!colH && !colV) out.push(b);
-    }
-    out.push(pts[pts.length - 1]);
-    return out;
-  };
-
-  var removeMicroJogs = function removeMicroJogs(pts, jogTol, snapTol) {
-    if (pts.length < 4) return pts;
-    var work = pts.map(function (p) {
-      return { x: p.x, y: p.y };
-    });
-    var out = [work[0]];
-    var i = 1;
-    while (i < work.length - 1) {
-      var prev = out[out.length - 1];
-      var cur = work[i];
-      var next = work[i + 1];
-      var d1x = cur.x - prev.x;
-      var d1y = cur.y - prev.y;
-      var d2x = next.x - cur.x;
-      var d2y = next.y - cur.y;
-      var len2 = Math.abs(d2x) + Math.abs(d2y);
-      var hThenV = almostEq(d1y, 0, snapTol) && almostEq(d2x, 0, snapTol);
-      var vThenH = almostEq(d1x, 0, snapTol) && almostEq(d2y, 0, snapTol);
-      if (len2 > 0 && len2 < jogTol && i + 2 < work.length) {
-        var after = work[i + 2];
-        if (hThenV && almostEq(after.y, next.y, snapTol)) {
-          out.push({ x: next.x, y: prev.y });
-          work[i + 2] = { x: after.x, y: prev.y };
-          i += 2;
-          continue;
-        }
-        if (vThenH && almostEq(after.x, next.x, snapTol)) {
-          out.push({ x: prev.x, y: next.y });
-          work[i + 2] = { x: prev.x, y: after.y };
-          i += 2;
-          continue;
-        }
-      }
-      out.push(cur);
-      i += 1;
-    }
-    out.push(work[work.length - 1]);
-    return removeDuplicatePoints(out, snapTol);
-  };
-
-  var snapAdjacentOrtho = function snapAdjacentOrtho(pts, snapTol) {
-    var out = pts.map(function (p) {
-      return { x: p.x, y: p.y };
-    });
-    for (var i = 1; i < out.length; i++) {
-      if (Math.abs(out[i].x - out[i - 1].x) <= snapTol) out[i].x = out[i - 1].x;
-      if (Math.abs(out[i].y - out[i - 1].y) <= snapTol) out[i].y = out[i - 1].y;
-    }
-    return out;
-  };
-
-  var simplifyOrthogonalPoints = function simplifyOrthogonalPoints(points) {
-    var pts = (points || []).map(function (p) {
-      return { x: p.x, y: p.y };
-    });
-    for (var pass = 0; pass < 3; pass++) {
-      pts = snapAdjacentOrtho(pts, ORTHO_SNAP_TOL);
-      pts = removeDuplicatePoints(pts, ORTHO_SNAP_TOL);
-      pts = removeCollinearOrtho(pts, ORTHO_SNAP_TOL);
-      pts = removeMicroJogs(pts, ORTHO_JOG_TOL, ORTHO_SNAP_TOL);
-      pts = removeDuplicatePoints(pts, ORTHO_SNAP_TOL);
-      pts = removeCollinearOrtho(pts, ORTHO_SNAP_TOL);
-    }
-    return pts;
   };
 
   /**
@@ -195,17 +116,12 @@ export var crossEndRatio = function crossEndRatio(end, profile) {
 
   /** 所有叶子均参与精修（含 compound 内叶子；排除 parent 容器） */
   var isLeafNode = function isLeafNode(nodeK) {
-    return !!(nodeK && nodeK._cyEle && !nodeK._cyEle.isParent());
+    return !!nodeK && !nodeIsParent(nodeK);
   };
 
   /** 展开的 Graph 包装框（compound parent）；外部边可挂前向输入/输出端口。 */
   var isGraphWrapper = function isGraphWrapper(nodeK) {
-    return !!(
-      nodeK &&
-      nodeK._cyEle &&
-      nodeK._cyEle.isParent() &&
-      (nodeK._cyEle.data("subgraph") || nodeK._cyEle.data("expandable"))
-    );
+    return nodeIsGraphWrapper(nodeK);
   };
 
   /** Side-port targets: leaf nodes and expanded graph containers. */
@@ -214,7 +130,7 @@ export var crossEndRatio = function crossEndRatio(end, profile) {
   };
 
   // Keep in sync with Cytoscape compound padding (top reserves title space).
-export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
+export { GRAPH_COMPOUND_PAD };
 
   var syncNodeSizeFromAbs = function syncNodeSizeFromAbs(nodeK, abs) {
     if (!nodeK || !abs) return;
@@ -323,10 +239,7 @@ export var GRAPH_COMPOUND_PAD = { top: 29, right: 24, bottom: 24, left: 24 };
     var children = (nodeK && nodeK.children) || [];
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      var level =
-        child && child._cyEle && typeof child._cyEle.data === "function"
-          ? Number(child._cyEle.data("level"))
-          : NaN;
+      var level = nodeLevel(child);
       if (level !== 0) continue;
       var origin = p.cross === "y" ? child.y || 0 : child.x || 0;
       if (isGraphWrapper(child)) {
@@ -1076,10 +989,8 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
 
   /** 叶子所在包装框绝对矩形（仅几何参考；包装框本身不是 Node） */
   var wrapperAbsOfLeaf = function wrapperAbsOfLeaf(leafK, absLookup) {
-    if (!leafK || !leafK._cyEle) return null;
-    var p = leafK._cyEle.parent();
-    if (!p || !p.nonempty()) return null;
-    return absLookup[p.id()] || null;
+    var ancestors = nodeAncestorIds(leafK);
+    return ancestors.length ? absLookup[ancestors[0]] || null : null;
   };
 
   /** Read a numeric spacing option from the portable layout configuration. */
@@ -1100,17 +1011,14 @@ export var maxBendsForSides = function maxBendsForSides(os, is, profile) {
     key,
     fallback,
   ) {
-    if (!leafK || !leafK._cyEle || !graph) {
+    if (!leafK || !graph) {
       return readLayoutOptionNumber(graph && graph.layoutOptions, key, fallback);
     }
-    var wrap = leafK._cyEle.parent();
-    if (wrap && wrap.nonempty()) {
-      var wrapParent = wrap.parent();
-      if (wrapParent && wrapParent.nonempty() && graph._elementLookup) {
-        var pk = graph._elementLookup[wrapParent.id()];
-        if (pk && pk.layoutOptions) {
-          return readLayoutOptionNumber(pk.layoutOptions, key, fallback);
-        }
+    var ancestors = nodeAncestorIds(leafK);
+    if (ancestors.length > 1 && graph._elementLookup) {
+      var pk = graph._elementLookup[ancestors[1]];
+      if (pk && pk.layoutOptions) {
+        return readLayoutOptionNumber(pk.layoutOptions, key, fallback);
       }
     }
     return readLayoutOptionNumber(graph.layoutOptions, key, fallback);
@@ -1411,7 +1319,7 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
     Object.keys(absAll || {}).forEach(function (id) {
       if (id === "root") return;
       var k = elementLookup[id];
-      if (k && k._cyEle && k._cyEle.isParent() && absAll[id]) {
+      if (nodeIsParent(k) && absAll[id]) {
         var rect = absAll[id];
         out.push({
           id: id,
@@ -1674,33 +1582,6 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
   /** 整条路径总长偏好：越短越好，让评分能比较「绕远」与「贴边」的代价 */
   var FLOW_LENGTH_WEIGHT = 0.5;
 
-  /** 首段 + 末段曼哈顿长度（通道到端口的 stub） */
-  var routeEndStubLength = function routeEndStubLength(route) {
-    if (!route || route.length < 2) return 1e6;
-    var a = route[0];
-    var b = route[1];
-    var c = route[route.length - 2];
-    var d = route[route.length - 1];
-    return (
-      Math.abs(b.x - a.x) +
-      Math.abs(b.y - a.y) +
-      Math.abs(d.x - c.x) +
-      Math.abs(d.y - c.y)
-    );
-  };
-
-  /** 整条折线曼哈顿总长 */
-  var routeTotalLength = function routeTotalLength(route) {
-    if (!route || route.length < 2) return 0;
-    var len = 0;
-    for (var i = 1; i < route.length; i++) {
-      len +=
-        Math.abs(route[i].x - route[i - 1].x) +
-        Math.abs(route[i].y - route[i - 1].y);
-    }
-    return len;
-  };
-
   var scoreFlowRoute = function scoreFlowRoute(
     route,
     os,
@@ -1821,62 +1702,10 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
    * 找一条最短折线，保证不穿任何叶子节点 / 包装框。思路同 PCB 走线、
    * Orthogonal grid routing with rectangular obstacle avoidance.
    */
-  var A_STAR_BEND_COST = 20;
-  var A_STAR_MAX_EXPAND = 30000;
-
-  var uniqueSorted = function uniqueSorted(arr, tol) {
-    var a = (arr || []).slice().sort(function (x, y) {
-      return x - y;
-    });
-    var out = [];
-    for (var i = 0; i < a.length; i++) {
-      if (!out.length || Math.abs(a[i] - out[out.length - 1]) > tol)
-        out.push(a[i]);
-    }
-    return out;
-  };
-
-  var indexOfSorted = function indexOfSorted(arr, v, tol) {
-    for (var i = 0; i < (arr || []).length; i++) {
-      if (Math.abs(arr[i] - v) <= tol) return i;
-    }
-    return -1;
-  };
-
-  /** 路径是否穿入任一矩形内部（不含仅贴边）；用于「是否真穿节点」判定 */
-  var routeHitsRects = function routeHitsRects(route, rects, clearance) {
-    if (!route || route.length < 2 || !rects || !rects.length) return false;
-    var pad = clearance != null && isFinite(clearance) ? clearance : 0;
-    for (var s = 0; s < route.length - 1; s++) {
-      for (var i = 0; i < rects.length; i++) {
-        var r = rects[i];
-        if (!r || !(r.width > 0) || !(r.height > 0)) continue;
-        if (
-          orthoSegHitsRectInterior(
-            route[s].x,
-            route[s].y,
-            route[s + 1].x,
-            route[s + 1].y,
-            r.x - pad,
-            r.y - pad,
-            r.width + pad * 2,
-            r.height + pad * 2,
-          )
-        )
-          return true;
-      }
-    }
-    return false;
-  };
-
   /** 节点所有祖先包装框 id（边在其容器内走，容器自身不当障碍） */
   var ancestorWrapperIds = function ancestorWrapperIds(nodeK) {
     var out = createKeyMap();
-    var p = nodeK && nodeK._cyEle ? nodeK._cyEle.parent() : null;
-    while (p && p.nonempty()) {
-      out[p.id()] = true;
-      p = p.parent();
-    }
+    nodeAncestorIds(nodeK).forEach(function (id) { out[id] = true; });
     return out;
   };
 
@@ -1887,11 +1716,7 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
   var skipNodeAndDescendants = function skipNodeAndDescendants(skip, nodeK) {
     if (!skip || !nodeK) return;
     if (nodeK.id) skip[nodeK.id] = true;
-    var ele = nodeK._cyEle;
-    if (!ele || typeof ele.descendants !== "function") return;
-    ele.descendants().forEach(function (d) {
-      if (d && typeof d.id === "function") skip[d.id()] = true;
-    });
+    nodeDescendantIds(nodeK).forEach(function (id) { skip[id] = true; });
   };
 
   var routeObstacleRects = function routeObstacleRects(
@@ -1924,230 +1749,6 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
     return out;
   };
 
-  var orthogonalAStarRoute = function orthogonalAStarRoute(
-    sx,
-    sy,
-    tx,
-    ty,
-    outSide,
-    inSide,
-    rects,
-    clearance,
-  ) {
-    if (!isFinite(sx) || !isFinite(sy) || !isFinite(tx) || !isFinite(ty))
-      return null;
-    var pad =
-      clearance != null && isFinite(clearance) ? clearance : NODE_CLEARANCE;
-    var infl = [];
-    for (var i = 0; i < (rects || []).length; i++) {
-      var rr = rects[i];
-      if (!rr || !(rr.width > 0) || !(rr.height > 0)) continue;
-      infl.push({
-        x: rr.x - pad,
-        y: rr.y - pad,
-        width: rr.width + pad * 2,
-        height: rr.height + pad * 2,
-      });
-    }
-
-    var pointBlocked = function (px, py) {
-      for (var k = 0; k < infl.length; k++) {
-        var b = infl[k];
-        if (
-          px > b.x + 0.5 &&
-          px < b.x + b.width - 0.5 &&
-          py > b.y + 0.5 &&
-          py < b.y + b.height - 0.5
-        )
-          return true;
-      }
-      return false;
-    };
-
-    var segBlocked = function (x1, y1, x2, y2) {
-      for (var k = 0; k < infl.length; k++) {
-        var b = infl[k];
-        if (
-          orthoSegHitsRectInterior(
-            x1,
-            y1,
-            x2,
-            y2,
-            b.x,
-            b.y,
-            b.width,
-            b.height,
-          )
-        )
-          return true;
-      }
-      return false;
-    };
-
-    var xs = [sx, tx];
-    var ys = [sy, ty];
-    for (var m = 0; m < infl.length; m++) {
-      xs.push(infl[m].x, infl[m].x + infl[m].width);
-      ys.push(infl[m].y, infl[m].y + infl[m].height);
-    }
-    var leave = Math.min(Math.max(8, pad), 24);
-    xs.push(sx - leave, sx + leave, tx - leave, tx + leave);
-    ys.push(sy - leave, sy + leave, ty - leave, ty + leave);
-    xs = uniqueSorted(xs, 0.5);
-    ys = uniqueSorted(ys, 0.5);
-    if (xs.length < 2 || ys.length < 2) return null;
-
-    var ix0 = indexOfSorted(xs, sx, 0.5);
-    var iy0 = indexOfSorted(ys, sy, 0.5);
-    var ixT = indexOfSorted(xs, tx, 0.5);
-    var iyT = indexOfSorted(ys, ty, 0.5);
-    if (ix0 < 0 || iy0 < 0 || ixT < 0 || iyT < 0) return null;
-    if (pointBlocked(sx, sy) || pointBlocked(tx, ty)) return null;
-
-    // 出边方向（离开节点）与入边方向（进入节点）
-    var outDX = outSide === "EAST" ? 1 : outSide === "WEST" ? -1 : 0;
-    var outDY = outSide === "SOUTH" ? 1 : outSide === "NORTH" ? -1 : 0;
-    var inDX = inSide === "WEST" ? 1 : inSide === "EAST" ? -1 : 0;
-    var inDY = inSide === "NORTH" ? 1 : inSide === "SOUTH" ? -1 : 0;
-
-    var nCols = ys.length;
-    var keyOf = function (ix, iy) {
-      return ix * nCols + iy;
-    };
-    var gScore = createKeyMap();
-    var dirIn = createKeyMap();
-    var parent = createKeyMap();
-    var closed = createKeyMap();
-    var openCount = 0;
-
-    // 小顶堆：元素 [f, ix, iy]
-    var heap = [];
-    var heapPush = function (f, ix, iy) {
-      heap.push([f, ix, iy]);
-      var c = heap.length - 1;
-      while (c > 0) {
-        var pIdx = (c - 1) >> 1;
-        if (heap[pIdx][0] <= heap[c][0]) break;
-        var t = heap[pIdx];
-        heap[pIdx] = heap[c];
-        heap[c] = t;
-        c = pIdx;
-      }
-    };
-    var heapPop = function () {
-      if (!heap.length) return null;
-      var top = heap[0];
-      var last = heap.pop();
-      if (heap.length) {
-        heap[0] = last;
-        var c = 0;
-        for (;;) {
-          var l = c * 2 + 1;
-          var r = l + 1;
-          var best = c;
-          if (l < heap.length && heap[l][0] < heap[best][0]) best = l;
-          if (r < heap.length && heap[r][0] < heap[best][0]) best = r;
-          if (best === c) break;
-          var t2 = heap[best];
-          heap[best] = heap[c];
-          heap[c] = t2;
-          c = best;
-        }
-      }
-      return top;
-    };
-
-    var startKey = keyOf(ix0, iy0);
-    gScore[startKey] = 0;
-    dirIn[startKey] = null;
-    parent[startKey] = null;
-    heapPush(Math.abs(tx - xs[ix0]) + Math.abs(ty - ys[iy0]), ix0, iy0);
-
-    var found = false;
-    while (heap.length) {
-      var cur = heapPop();
-      if (!cur) break;
-      var cix = cur[1];
-      var ciy = cur[2];
-      var ckey = keyOf(cix, ciy);
-      if (closed[ckey]) continue;
-      closed[ckey] = true;
-      openCount++;
-      if (openCount > A_STAR_MAX_EXPAND) break;
-      if (cix === ixT && ciy === iyT) {
-        found = true;
-        break;
-      }
-
-      var cx = xs[cix];
-      var cy = ys[ciy];
-      var neighbors = [];
-      if (cix > 0) neighbors.push([cix - 1, ciy]);
-      if (cix < xs.length - 1) neighbors.push([cix + 1, ciy]);
-      if (ciy > 0) neighbors.push([cix, ciy - 1]);
-      if (ciy < ys.length - 1) neighbors.push([cix, ciy + 1]);
-
-      for (var ni = 0; ni < neighbors.length; ni++) {
-        var nix = neighbors[ni][0];
-        var niy = neighbors[ni][1];
-        var nkey = keyOf(nix, niy);
-        if (closed[nkey]) continue;
-        var nx = xs[nix];
-        var ny = ys[niy];
-        var dxMove = nx - cx;
-        var dyMove = ny - cy;
-        var isStart = cix === ix0 && ciy === iy0;
-        var isTarget = nix === ixT && niy === iyT;
-
-        // 首段必须垂直出边
-        if (isStart) {
-          if (outDX !== 0) {
-            if (!(dyMove === 0 && (dxMove > 0) === (outDX > 0))) continue;
-          } else {
-            if (!(dxMove === 0 && (dyMove > 0) === (outDY > 0))) continue;
-          }
-        }
-        // 末段必须垂直入边
-        if (isTarget) {
-          if (inDX !== 0) {
-            if (!(dyMove === 0 && (dxMove > 0) === (inDX > 0))) continue;
-          } else {
-            if (!(dxMove === 0 && (dyMove > 0) === (inDY > 0))) continue;
-          }
-        }
-
-        if (segBlocked(cx, cy, nx, ny)) continue;
-        if (pointBlocked(nx, ny)) continue;
-
-        var moveAxis = dxMove !== 0 ? "x" : "y";
-        var moveSign =
-          dxMove !== 0 ? (dxMove > 0 ? 1 : -1) : dyMove > 0 ? 1 : -1;
-        var moveDir = moveAxis + (moveSign > 0 ? "+" : "-");
-        var bendPen =
-          dirIn[ckey] != null && dirIn[ckey] !== moveDir ? A_STAR_BEND_COST : 0;
-        var ng = gScore[ckey] + Math.abs(dxMove) + Math.abs(dyMove) + bendPen;
-        var oldG = gScore[nkey] != null ? gScore[nkey] : Infinity;
-        if (ng < oldG) {
-          gScore[nkey] = ng;
-          dirIn[nkey] = moveDir;
-          parent[nkey] = [cix, ciy];
-          heapPush(ng + Math.abs(tx - nx) + Math.abs(ty - ny), nix, niy);
-        }
-      }
-    }
-
-    if (!found) return null;
-    var rev = [];
-    var cKey2 = keyOf(ixT, iyT);
-    rev.push({ x: xs[ixT], y: ys[iyT] });
-    while (parent[cKey2]) {
-      var pp = parent[cKey2];
-      rev.push({ x: xs[pp[0]], y: ys[pp[1]] });
-      cKey2 = keyOf(pp[0], pp[1]);
-    }
-    rev.reverse();
-    return rev;
-  };
 
   /**
    * 节点布局后：流程线计算。
@@ -2283,16 +1884,14 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
       // 净距与硬门槛一致用 NODE_CLEARANCE，取一条折点尽量少、总长尽量短的避障路径。
       var obs = routeObstacleRects(leafAbs, wraps, srcK, tgtK);
       if (!picked || routeHitsRects(picked, obs, 0)) {
-        var astar = orthogonalAStarRoute(
-          sx,
-          sy,
-          tx,
-          ty,
-          os,
-          isSide,
-          obs,
-          NODE_CLEARANCE,
-        );
+        var astar = orthogonalAStarRoute({
+          source: { x: sx, y: sy },
+          target: { x: tx, y: ty },
+          outSide: os,
+          inSide: isSide,
+          obstacles: obs,
+          clearance: NODE_CLEARANCE,
+        });
         if (astar && astar.length >= 2) {
           var astarSimp = simplifyOrthogonalPoints(astar);
           if (
@@ -2321,7 +1920,7 @@ export var ensureAllLeafEdgePorts = function ensureAllLeafEdgePorts(
   var stripWrapperNodeNorms = function stripWrapperNodeNorms(elementLookup) {
     Object.keys(elementLookup).forEach(function (id) {
       var k = elementLookup[id];
-      if (!k || !k._cyEle || !k._cyEle.isParent()) return;
+      if (!nodeIsParent(k)) return;
       if (isGraphWrapper(k)) return;
       k.ports = [];
     });
@@ -2462,12 +2061,6 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     }
   };
 
-  var edgeLevel = function edgeLevel(e) {
-    if (!e || !e._cyEle) return 0;
-    var lv = e._cyEle.data("level");
-    return Number.isInteger(+lv) && +lv >= 0 ? +lv : 0;
-  };
-
   /** 路由按 Level 升序提交，因此统一交叉代价即可自然保护较低 Level。 */
   var CROSSING_WEIGHT = 24;
   /** 同侧已被其它边占用：选点时必须计入，避免多条边挤同一口。 */
@@ -2518,40 +2111,6 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     return pen;
   };
 
-  /** 正交线段是否穿入矩形内部（不含仅贴边） */
-  var orthoSegHitsRectInterior = function orthoSegHitsRectInterior(
-    x1,
-    y1,
-    x2,
-    y2,
-    rx,
-    ry,
-    rw,
-    rh,
-  ) {
-    var left = rx;
-    var right = rx + rw;
-    var top = ry;
-    var bottom = ry + rh;
-    if (Math.abs(y1 - y2) < 0.5) {
-      // 水平段
-      var y = y1;
-      if (y <= top + 0.5 || y >= bottom - 0.5) return false;
-      var minX = Math.min(x1, x2);
-      var maxX = Math.max(x1, x2);
-      return maxX > left + 0.5 && minX < right - 0.5;
-    }
-    if (Math.abs(x1 - x2) < 0.5) {
-      // 竖直段
-      var x = x1;
-      if (x <= left + 0.5 || x >= right - 0.5) return false;
-      var minY = Math.min(y1, y2);
-      var maxY = Math.max(y1, y2);
-      return maxY > top + 0.5 && minY < bottom - 0.5;
-    }
-    return false;
-  };
-
   /** 路径是否穿过除端点外的任意 Node（硬禁止）；clearance 默认 NODE_CLEARANCE，硬规则应传 edgeNode */
   var routeCrossesNodes = function routeCrossesNodes(
     route,
@@ -2575,7 +2134,18 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
         var ry = n.y - pad;
         var rw = n.width + pad * 2;
         var rh = n.height + pad * 2;
-        if (orthoSegHitsRectInterior(p.x, p.y, q.x, q.y, rx, ry, rw, rh))
+        if (
+          orthogonalSegmentHitsRectInterior(
+            p.x,
+            p.y,
+            q.x,
+            q.y,
+            rx,
+            ry,
+            rw,
+            rh,
+          )
+        )
           return true;
       }
     }
@@ -3062,41 +2632,6 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
     return sideAwareOrthoRoute(srcK, tgtK, srcSide, tgtSide, profile);
   };
 
-  var orient = function orient(p, q, r) {
-    var v = (q.y - p.y) * (r.x - q.x) - (q.x - p.x) * (r.y - q.y);
-    if (Math.abs(v) < 1e-6) return 0;
-    return v > 0 ? 1 : 2;
-  };
-
-  /** 真交叉（不含端点相接） */
-  var segmentsProperIntersect = function segmentsProperIntersect(
-    p1,
-    q1,
-    p2,
-    q2,
-  ) {
-    var o1 = orient(p1, q1, p2);
-    var o2 = orient(p1, q1, q2);
-    var o3 = orient(p2, q2, p1);
-    var o4 = orient(p2, q2, q1);
-    if (o1 !== o2 && o3 !== o4) {
-      // 排除端点重合（共享节点处不算交叉）
-      var endsTouch = function endsTouch(a, b) {
-        return Math.abs(a.x - b.x) < 1e-3 && Math.abs(a.y - b.y) < 1e-3;
-      };
-      if (
-        endsTouch(p1, p2) ||
-        endsTouch(p1, q2) ||
-        endsTouch(q1, p2) ||
-        endsTouch(q1, q2)
-      ) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  };
-
   /** 统计与已按 Level 顺序提交路径的交叉数。 */
   var countRouteCrossings = function countRouteCrossings(
     route,
@@ -3114,7 +2649,7 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       for (var i = 0; i < route.length - 1; i++) {
         for (var j = 0; j < other.length - 1; j++) {
           if (
-            segmentsProperIntersect(
+            segmentsProperlyIntersect(
               route[i],
               route[i + 1],
               other[j],
@@ -3127,20 +2662,6 @@ export var spreadAllFixedPorts = function spreadAllFixedPorts(graph, elementLook
       crossings += hits;
     }
     return crossings;
-  };
-
-  var countRouteBends = function countRouteBends(route) {
-    if (!route || route.length < 3) return 0;
-    var n = 0;
-    for (var i = 1; i < route.length - 1; i++) {
-      var ax = route[i].x - route[i - 1].x;
-      var ay = route[i].y - route[i - 1].y;
-      var bx = route[i + 1].x - route[i].x;
-      var by = route[i + 1].y - route[i].y;
-      // 方向变化即折点
-      if (ax * by !== ay * bx || ax * bx + ay * by <= 0) n++;
-    }
-    return n;
   };
 
   /** 按 Level 升序为需要避让的端点选择端口，再计算最终路由。 */

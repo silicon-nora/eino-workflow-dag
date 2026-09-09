@@ -34,7 +34,24 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
   };
 
   var makeNode = function makeNode(node, options) {
-    var k = { _cyEle: node, id: node.id() };
+    var ancestors = [];
+    var parent = node.parent();
+    while (parent && parent.nonempty()) {
+      ancestors.push(parent.id());
+      parent = parent.parent();
+    }
+    var k = {
+      _cyEle: node,
+      _isParent: node.isParent(),
+      _isGraphWrapper:
+        node.isParent() && !!(node.data("subgraph") || node.data("expandable")),
+      _level: node.data("level"),
+      _ancestorIds: ancestors,
+      _descendantIds: node.isParent()
+        ? node.descendants().map(function (descendant) { return descendant.id(); })
+        : [],
+      id: node.id(),
+    };
     if (options.nodeLayoutOptions) {
       k.layoutOptions = options.nodeLayoutOptions(node);
     }
@@ -53,6 +70,7 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
   var makeEdge = function makeEdge(edge, options) {
     var k = {
       _cyEle: edge,
+      _level: edge.data("level"),
       id: edge.id(),
       source: edge.data("source"),
       target: edge.data("target"),

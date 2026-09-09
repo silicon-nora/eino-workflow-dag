@@ -18,6 +18,14 @@ public contract is being validated.
 
 ### Changed
 
+- Split routing geometry, obstacle-aware A*, rendering-engine context, and
+  orchestration into explicit internal modules without changing route behavior.
+- Centralized render invalidation around geometry signatures so data patches,
+  paint-only theme updates, and full layout changes follow one policy.
+- Split runtime public-data projection, host callback isolation, host DOM
+  ownership, and layout option construction from the renderer orchestrator.
+- Added automated source-boundary checks for dependency cycles, core/rendering
+  direction, rendering-engine access, and orchestration-module growth.
 - Documented the independently versioned Go projection module and its stable
   `integrations/go/v1.0.0` release.
 - Generalized exact-Registry integration validation for stable and prerelease
