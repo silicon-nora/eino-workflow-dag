@@ -9,6 +9,10 @@ geometry invariants. The `1.x` support target is the latest two stable releases
 of Chrome, Edge, Firefox, and Safari. CI runs Chromium once more with the
 minimum declared peers: React 18.2, React DOM 18.2, and Vue 3.4.
 
+The classic-script build is published as `dist/eino-workflow-dag.umd.js` and
+exposes `window.EinoWorkflowDAG`. The package's `unpkg` and `jsdelivr` fields
+both select that file.
+
 Build tools and data-only imports require Node.js 20 or newer. Renderer entry
 points require a browser DOM; `/validation` can be imported without a DOM.
 

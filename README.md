@@ -84,6 +84,23 @@ Keep the returned `view` for later lifecycle operations. Call
 the host is permanently removed. The renderer observes container size changes
 by default.
 
+### Browser script (UMD)
+
+The package publishes a browser-ready UMD bundle as
+`dist/eino-workflow-dag.umd.js`. CDN consumers can load the stylesheet and
+script directly; the API is exposed as `window.EinoWorkflowDAG`:
+
+```html
+<link
+  rel="stylesheet"
+  href="https://cdn.jsdelivr.net/npm/eino-workflow-dag@1/dist/eino-workflow-dag.css"
+>
+<script src="https://cdn.jsdelivr.net/npm/eino-workflow-dag@1/dist/eino-workflow-dag.umd.js"></script>
+```
+
+Pin an exact package version in production when deployments must be
+reproducible.
+
 ## Snapshot protocol
 
 `EinoWorkflowSnapshot` is maintained by this library. It is a browser-facing
