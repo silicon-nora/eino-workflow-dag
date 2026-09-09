@@ -5,12 +5,19 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-09-09
+
 ### Added
 
 - Extended the independent RC host with live visual presets and interaction
   policy controls for the published customization contract.
 - Added a Chromium RC-host suite covering paint and geometry theme boundaries,
   every interaction-policy remount, and representative configuration combinations.
+
+### Fixed
+
+- Applied configured node dimensions and root/nested spacing to the portable
+  layout coordinates in every direction instead of using classic-theme geometry.
 
 ## [1.0.0-rc.3] - 2026-09-08
 
