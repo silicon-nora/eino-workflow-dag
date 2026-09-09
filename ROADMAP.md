@@ -69,7 +69,7 @@ JavaScript contract.
 - [x] Exercise `1.0.0-rc.3` visual presets and interaction policies in the
   independent exact-npm host
 - [x] Automate the RC-host customization matrix and lifecycle state checks in CI
-- [ ] Review RC feedback and resolve any newly discovered release blocker
+- [x] Review RC feedback and complete the final release-blocker audit
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 
 ## Alpha.3 — public boundary
@@ -93,9 +93,9 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Review RC feedback and reproduce any release blocker in the independent host.
-2. Fix release blockers only; publish another RC if code changes are required.
-3. Publish `1.0.0` under npm's `latest` dist-tag after RC validation.
+1. Prepare the `1.0.0` version and changelog from the validated RC contract.
+2. Run the complete release gate and inspect the exact final tarball.
+3. Publish `1.0.0` under npm's `latest` dist-tag and create the GitHub release.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
