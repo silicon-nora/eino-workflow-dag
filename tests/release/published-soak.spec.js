@@ -181,12 +181,16 @@ test("published package survives representative integration use", async ({ page 
   const interaction = await page.evaluate((count) => {
     const harness = window.releaseHarness;
     const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
+    const paintThemes = [
+      { base: "classic", tokens: { colors: { paper: "#ffffff" } } },
+      { base: "classic", tokens: { colors: { paper: "#f8fafc" } } },
+    ];
     const before = harness.instance.getDiagnostics();
     for (let index = 0; index < count; index += 1) {
       harness.instance.setDirection(directions[index % directions.length]);
       harness.instance.setExpanded(index % 2 === 0 ? [["answer"]] : []);
       harness.instance.setActiveNodePath(index % 3 === 0 ? ["answer"] : null);
-      harness.instance.setTheme(index % 2 === 0 ? "classic" : "ink");
+      harness.instance.setTheme(paintThemes[index % paintThemes.length]);
     }
     return { before, after: harness.instance.getDiagnostics() };
   }, cycles);
@@ -194,6 +198,30 @@ test("published package survives representative integration use", async ({ page 
   expect(interaction.after.layoutCacheHits).toBeGreaterThan(
     interaction.before.layoutCacheHits,
   );
+
+  const beforeGeometryTheme = await page.evaluate(() => {
+    const instance = window.releaseHarness.instance;
+    const before = instance.getDiagnostics();
+    instance.setTheme("ink");
+    return { before, after: instance.getDiagnostics() };
+  });
+  expect(beforeGeometryTheme.after.layoutRuns).toBe(
+    beforeGeometryTheme.before.layoutRuns + 1,
+  );
+  await settle(page);
+  expect((await inspectGeometry(page)).failures).toEqual([]);
+
+  const afterGeometryTheme = await page.evaluate(() => {
+    const instance = window.releaseHarness.instance;
+    const before = instance.getDiagnostics();
+    instance.setTheme("classic");
+    return { before, after: instance.getDiagnostics() };
+  });
+  expect(afterGeometryTheme.after.layoutRuns).toBe(
+    afterGeometryTheme.before.layoutRuns + 1,
+  );
+  await settle(page);
+  expect((await inspectGeometry(page)).failures).toEqual([]);
 
   const lifecycle = await page.evaluate((count) =>
     window.releaseHarness.cycleLifecycle(count),

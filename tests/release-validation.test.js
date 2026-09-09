@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   formatReleaseValidationReport,
   parseReleaseValidationArguments,
@@ -86,5 +88,30 @@ assert.match(markdown, /Browser \\| soak/);
 assert.match(markdown, /https:\/\/registry\.npmjs\.org\//);
 assert.match(markdown, /Package source: npm-registry/);
 assert.match(markdown, /1\.25 s/);
+
+const publishWorkflow = readFileSync(
+  resolve(import.meta.dirname, "../.github/workflows/publish.yml"),
+  "utf8",
+);
+const createArtifactIndex = publishWorkflow.indexOf(
+  "name: Create the immutable release artifact",
+);
+const validateArtifactIndex = publishWorkflow.indexOf(
+  "name: Validate the exact release artifact",
+);
+const publishIndex = publishWorkflow.indexOf("name: Publish to npm");
+assert.ok(createArtifactIndex >= 0, "publish workflow must create one release artifact");
+assert.ok(
+  validateArtifactIndex > createArtifactIndex,
+  "publish workflow must validate the created artifact",
+);
+assert.ok(
+  publishIndex > validateArtifactIndex,
+  "publish workflow must validate the artifact before npm publication",
+);
+assert.match(
+  publishWorkflow.slice(validateArtifactIndex, publishIndex),
+  /--local-artifact "\$\{\{ steps\.artifact\.outputs\.tarball \}\}"/,
+);
 
 console.log("OK: release validation contract tests passed");

@@ -46,7 +46,8 @@ registering a global name. Use `registerWorkflowDAGTheme(name, tokens)` when
 several renderer instances should share the same theme.
 
 `setTheme()` applies paint-only changes without a layout run. Changes to node
-dimensions or spacing clear the instance layout cache and run layout again.
+measurement tokens (dimensions, border width, or typography) or spacing clear
+the instance layout cache and run layout again.
 `getTheme()` returns the current registered name or a detached copy of the
 instance definition.
 

@@ -5,6 +5,19 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Changed
+
+- Run the full clean-consumer and three-browser release soak against the exact
+  immutable tarball before npm publication.
+- Clarified that node border and typography tokens participate in theme
+  geometry measurement and therefore require relayout.
+
+### Fixed
+
+- Kept the published-package soak's zero-relayout assertion scoped to
+  paint-only theme changes while separately validating geometry-changing
+  built-in themes.
+
 ## [1.1.0] - 2026-09-09
 
 ### Added
