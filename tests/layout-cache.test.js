@@ -31,6 +31,21 @@ assert(
   "edge Level participates in the cache key",
 );
 
+const shortLabel = structuredClone(elements);
+shortLabel[0].data.label = "A";
+const multilineLabel = structuredClone(shortLabel);
+multilineLabel[0].data.label = "A\nmetadata detail";
+assert(
+  layoutCacheKey("RIGHT", shortLabel, true) !==
+    layoutCacheKey("RIGHT", multilineLabel, true),
+  "formatted node labels participate in geometry-sensitive cache keys",
+);
+assert(
+  layoutCacheKey("RIGHT", shortLabel) ===
+    layoutCacheKey("RIGHT", multilineLabel),
+  "runtime labels stay outside topology-only cache keys",
+);
+
 const delimiterInId = [
   { group: "nodes", data: { id: "a\u0000b", parent: "", subgraph: false } },
 ];

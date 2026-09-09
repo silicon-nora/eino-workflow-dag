@@ -31,6 +31,18 @@ public contract is being validated.
 
 ### Fixed
 
+- Isolated algorithm boundary sentinels and renderer edge IDs from legal
+  workflow node IDs, preventing Level-selection loops and silently dropped
+  edges without reserving new schema identifiers.
+- Rejected accessor-backed field and execution paths without invoking their
+  getters, keeping invalid JSON-like input inside the validation result.
+- Classified non-nil Go execution errors as failed even when their message is
+  empty.
+- Invalidated layout state when theme measurement tokens or custom formatted
+  labels change, while preserving the paint-only theme update path.
+- Unified tooltip and click callback node data, including the rendered label,
+  Level, and nested-workflow state.
+- Rendered empty nested workflows as labeled, non-expandable graph nodes.
 - Accepted distinct Eino branch records that share the same source and target
   set, while retaining the former validation issue code as a deprecated 1.x
   type-compatibility member.

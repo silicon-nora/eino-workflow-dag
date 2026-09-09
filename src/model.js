@@ -49,13 +49,20 @@ function appendPath(prefix, id) {
     return !!(n && n.kind === 'graph');
   }
 
+  function isExpandableGraphNode(n) {
+    if (!isGraphNode(n) || !n.graph) return false;
+    return (n.graph.nodes || []).some(function (child) {
+      return !!nodeRef(child);
+    });
+  }
+
   function listSubgraphs(graph, prefix, out) {
     out = out || [];
     (graph.nodes || []).forEach(function (n) {
       var id = nodeRef(n);
       if (!id) return;
       var path = appendPath(prefix, id);
-      if (isGraphNode(n)) {
+      if (isExpandableGraphNode(n)) {
         out.push({ path: path, name: n.name || n.original_id || id, node: n });
         if (n.graph) listSubgraphs(n.graph, path, out);
       }
@@ -76,12 +83,34 @@ function appendPath(prefix, id) {
   function materializeEdges(rawEdges, nodes) {
     var out = [];
     var seq = 0;
+    // Cytoscape uses one string ID namespace for nodes and edges. Allocate
+    // renderer-owned edge IDs against every visible node/edge ID so an
+    // unrestricted schema node ID can never make a legitimate edge vanish.
+    var occupiedIds = createKeyMap();
+    (nodes || []).forEach(function (node) {
+      if (node && node.id != null) occupiedIds[String(node.id)] = true;
+    });
+
+    function nextEdgeId(from, to) {
+      // Keep the established deterministic ID for the ordinary case; only
+      // add a suffix when an unrestricted node ID already occupies it.
+      var stem = 'e' + (seq++) + '_' + from + '__' + to;
+      var candidate = stem;
+      var collision = 0;
+      while (hasOwnKey(occupiedIds, candidate)) {
+        collision += 1;
+        candidate = stem + ':' + collision;
+      }
+      occupiedIds[candidate] = true;
+      return candidate;
+    }
+
     (rawEdges || []).forEach(function (e) {
       if (!e || !e.from || !e.to || e.from === e.to) return;
       if (e.toParent || e.to_parent) return;
       if (!nodeById(nodes, e.from) || !nodeById(nodes, e.to)) return;
       out.push({
-        id: 'e' + (seq++) + '_' + e.from + '__' + e.to,
+        id: nextEdgeId(e.from, e.to),
         from: e.from,
         to: e.to,
         kind: e.kind || '',
@@ -98,8 +127,10 @@ function appendPath(prefix, id) {
     return out;
   }
 
-  var VIRT_START = '__START__';
-  var VIRT_END = '__END__';
+  // Symbols are algorithm-only sentinels. Unlike string constants, they
+  // cannot collide with any legal schema v1 node ID.
+  var VIRT_START = Symbol('workflow-level-start');
+  var VIRT_END = Symbol('workflow-level-end');
 
   function edgeKey(from, to) {
     return JSON.stringify([from, to]);
@@ -475,7 +506,8 @@ function appendPath(prefix, id) {
         idOf[localId] = path;
 
         var isSub = isGraphNode(n);
-        if (isSub && hasOwnKey(expanded, path) && expanded[path]) {
+        var isExpandable = isExpandableGraphNode(n);
+        if (isExpandable && hasOwnKey(expanded, path) && expanded[path]) {
           nodes.push({
             id: path,
             key: n.original_id || localId,
@@ -492,7 +524,6 @@ function appendPath(prefix, id) {
             subgraph: true,
             expanded: true
           });
-          // 空 / 缺省 graph = 合法空子图
           walk(n.graph || { nodes: [], edges: [] }, path, path);
         } else {
           nodes.push({
@@ -507,7 +538,7 @@ function appendPath(prefix, id) {
             cost_ms: n.cost_ms,
             metrics: n.metrics || null,
             err_msg: n.err_msg || '',
-            expandable: isSub,
+            expandable: isExpandable,
             subgraph: isSub,
             expanded: false
           });

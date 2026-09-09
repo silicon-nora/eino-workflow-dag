@@ -31,11 +31,12 @@ function defaultNodeLabel(node, locale) {
   return detail ? `${title}\n${detail}` : title;
 }
 
-function publicVisibleNode(node) {
+export function toVisibleNodeData(node) {
+  const path = decodeNodePath(node.id);
   return {
-    path: decodeNodePath(node.id),
-    id: node.key || node.id,
-    name: node.name || node.key || node.id,
+    path,
+    id: node.key || path.at(-1) || node.id,
+    name: node.title || node.name || node.key || path.at(-1) || node.id,
     ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
     kind: node.kind || "",
     component: node.component || "",
@@ -51,6 +52,14 @@ function publicVisibleNode(node) {
   };
 }
 
+/** Convert renderer node data into the single public callback representation. */
+export function toRenderedNodeData(node) {
+  return {
+    ...toVisibleNodeData(node),
+    label: node.label == null ? "" : String(node.label),
+  };
+}
+
 export function toCytoscapeElements(visible, options = {}) {
   const elements = [];
   const formatter = options.nodeLabelFormatter;
@@ -59,7 +68,7 @@ export function toCytoscapeElements(visible, options = {}) {
     let label = "";
     if (!node.expanded || !node.subgraph) {
       const content = formatter
-        ? formatter(publicVisibleNode(node))
+        ? formatter(toVisibleNodeData(node))
         : defaultNodeLabel(node, options.locale);
       label = content == null ? "" : String(content);
     }

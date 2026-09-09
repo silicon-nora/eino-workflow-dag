@@ -3,6 +3,7 @@ import {
   kindLabel,
   syncCytoscapeElements,
   toCytoscapeElements,
+  toRenderedNodeData,
 } from "../src/elements.js";
 import cytoscape from "cytoscape";
 import { patchCytoscapeElements } from "../src/elements.js";
@@ -78,6 +79,45 @@ toCytoscapeElements(
   { nodeLabelFormatter: (node) => { untimedPublicNode = node; return "Untimed"; } },
 );
 assert(!("durationMs" in untimedPublicNode), "missing duration stays absent in public formatter data");
+
+assert(
+  JSON.stringify(toRenderedNodeData({
+    id: "outer/inner",
+    key: "inner",
+    title: "Inner",
+    label: "Inner\nLambda",
+    parent: "outer",
+    kind: "cpu",
+    component: "Lambda",
+    metadata: { owner: "host" },
+    status: "success",
+    cost_ms: 12,
+    metrics: { attempts: 1 },
+    err_msg: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: 2,
+  })) === JSON.stringify({
+    path: ["outer", "inner"],
+    id: "inner",
+    name: "Inner",
+    parentPath: ["outer"],
+    kind: "cpu",
+    component: "Lambda",
+    metadata: { owner: "host" },
+    status: "success",
+    durationMs: 12,
+    metrics: { attempts: 1 },
+    errorMessage: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: 2,
+    label: "Inner\nLambda",
+  }),
+  "rendered node callbacks share one complete public data conversion",
+);
 
 const cy = cytoscape({ headless: true, elements });
 const updated = structuredClone(elements);

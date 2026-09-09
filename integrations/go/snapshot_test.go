@@ -245,6 +245,39 @@ func TestExecutionRecorderCapturesFailure(t *testing.T) {
 	}
 }
 
+func TestExecutionRecorderUsesErrorPresenceForFailure(t *testing.T) {
+	wanted := errors.New("")
+	workflow := compose.NewWorkflow[string, string]()
+	workflow.AddLambdaNode(
+		"fail",
+		compose.InvokableLambda(func(_ context.Context, _ string) (string, error) {
+			return "", wanted
+		}),
+	).AddInput(compose.START)
+	workflow.End().AddInput("fail")
+	runner, err := workflow.Compile(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := NewExecutionRecorder("empty-message-failure")
+	if _, err := runner.Invoke(
+		context.Background(),
+		"input",
+		compose.WithCallbacks(recorder.Handler()),
+	); !errors.Is(err, wanted) {
+		t.Fatalf("expected empty-message failure, got %v", err)
+	}
+	execution := recorder.Execution()
+	if len(execution.Nodes) != 1 {
+		t.Fatalf("expected one failed node, got %#v", execution.Nodes)
+	}
+	node := execution.Nodes[0]
+	if !reflect.DeepEqual(node.Path, []string{"fail"}) || node.Status != NodeStatusFailed || node.ErrorMessage != "" {
+		t.Fatalf("non-nil error with an empty message must remain failed: %#v", node)
+	}
+}
+
 func TestExecutionRecorderOmitsUnfinishedAndMarksSkipped(t *testing.T) {
 	recorder := NewExecutionRecorder("partial-run")
 	recorder.recordStart([]string{"unfinished"})

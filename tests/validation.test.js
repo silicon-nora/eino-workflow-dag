@@ -249,6 +249,62 @@ const unsafe = validateWorkflowSnapshot({
 });
 assert(unsafe.errors.some((entry) => entry.code === "invalid_json_value"), "non-JSON values are rejected");
 
+let fieldPathGetterInvoked = false;
+const accessorFieldPath = ["content"];
+Object.defineProperty(accessorFieldPath, "0", {
+  enumerable: true,
+  get() {
+    fieldPathGetterInvoked = true;
+    throw new Error("field path getter must not run");
+  },
+});
+const unsafeFieldPath = validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "a" }, { id: "b" }],
+    edges: [{
+      from: "a",
+      to: "b",
+      channels: ["data"],
+      mappings: [{ fromPath: accessorFieldPath, toPath: ["query"] }],
+    }],
+  },
+});
+assert(!fieldPathGetterInvoked, "field-path accessors are never invoked");
+assert(
+  unsafeFieldPath.errors.some((entry) => entry.code === "invalid_json_value"),
+  "field-path accessors are reported as non-JSON values",
+);
+assert(
+  unsafeFieldPath.errors.some((entry) => entry.code === "invalid_field_path"),
+  "field-path accessors are rejected by the semantic validator",
+);
+
+let executionPathGetterInvoked = false;
+const accessorExecutionPath = ["input"];
+Object.defineProperty(accessorExecutionPath, "0", {
+  enumerable: true,
+  get() {
+    executionPathGetterInvoked = true;
+    throw new Error("execution path getter must not run");
+  },
+});
+const unsafeExecutionPath = validateWorkflowSnapshot({
+  ...valid,
+  execution: {
+    nodes: [{ path: accessorExecutionPath, status: "success", durationMs: 1 }],
+  },
+});
+assert(!executionPathGetterInvoked, "execution-path accessors are never invoked");
+assert(
+  unsafeExecutionPath.errors.some((entry) => entry.code === "invalid_json_value"),
+  "execution-path accessors are reported as non-JSON values",
+);
+assert(
+  unsafeExecutionPath.errors.some((entry) => entry.code === "invalid_node_path"),
+  "execution-path accessors are rejected by the semantic validator",
+);
+
 try {
   parseWorkflowSnapshot({ schemaVersion: 1, workflow: { nodes: [] } });
   assert(false, "invalid parsing throws");

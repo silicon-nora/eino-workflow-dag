@@ -9,6 +9,8 @@ import {
   patchCytoscapeElements,
   syncCytoscapeElements,
   toCytoscapeElements,
+  toRenderedNodeData,
+  toVisibleNodeData,
 } from "./elements.js";
 import {
   bindGraphInteractions,
@@ -133,27 +135,6 @@ import {
     return encodeNodePath(normalizeNodePath(value, "activeNodePath"));
   }
 
-  function publicNodeData(node) {
-    return {
-      path: decodeNodePath(node.id),
-      id: node.key,
-      label: node.label || "",
-      name: node.title || node.key,
-      kind: node.kind || "",
-      component: node.component || "",
-      metadata: node.metadata || null,
-      ...(node.status == null ? {} : { status: node.status }),
-      ...(node.cost_ms == null ? {} : { durationMs: node.cost_ms }),
-      metrics: node.metrics || null,
-      errorMessage: node.err_msg || "",
-      expandable: !!node.expandable,
-      subgraph: !!node.subgraph,
-      expanded: !!node.expanded,
-      level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
-      ...(node.parent ? { parentPath: decodeNodePath(node.parent) } : {}),
-    };
-  }
-
   function edgeChannels(kind) {
     if (!kind) return [];
     return kind.split("+").filter(function (channel) {
@@ -181,11 +162,10 @@ import {
   function publicVisibleGraph(visible) {
     return {
       nodes: visible.nodes.map(function (node) {
-        return publicNodeData({
+        return toVisibleNodeData({
           ...node,
           title: node.name,
           key: node.key,
-          label: "",
           parent: node.parent,
         });
       }),
@@ -237,8 +217,26 @@ import {
 
   function layoutThemeFingerprint(tokens) {
     return JSON.stringify({
-      node: [tokens.node.width, tokens.node.height, tokens.node.textMaxWidth],
+      node: [
+        tokens.node.width,
+        tokens.node.height,
+        tokens.node.textMaxWidth,
+        tokens.node.borderWidth,
+        tokens.node.fontSize,
+        tokens.node.fontWeight,
+        tokens.node.fontFamily || "",
+        tokens.node.textOutlineWidth || 0,
+      ],
       spacing: tokens.spacing,
+    });
+  }
+
+  function sameFormattedLabels(cy, elements) {
+    if (!cy) return false;
+    return elements.every(function (spec) {
+      if (spec.group !== "nodes") return true;
+      var node = cy.getElementById(spec.data.id);
+      return !!node && !node.empty() && node.data("label") === spec.data.label;
     });
   }
 
@@ -753,12 +751,7 @@ export function mountRenderer(container, options) {
               return callHost(
                 "tooltipFormatter",
                 options.tooltipFormatter,
-                [publicNodeData({
-                  ...node,
-                  key: node.key || decodeNodePath(node.id).at(-1) || "",
-                  label: "",
-                  title: node.title,
-                })],
+                [toRenderedNodeData(node)],
                 function () {
                   return formatNodeTooltip(node, formatDuration, locale);
                 },
@@ -854,6 +847,8 @@ export function mountRenderer(container, options) {
         renderOptions &&
         renderOptions.patchData &&
         additionalStyles.length === 0 &&
+        (typeof options.nodeLabelFormatter !== "function" ||
+          sameFormattedLabels(cy, elements)) &&
         patchCytoscapeElements(cy, elements)
       ) {
         diagnostics.dataPatches += 1;
@@ -901,7 +896,11 @@ export function mountRenderer(container, options) {
           },
           onKeyboardFocus: accessibility.focusNode,
           onNodeClick: function (node) {
-            notifyHost("onNodeClick", listeners.onNodeClick, publicNodeData(node));
+            notifyHost(
+              "onNodeClick",
+              listeners.onNodeClick,
+              toRenderedNodeData(node),
+            );
           },
           onViewport: viewport.onViewport,
           setEdgeHighlight: edgeState.set,
@@ -919,7 +918,12 @@ export function mountRenderer(container, options) {
       runLayout(
         visible,
         !renderOptions || renderOptions.fit !== false,
-        layoutCacheKey(profile.direction, elements, additionalStyles.length > 0) + layoutThemeKey,
+        layoutCacheKey(
+          profile.direction,
+          elements,
+          additionalStyles.length > 0 ||
+            typeof options.nodeLabelFormatter === "function",
+        ) + layoutThemeKey,
       );
       if (childrenBeforeCytoscape) {
         cytoscapeHostChildren = Array.from(container.children).filter(function (child) {

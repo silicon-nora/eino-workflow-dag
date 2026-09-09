@@ -880,3 +880,262 @@ test("applies theme geometry to root and nested layout in every direction", asyn
     expect(result.nested.gap).toBeCloseTo(29, 3);
   }
 });
+
+test("renders an empty nested workflow as a labeled non-expandable node", async ({ page }) => {
+  await page.goto("/examples/plain/");
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:480px;height:260px";
+    document.body.appendChild(host);
+    const expansionEvents = [];
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [{
+            id: "empty",
+            name: "Empty workflow",
+            workflow: { nodes: [], edges: [] },
+          }],
+          edges: [],
+        },
+      },
+      onExpandedChange(paths) {
+        expansionEvents.push(paths);
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    const node = cy.getElementById("empty");
+    node.emit("tap");
+    const output = {
+      nodes: cy.nodes().length,
+      label: node.data("label"),
+      subgraph: node.data("subgraph"),
+      expandable: node.data("expandable"),
+      expanded: node.data("expanded"),
+      isParent: node.isParent(),
+      configuredExpanded: instance.getExpanded(),
+      expansionEvents,
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result).toEqual({
+    nodes: 1,
+    label: "Empty workflow",
+    subgraph: true,
+    expandable: false,
+    expanded: false,
+    isParent: false,
+    configuredExpanded: [],
+    expansionEvents: [],
+  });
+});
+
+test("retains an edge when a legal node ID resembles its generated ID", async ({ page }) => {
+  await page.goto("/examples/plain/");
+
+  const result = await page.evaluate(async () => {
+    const host = document.createElement("div");
+    host.style.cssText = "position:relative;width:480px;height:260px";
+    document.body.appendChild(host);
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: {
+        schemaVersion: 1,
+        workflow: {
+          nodes: [
+            { id: "a" },
+            { id: "b" },
+            { id: "e0_a__b" },
+          ],
+          edges: [{ from: "a", to: "b", channels: ["control"] }],
+        },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+    const edge = cy.edges().first();
+    const output = {
+      nodes: cy.nodes().length,
+      edges: cy.edges().length,
+      collisionNodePresent: cy.getElementById("e0_a__b").isNode(),
+      edgeId: edge.id(),
+      source: edge.source().id(),
+      target: edge.target().id(),
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result).toEqual({
+    nodes: 3,
+    edges: 1,
+    collisionNodePresent: true,
+    edgeId: "e0_a__b:1",
+    source: "a",
+    target: "b",
+  });
+});
+
+test("invalidates measured geometry without relayout for paint-only theme changes", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(() => {
+    const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
+    return directions.map((direction, index) => {
+      window.dagInstance.setDirection(direction);
+      const nodeTokens = {
+        borderWidth: 2 + index * 0.25,
+        fontSize: 17 + index,
+        fontWeight: 600,
+        fontFamily: 'Georgia, "Times New Roman", serif',
+        textOutlineWidth: index % 2,
+      };
+      const before = window.dagInstance.getDiagnostics();
+      window.dagInstance.setTheme({
+        base: "classic",
+        tokens: { node: nodeTokens },
+      });
+      const afterGeometry = window.dagInstance.getDiagnostics();
+      window.dagInstance.setTheme({
+        base: "classic",
+        tokens: {
+          node: nodeTokens,
+          colors: { paper: index % 2 ? "#f8fafc" : "#fff7ed" },
+        },
+      });
+      const afterPaint = window.dagInstance.getDiagnostics();
+      return {
+        geometryDelta: afterGeometry.layoutRuns - before.layoutRuns,
+        paintDelta: afterPaint.layoutRuns - afterGeometry.layoutRuns,
+      };
+    });
+  });
+
+  expect(result).toEqual([
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+    { geometryDelta: 1, paintDelta: 0 },
+  ]);
+});
+
+test("invalidates formatted-label layouts and shares complete node callback data", async ({
+  page,
+}) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.style.cssText = "width:760px;height:420px";
+    document.body.appendChild(host);
+    const formatterInputs = [];
+    const clickInputs = [];
+    const makeSnapshot = (status, detail) => ({
+      schemaVersion: 1,
+      workflow: {
+        nodes: [
+          {
+            id: "inspect",
+            name: "Inspect",
+            component: "Lambda",
+            metadata: { detail },
+            workflow: { nodes: [{ id: "inside" }], edges: [] },
+          },
+          { id: "finish", name: "Finish" },
+        ],
+        edges: [{ from: "inspect", to: "finish", channels: ["control"] }],
+      },
+      execution: {
+        nodes: [
+          {
+            path: ["inspect"],
+            status,
+            durationMs: 8,
+            metrics: { attempts: 1 },
+          },
+        ],
+      },
+    });
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(host, {
+      snapshot: makeSnapshot("success", "one"),
+      expanded: [],
+      nodeLabelFormatter: (node) => `${node.name}\n${node.status}:${node.metadata.detail}`,
+      tooltipFormatter: (node) => {
+        formatterInputs.push(node);
+        return node.label;
+      },
+      onNodeClick: (node) => clickInputs.push(node),
+    });
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = instance[access]();
+
+    const beforeStatus = instance.getDiagnostics();
+    instance.update(makeSnapshot("failed", "one"));
+    const afterStatus = instance.getDiagnostics();
+
+    const directionDeltas = [];
+    ["RIGHT", "LEFT", "DOWN", "UP"].forEach((direction, index) => {
+      instance.setDirection(direction);
+      const before = instance.getDiagnostics();
+      instance.update(makeSnapshot("failed", `detail-${index}\nextra-${index}`));
+      const after = instance.getDiagnostics();
+      directionDeltas.push({
+        layout: after.layoutRuns - before.layoutRuns,
+        cache: after.layoutCacheHits - before.layoutCacheHits,
+      });
+    });
+
+    const node = cy.getElementById("inspect");
+    node.emit("mouseover");
+    node.emit("tap");
+    const output = {
+      statusLayoutDelta: afterStatus.layoutRuns - beforeStatus.layoutRuns,
+      statusPatchDelta: afterStatus.dataPatches - beforeStatus.dataPatches,
+      directionDeltas,
+      tooltip: formatterInputs.at(-1),
+      click: clickInputs.at(-1),
+    };
+    instance.destroy();
+    host.remove();
+    return output;
+  });
+
+  expect(result.statusLayoutDelta).toBe(1);
+  expect(result.statusPatchDelta).toBe(0);
+  expect(result.directionDeltas).toEqual([
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+    { layout: 1, cache: 0 },
+  ]);
+  expect(result.tooltip).toEqual(result.click);
+  expect(result.click).toMatchObject({
+    path: ["inspect"],
+    id: "inspect",
+    name: "Inspect",
+    label: "Inspect\nfailed:detail-3\nextra-3",
+    kind: "graph",
+    component: "Lambda",
+    metadata: { detail: "detail-3\nextra-3" },
+    status: "failed",
+    durationMs: 8,
+    metrics: { attempts: 1 },
+    errorMessage: "",
+    expandable: true,
+    subgraph: true,
+    expanded: false,
+    level: expect.any(Number),
+  });
+});

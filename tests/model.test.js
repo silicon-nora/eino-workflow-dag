@@ -108,6 +108,54 @@ assert(domainNeutral.edges.length === 1, "arbitrary domain node ids are preserve
 var subs = Model.listSubgraphs(fixture);
 assert(subs.length === 1 && subs[0].path === "g", "listSubgraphs");
 
+// Algorithm sentinels and renderer edge IDs must remain disjoint from every
+// legal schema node ID without reserving more public IDs.
+var internalIdLookalikes = Model.buildVisibleGraph({
+  nodes: [
+    { id: "__START__", cost_ms: 1 },
+    { id: "__END__", cost_ms: 2 },
+    { id: "e0___START_____END__", cost_ms: 3 }
+  ],
+  edges: [{ from: "__START__", to: "__END__" }]
+}, {});
+assert(
+  internalIdLookalikes.levelZeroPath.join(",") === "__START__,__END__",
+  "legal IDs resembling internal boundaries participate in Level 0"
+);
+assert(
+  internalIdLookalikes.edges.length === 1 &&
+    !internalIdLookalikes.nodes.some(function (node) {
+      return node.id === internalIdLookalikes.edges[0].id;
+    }),
+  "renderer edge IDs never collide with visible node IDs"
+);
+
+// An empty nested workflow is still a graph semantically, but it has no
+// expandable visual content and must retain its ordinary node label.
+var emptyNestedRoot = {
+  nodes: [{
+    id: "empty",
+    kind: "graph",
+    name: "Empty workflow",
+    graph: { nodes: [], edges: [] }
+  }],
+  edges: []
+};
+var emptyDefaults = Model.defaultExpandedMap(emptyNestedRoot);
+var emptyNestedVisible = Model.buildVisibleGraph(emptyNestedRoot, { empty: true });
+assert(!emptyDefaults.empty, "empty nested workflow is not expanded by default");
+assert(
+  Model.listSubgraphs(emptyNestedRoot).length === 0,
+  "empty nested workflow is not advertised as expandable"
+);
+assert(
+  emptyNestedVisible.nodes.length === 1 &&
+    emptyNestedVisible.nodes[0].subgraph === true &&
+    emptyNestedVisible.nodes[0].expandable === false &&
+    emptyNestedVisible.nodes[0].expanded === false,
+  "empty nested workflow renders as a labeled non-expandable graph node"
+);
+
 // v2 节点使用 id；旧边扩展字段仍可被渲染器安全忽略
 var mockish = {
   version: 2,
