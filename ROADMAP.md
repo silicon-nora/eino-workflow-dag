@@ -64,6 +64,10 @@ JavaScript contract.
 - [x] Observe `1.0.0-rc.2` in an
   [independent exact-npm host](./examples/rc-host/README.md) across execution,
   geometry, resize, and lifecycle changes
+- [x] Publish and validate `1.0.0-rc.3` with the visual and interaction
+  customization contract
+- [x] Exercise `1.0.0-rc.3` visual presets and interaction policies in the
+  independent exact-npm host
 - [ ] Review RC feedback and resolve any newly discovered release blocker
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 

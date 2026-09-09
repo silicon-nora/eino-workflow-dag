@@ -7,12 +7,13 @@ import "eino-workflow-dag/styles.css";
 import fixture from "./eino-snapshot.json";
 import "./style.css";
 
-const candidateVersion = "1.0.0-rc.2";
+const candidateVersion = "1.0.0-rc.3";
 const host = document.querySelector("#dag");
 const frame = document.querySelector("#canvas-frame");
 const eventLog = document.querySelector("#event-log");
 const scenarioName = document.querySelector("#scenario-name");
 const directionName = document.querySelector("#direction-name");
+const appearanceName = document.querySelector("#appearance-name");
 const observationState = document.querySelector("#observation-state");
 
 const scenarios = {
@@ -59,12 +60,75 @@ const scenarios = {
   unknown: { label: "未知状态", nodes: null },
 };
 
+const appearances = {
+  classic: { label: "Classic", theme: "classic" },
+  ink: { label: "Ink", theme: "ink" },
+  compact: {
+    label: "Compact",
+    theme: {
+      base: "classic",
+      tokens: {
+        node: {
+          width: 176,
+          height: 52,
+          textMaxWidth: 156,
+          fontSize: 13,
+          radius: 6,
+        },
+        spacing: {
+          nodeNode: 36,
+          betweenLayers: 34,
+          nestedNodeNode: 42,
+          nestedBetweenLayers: 42,
+          fitPadding: 20,
+        },
+        tooltip: { maxWidth: 240, fontSize: 11 },
+      },
+    },
+  },
+  observatory: {
+    label: "Observatory",
+    theme: {
+      base: "midnight",
+      tokens: {
+        colors: {
+          highlighted: "#6fc7b7",
+          hover: "#7dd3c7",
+          press: "#b6ede3",
+          probe: "#e3b45f",
+          probeGlow: "#f0cf8b",
+        },
+        node: { width: 242, height: 68, textMaxWidth: 216, radius: 3 },
+        spacing: {
+          nodeNode: 66,
+          betweenLayers: 58,
+          nestedNodeNode: 72,
+          nestedBetweenLayers: 64,
+          fitPadding: 34,
+        },
+        tooltip: { radius: 3, maxWidth: 340 },
+      },
+    },
+  },
+};
+
 let instance;
 let scenario = "success";
 let direction = "RIGHT";
+let appearance = "classic";
 let expanded = true;
 let remounts = 0;
 let events = [];
+const interactionPolicy = {
+  expandOnNodeClick: true,
+  tooltipOnHover: true,
+  pinTooltipOnNodeClick: false,
+  highlightEdgeOnClick: true,
+  clearHighlightOnCanvasClick: true,
+  keyboardNavigation: true,
+  panOnDrag: true,
+  zoomOnCtrlWheel: true,
+};
 
 function buildSnapshot(name = scenario) {
   const next = structuredClone(fixture);
@@ -106,8 +170,9 @@ function mount() {
   instance = createCytoscapeWorkflowDAG(host, {
     snapshot: buildSnapshot(),
     direction,
+    theme: appearances[appearance].theme,
     expanded: expanded ? [["answer"]] : [],
-    pinNodeTip: false,
+    interaction: { ...interactionPolicy },
     ariaLabel: "Eino workflow RC candidate observation graph",
     onExpandedChange(paths) {
       expanded = paths.some((path) => path.join("/") === "answer");
@@ -127,6 +192,14 @@ function mount() {
     },
   });
   scheduleInspection();
+}
+
+function remount(reason) {
+  instance.destroy();
+  host.replaceChildren();
+  remounts += 1;
+  mount();
+  appendEvent("lifecycle", `${reason} · remount ${remounts}`);
 }
 
 function syncPressed(container, attribute, value) {
@@ -235,6 +308,28 @@ document.querySelector("#direction-controls").addEventListener("click", (event) 
   scheduleInspection();
 });
 
+document.querySelector("#appearance-controls").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-appearance]");
+  if (!button || !appearances[button.dataset.appearance]) return;
+  appearance = button.dataset.appearance;
+  syncPressed(
+    document.querySelector("#appearance-controls"),
+    "data-appearance",
+    appearance,
+  );
+  appearanceName.textContent = appearances[appearance].label;
+  instance.setTheme(appearances[appearance].theme);
+  appendEvent("theme", appearances[appearance].label);
+  scheduleInspection();
+});
+
+document.querySelector("#interaction-controls").addEventListener("change", (event) => {
+  const input = event.target.closest("input[data-interaction]");
+  if (!input || !(input.dataset.interaction in interactionPolicy)) return;
+  interactionPolicy[input.dataset.interaction] = input.checked;
+  remount(`${input.dataset.interaction} ${input.checked ? "on" : "off"}`);
+});
+
 document.querySelector("#toggle-expanded").addEventListener("click", () => {
   expanded = !expanded;
   instance.setExpanded(expanded ? [["answer"]] : []);
@@ -257,11 +352,7 @@ document.querySelector("#toggle-width").addEventListener("click", () => {
 });
 
 document.querySelector("#remount").addEventListener("click", () => {
-  instance.destroy();
-  host.replaceChildren();
-  remounts += 1;
-  mount();
-  appendEvent("lifecycle", `remount ${remounts}`);
+  remount("manual");
 });
 
 document.querySelector("#fit").addEventListener("click", () => {
@@ -279,7 +370,16 @@ window.rcHost = {
   version: candidateVersion,
   get instance() { return instance; },
   get cy() { return instance ? getCytoscape(instance) : null; },
-  get state() { return { scenario, direction, expanded, remounts }; },
+  get state() {
+    return {
+      scenario,
+      direction,
+      appearance,
+      expanded,
+      remounts,
+      interaction: { ...interactionPolicy },
+    };
+  },
   inspect,
 };
 
