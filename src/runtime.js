@@ -338,6 +338,7 @@ export function mountRenderer(container, options) {
     assertExpandablePaths(expanded);
 
     var hostElement = container;
+    var initialHostChildren = Array.from(container.childNodes);
     var addedHostClass = false;
     var hadHostTheme = false;
     var previousHostTheme = null;
@@ -346,6 +347,7 @@ export function mountRenderer(container, options) {
       priority: container.style.getPropertyPriority("background"),
     };
     var hostStyleProperties = [
+      "-webkit-tap-highlight-color",
       "--eino-workflow-dag-title-bg",
       "--eino-workflow-dag-title-color",
       "--eino-workflow-dag-title-hover-bg",
@@ -409,6 +411,8 @@ export function mountRenderer(container, options) {
     var resizeObserver = null;
     var interaction = null;
     var activeLayout = null;
+    var cytoscapeHostChildren = [];
+    var childrenBeforeCytoscape = null;
     var layoutGeneration = 0;
     var destroyed = false;
     var additionalStyles = Array.isArray(options.additionalStyles)
@@ -476,6 +480,9 @@ export function mountRenderer(container, options) {
     }
 
     function reportCallbackError(name, error) {
+      // Promise callbacks can settle after destroy(). A destroyed renderer must
+      // not re-enter host code or produce new lifecycle notifications.
+      if (destroyed) return;
       reportError(new WorkflowDAGError(
         "RENDERER_RECOVERED",
         name + " callback failed: " + (
@@ -872,6 +879,7 @@ export function mountRenderer(container, options) {
         );
       }
       if (!cy) {
+        childrenBeforeCytoscape = new Set(container.children);
         cy = cytoscape({
           container: container,
           elements: elements,
@@ -913,6 +921,12 @@ export function mountRenderer(container, options) {
         !renderOptions || renderOptions.fit !== false,
         layoutCacheKey(profile.direction, elements, additionalStyles.length > 0) + layoutThemeKey,
       );
+      if (childrenBeforeCytoscape) {
+        cytoscapeHostChildren = Array.from(container.children).filter(function (child) {
+          return !childrenBeforeCytoscape.has(child);
+        });
+        childrenBeforeCytoscape = null;
+      }
       return visible;
     }
 
@@ -938,9 +952,24 @@ export function mountRenderer(container, options) {
       accessibility.destroy();
       layoutCache.clear();
       if (cy) {
+        // Cytoscape clears every container child during destroy(), including
+        // nodes that predated this renderer. Restore only original nodes that
+        // the host had not itself moved or removed in the meantime.
+        var hostChildrenToRestore = initialHostChildren.filter(function (child) {
+          return child.parentNode === container;
+        });
         cy.destroy();
         cy = null;
+        hostChildrenToRestore.forEach(function (child) {
+          container.appendChild(child);
+        });
       }
+      cytoscapeHostChildren.forEach(function (child) {
+        if (child.parentNode === container) child.remove();
+      });
+      cytoscapeHostChildren = [];
+      childrenBeforeCytoscape = null;
+      initialHostChildren = [];
       if (previousContainerBackground.value) {
         container.style.setProperty(
           "background",
@@ -1012,13 +1041,19 @@ export function mountRenderer(container, options) {
       return cy.png(imageOptions);
     }
 
-    // 初始
-    applyThemeChrome();
-    render();
-    if (options.autoResize !== false) {
-      resizeObserver = observeElementResize(container, function () {
-        viewport.resize({ fit: false });
-      });
+    // Mount transactionally and establish observation before Cytoscape mutates
+    // the host, so observer setup failures leave no partially mounted renderer.
+    try {
+      if (options.autoResize !== false) {
+        resizeObserver = observeElementResize(container, function () {
+          viewport.resize({ fit: false });
+        });
+      }
+      applyThemeChrome();
+      render();
+    } catch (error) {
+      destroy();
+      throw error;
     }
 
     return attachCytoscapeAccess({

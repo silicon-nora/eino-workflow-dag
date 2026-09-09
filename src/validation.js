@@ -309,7 +309,6 @@ export function validateWorkflowSnapshot(input) {
       addTopologyArc(from, to);
     }
 
-    const branchKeys = new Set();
     for (let index = 0; index < (Array.isArray(branches) ? branches.length : 0); index += 1) {
       const branch = own(branches, String(index));
       const branchPath = `${path}.branches[${index}]`;
@@ -332,7 +331,6 @@ export function validateWorkflowSnapshot(input) {
         continue;
       }
       const seenTargets = new Set();
-      const validTargets = [];
       for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
         const target = own(targets, String(targetIndex));
         const targetPath = `${branchPath}.targets[${targetIndex}]`;
@@ -346,16 +344,7 @@ export function validateWorkflowSnapshot(input) {
           errors.push(issue("duplicate_branch_target", targetPath, `Duplicate branch target "${target}".`));
         } else {
           seenTargets.add(target);
-          validTargets.push(target);
           addTopologyArc(from, target);
-        }
-      }
-      if (typeof from === "string" && from && validTargets.length) {
-        const key = JSON.stringify([from, [...validTargets].sort()]);
-        if (branchKeys.has(key)) {
-          errors.push(issue("duplicate_branch", branchPath, "Duplicate branch definition."));
-        } else {
-          branchKeys.add(key);
         }
       }
     }

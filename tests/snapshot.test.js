@@ -36,6 +36,7 @@ const snapshot = {
       { from: "input", targets: ["end"], metadata: { route: "fallback" } },
       { from: "input", targets: ["fallback", "end"], metadata: { route: "primary" } },
       { from: "input", targets: ["fallback"] },
+      { from: "input", targets: ["fallback"], metadata: { route: "secondary" } },
     ],
   },
   execution: {
@@ -79,14 +80,14 @@ const overlappingBranchEdge = normalized.root.edges.find(
 );
 assert(
   JSON.stringify(overlappingBranchEdge.branchMetadataList) ===
-    '[{"route":"primary"},null]',
+    '[{"route":"primary"},null,{"route":"secondary"}]',
   "all overlapping branch metadata survives renderer projection in snapshot order",
 );
 assert(
   JSON.stringify(normalized.definition.edges.find(
     (edge) => edge.from === "input" && edge.to === "fallback",
   ).branchMetadataList) ===
-    '[{"route":"primary"},null]',
+    '[{"route":"primary"},null,{"route":"secondary"}]',
   "all overlapping branch metadata survives structural normalization",
 );
 assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");

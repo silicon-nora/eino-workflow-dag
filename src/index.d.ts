@@ -401,6 +401,7 @@ export type WorkflowSnapshotIssueCode =
   | "invalid_branch_target"
   | "unknown_branch_target"
   | "duplicate_branch_target"
+  /** @deprecated Reserved for compatibility because schema v1 permits distinct branches with identical endpoints. */
   | "duplicate_branch"
   | "directed_cycle"
   | "invalid_execution"

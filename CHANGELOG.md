@@ -18,6 +18,8 @@ public contract is being validated.
 
 ### Changed
 
+- Documented the independently versioned Go projection module and its stable
+  `integrations/go/v1.0.0` release.
 - Generalized exact-Registry integration validation for stable and prerelease
   versions, with the independent host pinned to the stable `1.0.0` package.
 - Made the README quick start directly runnable and added a clean-install check
@@ -29,6 +31,14 @@ public contract is being validated.
 
 ### Fixed
 
+- Accepted distinct Eino branch records that share the same source and target
+  set, while retaining the former validation issue code as a deprecated 1.x
+  type-compatibility member.
+- Made failed mounts roll back renderer-owned state, silenced late callback
+  rejections after destruction, and restored consumer-owned children, cursor,
+  and tap-highlight styles during teardown.
+- Measured nodes with their rendered outer dimensions so ports and orthogonal
+  routes clear visible borders in every layout direction.
 - Isolated synchronous and asynchronous host callback failures so they cannot
   suppress built-in interactions or leave expansion state ahead of the
   rendered graph.

@@ -52,6 +52,22 @@ export function bindGraphInteractions(cy, container, handlers) {
   let keyboardNodeId = null;
   const originalTabIndex = container.getAttribute("tabindex");
   const originalKeyShortcuts = container.getAttribute("aria-keyshortcuts");
+  const originalCursor = {
+    value: container.style.getPropertyValue("cursor"),
+    priority: container.style.getPropertyPriority("cursor"),
+  };
+
+  function restoreCursor() {
+    if (originalCursor.value) {
+      container.style.setProperty(
+        "cursor",
+        originalCursor.value,
+        originalCursor.priority,
+      );
+    } else {
+      container.style.removeProperty("cursor");
+    }
+  }
 
   if (handlers.policy.keyboardNavigation) {
     if (originalTabIndex == null) container.setAttribute("tabindex", "0");
@@ -131,7 +147,7 @@ export function bindGraphInteractions(cy, container, handlers) {
   cy.on("mouseout", "node", (event) => {
     event.target.removeClass("hover");
     event.target.removeClass("press");
-    container.style.cursor = "default";
+    restoreCursor();
     if (handlers.policy.tooltipOnHover) handlers.tooltip.scheduleHide();
   });
   cy.on("mousedown", "node", (event) => {
@@ -160,7 +176,7 @@ export function bindGraphInteractions(cy, container, handlers) {
     container.style.cursor = "pointer";
   });
   cy.on("mouseout", "edge", () => {
-    container.style.cursor = "default";
+    restoreCursor();
   });
   cy.on("tap", "edge", (event) => {
     const edge = event.target;
@@ -186,6 +202,7 @@ export function bindGraphInteractions(cy, container, handlers) {
       if (expandTimer) clearTimeout(expandTimer);
       expandTimer = null;
       container.removeEventListener("keydown", onKeyDown);
+      restoreCursor();
       cy.nodes(".keyboard-focus").removeClass("keyboard-focus");
       if (originalTabIndex == null) container.removeAttribute("tabindex");
       else container.setAttribute("tabindex", originalTabIndex);

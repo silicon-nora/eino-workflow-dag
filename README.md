@@ -147,6 +147,14 @@ Go producers can use the repository's
 It captures the compiled Eino topology, normalizes it deterministically, and
 emits the same snapshot consumed by the JavaScript validator.
 
+```bash
+go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.0.0
+```
+
+The Go projection is an independently versioned module. Its `v1.0.0` release
+uses the immutable Git tag `integrations/go/v1.0.0`; npm package tags and Go
+module tags do not share a version clock.
+
 ## Instance API
 
 `createWorkflowDAG(container, options)` returns an instance with these groups:

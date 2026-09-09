@@ -214,6 +214,18 @@ assert(validateWorkflowSnapshot({
   },
 }).valid, "Eino branches may originate at start");
 
+assert(validateWorkflowSnapshot({
+  schemaVersion: 1,
+  workflow: {
+    nodes: [{ id: "route" }, { id: "answer" }],
+    edges: [],
+    branches: [
+      { from: "route", targets: ["answer"], metadata: { condition: "first" } },
+      { from: "route", targets: ["answer"], metadata: { condition: "second" } },
+    ],
+  },
+}).valid, "distinct Eino branches may have the same source and target set");
+
 const strict = validateWorkflowSnapshot({
   schemaVersion: 1,
   workflow: { nodes: [], edges: [], extra: true },

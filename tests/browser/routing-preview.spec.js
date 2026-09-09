@@ -303,7 +303,7 @@ test("production branches advance by their own rendered width", async ({
   }
 });
 
-test("a same-Level edge may bend when its direct corridor is blocked", async ({ page }) => {
+test("a same-Level shortcut clears the rendered node box in every direction", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/examples/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
@@ -332,26 +332,76 @@ test("a same-Level edge may bend when its direct corridor is blocked", async ({ 
     });
   });
   await settleLayout(page);
-  const geometry = await page.evaluate(() => {
-    const access = Symbol.for("eino-workflow-dag.cytoscape");
-    const cy = window.routingPreview[access]();
-    const edge = cy.edges().filter(
-      (candidate) =>
-        candidate.source().id() === "a" && candidate.target().id() === "c",
-    )[0];
-    const route = edge?.scratch("einoWorkflowDAG")?._flowAbsRoute || [];
-    return {
-      sourceLevel: Number(edge?.source().data("level")),
-      targetLevel: Number(edge?.target().data("level")),
-      edgeLevel: Number(edge?.data("level")),
-      pointCount: route.length,
-    };
-  });
-  expect(geometry.sourceLevel).toBe(0);
-  expect(geometry.targetLevel).toBe(0);
-  expect(geometry.edgeLevel).toBe(0);
-  expect(
-    geometry.pointCount,
-    "the route detours around the intervening node",
-  ).toBeGreaterThan(2);
+  for (const direction of ["RIGHT", "LEFT", "DOWN", "UP"]) {
+    await page.locator(`[data-direction="${direction}"]`).click();
+    await settleLayout(page);
+    const geometry = await page.evaluate(() => {
+      const access = Symbol.for("eino-workflow-dag.cytoscape");
+      const cy = window.routingPreview[access]();
+      const edge = cy.edges().filter(
+        (candidate) =>
+          candidate.source().id() === "a" && candidate.target().id() === "c",
+      )[0];
+      const route = edge?.scratch("einoWorkflowDAG")?._flowAbsRoute || [];
+      const middle = cy.getElementById("b").boundingBox({
+        includeLabels: false,
+        includeOverlays: false,
+      });
+      const hitsInterior = (left, right, box) => {
+        const tolerance = 0.5;
+        if (Math.abs(left.y - right.y) <= tolerance) {
+          return (
+            left.y > box.y1 + tolerance &&
+            left.y < box.y2 - tolerance &&
+            Math.max(left.x, right.x) > box.x1 + tolerance &&
+            Math.min(left.x, right.x) < box.x2 - tolerance
+          );
+        }
+        if (Math.abs(left.x - right.x) <= tolerance) {
+          return (
+            left.x > box.x1 + tolerance &&
+            left.x < box.x2 - tolerance &&
+            Math.max(left.y, right.y) > box.y1 + tolerance &&
+            Math.min(left.y, right.y) < box.y2 - tolerance
+          );
+        }
+        return true;
+      };
+      const sourceBox = edge.source().boundingBox({
+        includeLabels: false,
+        includeOverlays: false,
+      });
+      const endpointDistance = Math.min(
+        Math.abs(route[0].x - sourceBox.x1),
+        Math.abs(route[0].x - sourceBox.x2),
+        Math.abs(route[0].y - sourceBox.y1),
+        Math.abs(route[0].y - sourceBox.y2),
+      );
+      return {
+        sourceLevel: Number(edge?.source().data("level")),
+        targetLevel: Number(edge?.target().data("level")),
+        edgeLevel: Number(edge?.data("level")),
+        pointCount: route.length,
+        endpointDistance,
+        hitsMiddle: route
+          .slice(1)
+          .some((point, index) => hitsInterior(route[index], point, middle)),
+      };
+    });
+    expect(geometry.sourceLevel, `${direction}: source Level`).toBe(0);
+    expect(geometry.targetLevel, `${direction}: target Level`).toBe(0);
+    expect(geometry.edgeLevel, `${direction}: edge Level`).toBe(0);
+    expect(
+      geometry.pointCount,
+      `${direction}: the route detours around the intervening node`,
+    ).toBeGreaterThan(2);
+    expect(
+      geometry.endpointDistance,
+      `${direction}: the route starts at the rendered outer box`,
+    ).toBeLessThanOrEqual(0.75);
+    expect(
+      geometry.hitsMiddle,
+      `${direction}: the shortcut does not clip the intervening node`,
+    ).toBe(false);
+  }
 });

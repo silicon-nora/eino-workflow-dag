@@ -68,13 +68,18 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     return k;
   };
 
-  var measureLeafNodes = function measureLeafNodes(nodes) {
+  var measureLeafNodes = function measureLeafNodes(nodes, options) {
     var dimensions = createKeyMap();
     nodes.forEach(function (node) {
       if (node.isParent()) return;
+      // Use the same outer dimensions that layoutPositions() uses to place
+      // node centres.  node.width()/height() omit borders; mixing those two
+      // boxes makes side ports sit inside the rendered node and lets a route
+      // that only clears the content box clip an intervening node border.
+      var measured = node.layoutDimensions(options);
       dimensions[node.id()] = {
-        width: node.width(),
-        height: node.height(),
+        width: measured.w,
+        height: measured.h,
       };
     });
     return dimensions;
@@ -282,7 +287,7 @@ let WorkflowDAGLayoutEngine = normalizeLayoutEngine();
     var laid = engine.layout(visible, {
       direction: profileFromOpts.direction,
       node: layoutConfig.node,
-      nodeDimensions: measureLeafNodes(nodes),
+      nodeDimensions: measureLeafNodes(nodes, options),
       spacing: layoutConfig.spacing,
       nestedSpacing: layoutConfig.nestedSpacing,
       compoundPadding: layoutConfig.compoundPadding,

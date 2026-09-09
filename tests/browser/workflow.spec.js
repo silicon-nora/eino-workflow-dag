@@ -379,7 +379,19 @@ test("restores host state on destroy", async ({ page }) => {
     host.setAttribute("data-theme", "consumer");
     host.style.cssText = "position:relative;width:320px;height:180px";
     const container = document.createElement("div");
-    container.style.cssText = "width:100%;height:100%;background:rgb(1, 2, 3)";
+    container.style.cssText = "width:100%;height:100%;background:rgb(1, 2, 3);cursor:crosshair!important";
+    container.style.setProperty(
+      "-webkit-tap-highlight-color",
+      "rgb(4, 5, 6)",
+      "important",
+    );
+    const consumerChild = document.createElement("span");
+    consumerChild.textContent = "consumer-owned";
+    container.appendChild(consumerChild);
+    const tapHighlightBefore = {
+      value: container.style.getPropertyValue("-webkit-tap-highlight-color"),
+      priority: container.style.getPropertyPriority("-webkit-tap-highlight-color"),
+    };
     host.appendChild(container);
     document.body.appendChild(host);
     const instance = window.EinoWorkflowDAG.createWorkflowDAG(container, {
@@ -394,7 +406,15 @@ test("restores host state on destroy", async ({ page }) => {
       hostTheme: host.getAttribute("data-theme"),
       theme: container.getAttribute("data-theme"),
       position: getComputedStyle(container).position,
+      cursor: container.style.cursor,
     };
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const node = instance[access]().nodes().first();
+    node.emit("mouseover");
+    const cursorDuringHover = container.style.cursor;
+    node.emit("mouseout");
+    const cursorAfterHover = container.style.cursor;
+    node.emit("mouseover");
     instance.destroy();
     const after = {
       marked: container.classList.contains("eino-workflow-dag-host"),
@@ -403,9 +423,20 @@ test("restores host state on destroy", async ({ page }) => {
       theme: container.getAttribute("data-theme"),
       position: getComputedStyle(container).position,
       background: container.style.background,
+      cursor: container.style.cursor,
+      cursorPriority: container.style.getPropertyPriority("cursor"),
+      canvases: container.querySelectorAll("canvas").length,
+      consumerChildPreserved:
+        container.firstChild === consumerChild &&
+        consumerChild.textContent === "consumer-owned",
+      tapHighlightPreserved:
+        container.style.getPropertyValue("-webkit-tap-highlight-color") ===
+          tapHighlightBefore.value &&
+        container.style.getPropertyPriority("-webkit-tap-highlight-color") ===
+          tapHighlightBefore.priority,
     };
     host.remove();
-    return { during, after };
+    return { during, cursorDuringHover, cursorAfterHover, after };
   });
   expect(result).toEqual({
     during: {
@@ -414,7 +445,10 @@ test("restores host state on destroy", async ({ page }) => {
       hostTheme: "consumer",
       theme: "classic",
       position: "relative",
+      cursor: "crosshair",
     },
+    cursorDuringHover: "pointer",
+    cursorAfterHover: "crosshair",
     after: {
       marked: false,
       overlays: 0,
@@ -422,7 +456,96 @@ test("restores host state on destroy", async ({ page }) => {
       theme: null,
       position: "relative",
       background: "rgb(1, 2, 3)",
+      cursor: "crosshair",
+      cursorPriority: "important",
+      canvases: 0,
+      consumerChildPreserved: true,
+      tapHighlightPreserved: true,
     },
+  });
+});
+
+test("rolls back a partial mount and silences callbacks after destroy", async ({ page }) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const result = await page.evaluate(async () => {
+    const snapshot = {
+      schemaVersion: 1,
+      workflow: { nodes: [{ id: "standalone" }], edges: [] },
+    };
+    const failedContainer = document.createElement("div");
+    failedContainer.style.cssText = "width:320px;height:180px;background:salmon";
+    failedContainer.setAttribute("role", "region");
+    failedContainer.setAttribute("aria-label", "Consumer graph");
+    document.body.appendChild(failedContainer);
+
+    const NativeResizeObserver = window.ResizeObserver;
+    let mountMessage = null;
+    try {
+      window.ResizeObserver = class BrokenResizeObserver {
+        constructor() {
+          throw new Error("observer unavailable");
+        }
+      };
+      window.EinoWorkflowDAG.createWorkflowDAG(failedContainer, { snapshot });
+    } catch (error) {
+      mountMessage = error.message;
+    } finally {
+      window.ResizeObserver = NativeResizeObserver;
+    }
+    const failedMount = {
+      message: mountMessage,
+      canvases: failedContainer.querySelectorAll("canvas").length,
+      overlays: failedContainer.querySelectorAll(":scope > .cy-overlays").length,
+      marked: failedContainer.classList.contains("eino-workflow-dag-host"),
+      theme: failedContainer.getAttribute("data-theme"),
+      role: failedContainer.getAttribute("role"),
+      label: failedContainer.getAttribute("aria-label"),
+      background: failedContainer.style.background,
+      children: Array.from(failedContainer.children).map((child) => ({
+        tag: child.tagName,
+        className: child.className,
+        childTags: Array.from(child.children).map((nested) => nested.tagName),
+      })),
+    };
+    failedContainer.remove();
+
+    const callbackContainer = document.createElement("div");
+    callbackContainer.style.cssText = "width:320px;height:180px";
+    document.body.appendChild(callbackContainer);
+    const errors = [];
+    const instance = window.EinoWorkflowDAG.createWorkflowDAG(callbackContainer, {
+      snapshot,
+      onNodeClick() {
+        return Promise.reject(new Error("late callback failure"));
+      },
+      onError(error) {
+        errors.push(error.message);
+      },
+    });
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    instance[access]().nodes().first().emit("tap");
+    instance.destroy();
+    await Promise.resolve();
+    await Promise.resolve();
+    callbackContainer.remove();
+    return { failedMount, errors };
+  });
+
+  expect(result).toEqual({
+    failedMount: {
+      message: "observer unavailable",
+      canvases: 0,
+      overlays: 0,
+      marked: false,
+      theme: null,
+      role: "region",
+      label: "Consumer graph",
+      background: "salmon",
+      children: [],
+    },
+    errors: [],
   });
 });
 
@@ -652,30 +775,19 @@ test("applies theme geometry to root and nested layout in every direction", asyn
     };
 
     function forwardGap(source, target, direction) {
-      const sourcePosition = source.position();
-      const targetPosition = target.position();
+      const boxOptions = { includeLabels: false, includeOverlays: false };
+      const sourceBox = source.boundingBox(boxOptions);
+      const targetBox = target.boundingBox(boxOptions);
       if (direction === "RIGHT") {
-        return (
-          targetPosition.x - target.width() / 2 -
-          (sourcePosition.x + source.width() / 2)
-        );
+        return targetBox.x1 - sourceBox.x2;
       }
       if (direction === "LEFT") {
-        return (
-          sourcePosition.x - source.width() / 2 -
-          (targetPosition.x + target.width() / 2)
-        );
+        return sourceBox.x1 - targetBox.x2;
       }
       if (direction === "DOWN") {
-        return (
-          targetPosition.y - target.height() / 2 -
-          (sourcePosition.y + source.height() / 2)
-        );
+        return targetBox.y1 - sourceBox.y2;
       }
-      return (
-        sourcePosition.y - source.height() / 2 -
-        (targetPosition.y + target.height() / 2)
-      );
+      return sourceBox.y1 - targetBox.y2;
     }
 
     async function render(snapshot, direction, expanded) {
