@@ -6,12 +6,12 @@ This module converts Eino `compose.GraphInfo` into the JSON-safe
 ## Install
 
 ```bash
-go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.0.0
+go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.1.0
 ```
 
 The module is versioned independently from the npm package. Because its
 `go.mod` lives in this repository subdirectory, Go releases use tags prefixed
-with the module directory, such as `integrations/go/v1.0.0`.
+with the module directory, such as `integrations/go/v1.1.0`.
 
 ```go
 package main
@@ -43,7 +43,23 @@ func writeSnapshot(ctx context.Context, workflow *compose.Workflow[string, strin
 		return err
 	}
 
-	snapshot, err := workflowdag.Project(info)
+	snapshot, err := workflowdag.ProjectWithOptions(info, workflowdag.ProjectOptions{
+		ResolveNodeKind: func(
+			path []string,
+			_ compose.GraphNodeInfo,
+		) (workflowdag.NodeKind, bool) {
+			switch {
+			case len(path) == 1 && path[0] == "prepare":
+				return workflowdag.NodeKindIO, true
+			case len(path) == 1 && path[0] == "route":
+				return workflowdag.NodeKindBranch, true
+			case len(path) == 2 && path[0] == "answer" && path[1] == "invoke":
+				return workflowdag.NodeKindLLM, true
+			default:
+				return "", false
+			}
+		},
+	})
 	if err != nil {
 		return err
 	}
@@ -51,9 +67,23 @@ func writeSnapshot(ctx context.Context, workflow *compose.Workflow[string, strin
 }
 ```
 
-`Project` emits deterministic node, edge, branch, and field-mapping arrays.
-It combines Eino control and data dependencies between the same endpoints into
-one edge. Static-value mapping records have no predecessor and are omitted.
+`ProjectWithOptions` emits schema version 1 with optional node kinds. Its
+resolver receives a full node path so nested graphs can reuse local node IDs
+without collisions. Nested graph
+nodes are always emitted with `kind: "graph"`; leaf nodes for which the
+resolver returns `false` omit `kind` and retain the renderer's component-based
+fallback. A resolver may return `llm`, `io`, `cpu`, `branch`, or `merge`;
+`graph` is assigned automatically to nodes containing a nested workflow.
+
+The original `Project` and `Marshal` functions continue to omit `kind`. This
+keeps their existing output stable. New producers that need explicit visual
+semantics should use `ProjectWithOptions` or `MarshalWithOptions` and upgrade
+the JavaScript renderer at the same time.
+
+Both projection APIs emit deterministic node, edge, branch, and field-mapping
+arrays. They combine Eino control and data dependencies between the same
+endpoints into one edge. Static-value mapping records have no predecessor and
+are omitted.
 
 Execution state is intentionally not inferred from `GraphInfo`. Use one
 `ExecutionRecorder` for each invocation and attach its result separately:

@@ -17,6 +17,7 @@ const SchemaVersion = 1
 var (
 	ErrNilGraphInfo       = errors.New("eino workflow snapshot: GraphInfo is nil")
 	ErrRecursiveGraphInfo = errors.New("eino workflow snapshot: recursive GraphInfo")
+	ErrInvalidNodeKind    = errors.New("eino workflow snapshot: invalid node kind")
 )
 
 // Snapshot is the schema-versioned document accepted by eino-workflow-dag.
@@ -38,11 +39,34 @@ type Graph struct {
 }
 
 type Node struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name,omitempty"`
-	Component string  `json:"component,omitempty"`
-	Workflow  *Graph  `json:"workflow,omitempty"`
-	Metadata  JSONMap `json:"metadata,omitempty"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name,omitempty"`
+	Component string   `json:"component,omitempty"`
+	Kind      NodeKind `json:"kind,omitempty"`
+	Workflow  *Graph   `json:"workflow,omitempty"`
+	Metadata  JSONMap  `json:"metadata,omitempty"`
+}
+
+// NodeKind is a stable visual-semantic category for a workflow node.
+type NodeKind string
+
+const (
+	NodeKindLLM    NodeKind = "llm"
+	NodeKindIO     NodeKind = "io"
+	NodeKindCPU    NodeKind = "cpu"
+	NodeKindBranch NodeKind = "branch"
+	NodeKindMerge  NodeKind = "merge"
+	NodeKindGraph  NodeKind = "graph"
+)
+
+// NodeKindResolver maps an Eino node path to an application-known node kind.
+// The path contains IDs from the root graph through the current node. Returning
+// false leaves kind absent so the renderer can fall back to component mapping.
+type NodeKindResolver func(path []string, node compose.GraphNodeInfo) (kind NodeKind, ok bool)
+
+// ProjectOptions configures projection of optional protocol fields.
+type ProjectOptions struct {
+	ResolveNodeKind NodeKindResolver
 }
 
 type Edge struct {
@@ -96,16 +120,14 @@ type NodeExecution struct {
 // Project creates a deterministic topology snapshot from Eino's GraphInfo.
 // Execution and application metadata can be attached to the returned value.
 func Project(info *compose.GraphInfo) (Snapshot, error) {
-	if info == nil {
-		return Snapshot{}, ErrNilGraphInfo
-	}
+	return project(info, ProjectOptions{}, false)
+}
 
-	workflow, err := projectGraph(info, make(map[*compose.GraphInfo]bool))
-	if err != nil {
-		return Snapshot{}, err
-	}
-
-	return Snapshot{SchemaVersion: SchemaVersion, Workflow: workflow}, nil
+// ProjectWithOptions creates a schema version 1 snapshot with optional node
+// kinds. Nested workflows are always kind "graph"; ResolveNodeKind supplies
+// kinds for all other nodes.
+func ProjectWithOptions(info *compose.GraphInfo, options ProjectOptions) (Snapshot, error) {
+	return project(info, options, true)
 }
 
 // Marshal projects GraphInfo and serializes the result as JSON.
@@ -117,7 +139,41 @@ func Marshal(info *compose.GraphInfo) ([]byte, error) {
 	return json.Marshal(snapshot)
 }
 
-func projectGraph(info *compose.GraphInfo, visiting map[*compose.GraphInfo]bool) (Graph, error) {
+// MarshalWithOptions projects optional node kinds and serializes the snapshot.
+func MarshalWithOptions(info *compose.GraphInfo, options ProjectOptions) ([]byte, error) {
+	snapshot, err := ProjectWithOptions(info, options)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(snapshot)
+}
+
+func project(info *compose.GraphInfo, options ProjectOptions, includeKind bool) (Snapshot, error) {
+	if info == nil {
+		return Snapshot{}, ErrNilGraphInfo
+	}
+
+	workflow, err := projectGraph(
+		info,
+		make(map[*compose.GraphInfo]bool),
+		nil,
+		options,
+		includeKind,
+	)
+	if err != nil {
+		return Snapshot{}, err
+	}
+
+	return Snapshot{SchemaVersion: SchemaVersion, Workflow: workflow}, nil
+}
+
+func projectGraph(
+	info *compose.GraphInfo,
+	visiting map[*compose.GraphInfo]bool,
+	prefix []string,
+	options ProjectOptions,
+	includeKind bool,
+) (Graph, error) {
 	if info == nil {
 		return Graph{}, ErrNilGraphInfo
 	}
@@ -136,17 +192,30 @@ func projectGraph(info *compose.GraphInfo, visiting map[*compose.GraphInfo]bool)
 	nodeIDs := sortedMapKeys(info.Nodes)
 	for _, id := range nodeIDs {
 		nodeInfo := info.Nodes[id]
+		path := append(append([]string(nil), prefix...), id)
 		node := Node{
 			ID:        id,
 			Name:      nodeInfo.Name,
 			Component: fmt.Sprint(nodeInfo.Component),
 		}
 		if nodeInfo.GraphInfo != nil {
-			nested, err := projectGraph(nodeInfo.GraphInfo, visiting)
+			if includeKind {
+				node.Kind = NodeKindGraph
+			}
+			nested, err := projectGraph(nodeInfo.GraphInfo, visiting, path, options, includeKind)
 			if err != nil {
 				return Graph{}, fmt.Errorf("node %q: %w", id, err)
 			}
 			node.Workflow = &nested
+		} else if includeKind && options.ResolveNodeKind != nil {
+			kind, ok := options.ResolveNodeKind(append([]string(nil), path...), nodeInfo)
+			if ok {
+				if !validNodeKind(kind) || kind == NodeKindGraph {
+					encodedPath, _ := json.Marshal(path)
+					return Graph{}, fmt.Errorf("%w at node path %s: %q", ErrInvalidNodeKind, encodedPath, kind)
+				}
+				node.Kind = kind
+			}
 		}
 		graph.Nodes = append(graph.Nodes, node)
 	}
@@ -229,6 +298,15 @@ func projectGraph(info *compose.GraphInfo, visiting map[*compose.GraphInfo]bool)
 	})
 
 	return graph, nil
+}
+
+func validNodeKind(kind NodeKind) bool {
+	switch kind {
+	case NodeKindLLM, NodeKindIO, NodeKindCPU, NodeKindBranch, NodeKindMerge, NodeKindGraph:
+		return true
+	default:
+		return false
+	}
 }
 
 func projectDependencies(dependencies map[string][]string, channel string, add func(string, string, string)) {

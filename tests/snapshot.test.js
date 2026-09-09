@@ -93,6 +93,19 @@ assert(
 assert(normalized.definition.nodes[1].component === "Workflow", "Eino component identity survives projection");
 assert(normalized.definition.nodes[1].graph.nodes[0].kind === "llm", "Eino components map to visual kinds");
 
+const explicitKind = structuredClone(snapshot);
+explicitKind.workflow.nodes[0].component = "Lambda";
+explicitKind.workflow.nodes[0].kind = "branch";
+const explicitKindNormalized = normalizeDAGSnapshot(explicitKind);
+assert(
+  explicitKindNormalized.root.nodes[0].kind === "branch",
+  "explicit kind takes precedence over component inference",
+);
+assert(
+  normalized.definitionKey !== explicitKindNormalized.definitionKey,
+  "explicit kind participates in structural invalidation",
+);
+
 const withoutExecution = structuredClone(snapshot);
 delete withoutExecution.execution;
 const withoutExecutionNormalized = normalizeDAGSnapshot(withoutExecution);

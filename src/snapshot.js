@@ -132,7 +132,7 @@ export function projectWorkflowSnapshot(snapshot) {
         original_id: node.id,
         ...(node.name === undefined ? {} : { name: node.name }),
         ...(node.component === undefined ? {} : { component: node.component }),
-        kind: visualKind(node.component),
+        kind: node.kind ?? visualKind(node.component),
         ...(node.metadata === undefined ? {} : { metadata: node.metadata }),
         ...(execution.status === undefined ? {} : { status: execution.status }),
         ...(execution.startedAtMs === undefined

@@ -70,6 +70,104 @@ func TestProjectGraphInfo(t *testing.T) {
 	}
 }
 
+func TestProjectWithOptionsAddsNodeKindsByFullPath(t *testing.T) {
+	nested := &compose.GraphInfo{
+		Nodes: map[string]compose.GraphNodeInfo{
+			"invoke/model": {Component: compose.ComponentOfLambda},
+		},
+		Edges: map[string][]string{},
+	}
+	info := &compose.GraphInfo{
+		Nodes: map[string]compose.GraphNodeInfo{
+			"answer/flow": {
+				Component: compose.ComponentOfGraph,
+				GraphInfo: nested,
+			},
+			"route/strategy": {Component: compose.ComponentOfLambda},
+		},
+		Edges: map[string][]string{},
+	}
+	resolveKind := func(path []string) (NodeKind, bool) {
+		switch {
+		case reflect.DeepEqual(path, []string{"answer/flow", "invoke/model"}):
+			return NodeKindLLM, true
+		case reflect.DeepEqual(path, []string{"route/strategy"}):
+			return NodeKindBranch, true
+		default:
+			return "", false
+		}
+	}
+	seen := make([][]string, 0, 2)
+	snapshot, err := ProjectWithOptions(info, ProjectOptions{
+		ResolveNodeKind: func(path []string, _ compose.GraphNodeInfo) (NodeKind, bool) {
+			seen = append(seen, append([]string(nil), path...))
+			return resolveKind(path)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.SchemaVersion != SchemaVersion {
+		t.Fatalf("unexpected schema version: %d", snapshot.SchemaVersion)
+	}
+	if got := snapshot.Workflow.Nodes[0].Kind; got != NodeKindGraph {
+		t.Fatalf("nested workflow kind = %q, want %q", got, NodeKindGraph)
+	}
+	if got := snapshot.Workflow.Nodes[0].Workflow.Nodes[0].Kind; got != NodeKindLLM {
+		t.Fatalf("nested leaf kind = %q, want %q", got, NodeKindLLM)
+	}
+	if got := snapshot.Workflow.Nodes[1].Kind; got != NodeKindBranch {
+		t.Fatalf("route kind = %q, want %q", got, NodeKindBranch)
+	}
+	if !reflect.DeepEqual(seen, [][]string{{"answer/flow", "invoke/model"}, {"route/strategy"}}) {
+		t.Fatalf("resolver paths = %v", seen)
+	}
+
+	marshaled, err := MarshalWithOptions(info, ProjectOptions{
+		ResolveNodeKind: func(path []string, _ compose.GraphNodeInfo) (NodeKind, bool) {
+			return resolveKind(path)
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var marshaledSnapshot Snapshot
+	if err := json.Unmarshal(marshaled, &marshaledSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := json.MarshalIndent(marshaledSnapshot, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual = append(actual, '\n')
+	expected, err := os.ReadFile("../../fixtures/eino-workflow-kind-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actual) != string(expected) {
+		t.Fatalf("node-kind projection does not match shared fixture\nactual:\n%s", actual)
+	}
+}
+
+func TestProjectWithOptionsRejectsInvalidNodeKind(t *testing.T) {
+	info := &compose.GraphInfo{
+		Nodes: map[string]compose.GraphNodeInfo{
+			"leaf": {Component: compose.ComponentOfLambda},
+		},
+		Edges: map[string][]string{},
+	}
+	for _, kind := range []NodeKind{"custom", NodeKindGraph} {
+		_, err := ProjectWithOptions(info, ProjectOptions{
+			ResolveNodeKind: func([]string, compose.GraphNodeInfo) (NodeKind, bool) {
+				return kind, true
+			},
+		})
+		if !errors.Is(err, ErrInvalidNodeKind) {
+			t.Fatalf("kind %q: expected ErrInvalidNodeKind, got %v", kind, err)
+		}
+	}
+}
+
 func TestRealWorkflowMatchesSharedFixture(t *testing.T) {
 	type prepared struct {
 		Text string
@@ -210,6 +308,7 @@ func TestRealWorkflowMatchesSharedFixture(t *testing.T) {
 	if string(actual) != string(expected) {
 		t.Fatalf("real Eino projection does not match shared fixture\nactual:\n%s", actual)
 	}
+
 }
 
 func TestExecutionRecorderCapturesFailure(t *testing.T) {
