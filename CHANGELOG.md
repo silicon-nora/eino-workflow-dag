@@ -5,6 +5,13 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-09
+
+### Changed
+
+- Declared the validated snapshot, lifecycle, customization, framework-adapter,
+  and package contracts stable without runtime changes from `1.0.0-rc.4`.
+
 ## [1.0.0-rc.4] - 2026-09-09
 
 ### Added
