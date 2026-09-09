@@ -82,6 +82,17 @@ case categories, observation period, and result. Do not copy confidential
 snapshots into this repository; reduce any discovered failure to the smallest
 synthetic fixture before adding a regression test.
 
+The checked-in exact-npm host has a repeatable Chromium observation suite:
+
+```bash
+npm ci --prefix examples/rc-host --ignore-scripts
+npm run test:rc-host:browser
+```
+
+It exercises theme layout boundaries, every interaction-policy remount, state
+preservation, and representative direction, appearance, execution, and
+expansion combinations. CI runs it after the normal cross-browser library suite.
+
 ## Promotion decision
 
 An RC is blocked when an accepted schema-v1 snapshot cannot render, produces

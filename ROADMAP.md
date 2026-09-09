@@ -68,6 +68,7 @@ JavaScript contract.
   customization contract
 - [x] Exercise `1.0.0-rc.3` visual presets and interaction policies in the
   independent exact-npm host
+- [x] Automate the RC-host customization matrix and lifecycle state checks in CI
 - [ ] Review RC feedback and resolve any newly discovered release blocker
 - [ ] Publish `1.0.0` under npm's `latest` dist-tag
 

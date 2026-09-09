@@ -79,6 +79,12 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - run: npm run test:browser -- --project=${{ matrix.browser }}
+      - if: matrix.browser == 'chromium'
+        name: Install exact RC host dependencies
+        run: npm ci --prefix examples/rc-host --ignore-scripts
+      - if: matrix.browser == 'chromium'
+        name: Exercise RC host customization controls
+        run: npm run test:rc-host:browser -- --project=chromium
 
   peer-minimums:
     name: Peer minimums / Node 20
