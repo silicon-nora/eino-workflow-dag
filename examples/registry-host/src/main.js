@@ -7,7 +7,7 @@ import "eino-workflow-dag/styles.css";
 import fixture from "./eino-snapshot.json";
 import "./style.css";
 
-const candidateVersion = "1.0.0-rc.4";
+const packageVersion = "1.0.0";
 const host = document.querySelector("#dag");
 const frame = document.querySelector("#canvas-frame");
 const eventLog = document.querySelector("#event-log");
@@ -46,13 +46,13 @@ const scenarios = {
         path: ["answer"],
         status: "failed",
         durationMs: 430,
-        errorMessage: "candidate observation failure",
+        errorMessage: "release observation failure",
       },
       {
         path: ["answer", "invoke"],
         status: "failed",
         durationMs: 390,
-        errorMessage: "candidate observation failure",
+        errorMessage: "release observation failure",
       },
       { path: ["fallback"], status: "skipped", durationMs: null },
     ],
@@ -134,11 +134,11 @@ function buildSnapshot(name = scenario) {
   const next = structuredClone(fixture);
   next.metadata = {
     source: "Go Eino fixture",
-    candidate: candidateVersion,
+    packageVersion,
   };
   if (scenarios[name].nodes) {
     next.execution = {
-      id: `rc-host-${name}`,
+      id: `registry-host-${name}`,
       nodes: structuredClone(scenarios[name].nodes),
       metadata: { observation: name },
     };
@@ -173,7 +173,7 @@ function mount() {
     theme: appearances[appearance].theme,
     expanded: expanded ? [["answer"]] : [],
     interaction: { ...interactionPolicy },
-    ariaLabel: "Eino workflow RC candidate observation graph",
+    ariaLabel: "Eino workflow published release observation graph",
     onExpandedChange(paths) {
       expanded = paths.some((path) => path.join("/") === "answer");
       syncExpansionButton();
@@ -366,8 +366,8 @@ document.querySelector("#clear-events").addEventListener("click", () => {
   eventLog.innerHTML = '<li class="empty">点击节点或边以检查回调</li>';
 });
 
-window.rcHost = {
-  version: candidateVersion,
+window.registryHost = {
+  version: packageVersion,
   get instance() { return instance; },
   get cy() { return instance ? getCytoscape(instance) : null; },
   get state() {

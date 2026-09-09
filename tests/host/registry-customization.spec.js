@@ -28,7 +28,7 @@ async function openHost(page) {
   await page.waitForLoadState("networkidle");
   await page.locator("#dag canvas").first().waitFor();
   await expect(page.locator("#observation-state")).toHaveText("布局已稳定");
-  await expect(page.locator("#candidate-version")).toHaveText("1.0.0-rc.4");
+  await expect(page.locator("#package-version")).toHaveText("1.0.0");
 }
 
 async function waitForStable(page) {
@@ -37,7 +37,7 @@ async function waitForStable(page) {
 
 async function inspectHost(page) {
   return page.evaluate(() => {
-    const cy = window.rcHost.cy;
+    const cy = window.registryHost.cy;
     const failures = [];
     cy.nodes().filter((node) => node.visible()).forEach((node) => {
       const level = Number(node.data("level"));
@@ -58,8 +58,8 @@ async function inspectHost(page) {
     });
     return {
       failures,
-      state: window.rcHost.state,
-      diagnostics: window.rcHost.instance.getDiagnostics(),
+      state: window.registryHost.state,
+      diagnostics: window.registryHost.instance.getDiagnostics(),
       visibleNodes: cy.nodes().filter((node) => node.visible()).length,
       visibleEdges: cy.edges().filter((edge) => edge.visible()).length,
       canvases: document.querySelectorAll("#dag canvas").length,
@@ -75,13 +75,13 @@ test("distinguishes paint-only and geometry-changing appearance presets", async 
   const errors = captureErrors(page);
   await openHost(page);
 
-  const initial = await page.evaluate(() => window.rcHost.instance.getDiagnostics());
+  const initial = await page.evaluate(() => window.registryHost.instance.getDiagnostics());
   await page.locator('[data-appearance="ink"]').click();
   await waitForStable(page);
   const ink = await page.evaluate(() => ({
-    state: window.rcHost.state,
-    theme: window.rcHost.instance.getTheme(),
-    diagnostics: window.rcHost.instance.getDiagnostics(),
+    state: window.registryHost.state,
+    theme: window.registryHost.instance.getTheme(),
+    diagnostics: window.registryHost.instance.getDiagnostics(),
   }));
   expect(ink.state.appearance).toBe("ink");
   expect(ink.theme).toBe("ink");
@@ -90,12 +90,12 @@ test("distinguishes paint-only and geometry-changing appearance presets", async 
   await page.locator('[data-appearance="compact"]').click();
   await waitForStable(page);
   const compact = await page.evaluate(() => {
-    const node = window.rcHost.cy.getElementById("prepare");
-    const target = window.rcHost.cy.getElementById("route");
+    const node = window.registryHost.cy.getElementById("prepare");
+    const target = window.registryHost.cy.getElementById("route");
     return {
-      state: window.rcHost.state,
-      theme: window.rcHost.instance.getTheme(),
-      diagnostics: window.rcHost.instance.getDiagnostics(),
+      state: window.registryHost.state,
+      theme: window.registryHost.instance.getTheme(),
+      diagnostics: window.registryHost.instance.getDiagnostics(),
       width: node.width(),
       height: node.height(),
       gap:
@@ -113,12 +113,12 @@ test("distinguishes paint-only and geometry-changing appearance presets", async 
   await page.locator('[data-appearance="observatory"]').click();
   await waitForStable(page);
   const observatory = await page.evaluate(() => {
-    const node = window.rcHost.cy.getElementById("prepare");
-    const target = window.rcHost.cy.getElementById("route");
+    const node = window.registryHost.cy.getElementById("prepare");
+    const target = window.registryHost.cy.getElementById("route");
     return {
-      state: window.rcHost.state,
-      theme: window.rcHost.instance.getTheme(),
-      diagnostics: window.rcHost.instance.getDiagnostics(),
+      state: window.registryHost.state,
+      theme: window.registryHost.instance.getTheme(),
+      diagnostics: window.registryHost.instance.getDiagnostics(),
       width: node.width(),
       height: node.height(),
       gap:
@@ -153,10 +153,10 @@ test("preserves host state while every interaction policy is remounted", async (
     expectedRemounts += 1;
     await waitForStable(page);
     const disabled = await page.evaluate((policy) => ({
-      state: window.rcHost.state,
+      state: window.registryHost.state,
       remounts: Number(document.querySelector("#metric-remounts")?.textContent),
       tabIndex: document.querySelector("#dag")?.getAttribute("tabindex"),
-      panning: window.rcHost.cy.userPanningEnabled(),
+      panning: window.registryHost.cy.userPanningEnabled(),
       policy,
     }), name);
     expect(disabled.state).toMatchObject({
@@ -175,9 +175,9 @@ test("preserves host state while every interaction policy is remounted", async (
     expectedRemounts += 1;
     await waitForStable(page);
     const restored = await page.evaluate((policy) => ({
-      state: window.rcHost.state,
+      state: window.registryHost.state,
       tabIndex: document.querySelector("#dag")?.getAttribute("tabindex"),
-      panning: window.rcHost.cy.userPanningEnabled(),
+      panning: window.registryHost.cy.userPanningEnabled(),
       policy,
     }), name);
     expect(restored.state.interaction[name]).toBe(defaultValue);
@@ -216,7 +216,7 @@ test("keeps representative configuration combinations geometrically valid", asyn
       await page.locator(`[data-appearance="${appearance}"]`).click();
       await page.locator(`[data-scenario="${scenario}"]`).click();
       const shouldExpand = (directionIndex + appearanceIndex) % 2 === 0;
-      const expanded = await page.evaluate(() => window.rcHost.state.expanded);
+      const expanded = await page.evaluate(() => window.registryHost.state.expanded);
       if (expanded !== shouldExpand) await page.locator("#toggle-expanded").click();
       await waitForStable(page);
 

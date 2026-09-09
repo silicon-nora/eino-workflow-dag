@@ -1,13 +1,15 @@
 import { defineConfig } from "@playwright/test";
 import { isAbsolute } from "node:path";
 
-const build = process.env.RC_VALIDATION_BUILD;
+const build = process.env.RELEASE_VALIDATION_BUILD;
 if (!build || !isAbsolute(build)) {
-  throw new Error("RC_VALIDATION_BUILD must be an absolute browser-consumer build path");
+  throw new Error(
+    "RELEASE_VALIDATION_BUILD must be an absolute browser-consumer build path",
+  );
 }
 
 export default defineConfig({
-  testDir: "./tests/rc",
+  testDir: "./tests/release",
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
