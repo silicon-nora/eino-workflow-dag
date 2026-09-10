@@ -90,7 +90,9 @@ export function toCytoscapeElements(visible, options = {}) {
       level: Number.isInteger(node.level) && node.level >= 0 ? node.level : 0,
     };
     if (node.parent) data.parent = node.parent;
-    elements.push({ group: "nodes", data });
+    // Nodes keep their layout positions while forwarding drag gestures to the
+    // viewport. Cytoscape still distinguishes a short tap from a pan gesture.
+    elements.push({ group: "nodes", data, pannable: true });
   }
 
   for (const edge of visible.edges || []) {

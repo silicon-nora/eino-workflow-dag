@@ -72,7 +72,9 @@ export function bindGraphInteractions(cy, container, handlers) {
   }
 
   function onViewportGestureStart(event) {
-    viewportGestureActive = event.target === cy;
+    viewportGestureActive =
+      event.target === cy ||
+      (typeof event.target?.pannable === "function" && event.target.pannable());
     viewportGestureChanged = false;
   }
 

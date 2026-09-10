@@ -12,6 +12,8 @@ public contract is being validated.
 
 ### Fixed
 
+- Allow drag gestures that start on nodes to pan the viewport without moving
+  nodes or triggering their click actions.
 - Refresh the rendered element layer after a completed canvas pan so cached
   node labels return to full display resolution without requiring hover.
 - Allow native text selection and context menus inside node tooltips without
