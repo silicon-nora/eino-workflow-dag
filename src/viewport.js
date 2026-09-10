@@ -8,6 +8,7 @@ export function createViewportController(container, options) {
   let fitPadding = options.fitPadding;
   const zoomStep = options.zoomStep;
   let lockingPan = false;
+  let renderQualityTimer = null;
   let wheelHandler = null;
 
   function sync() {
@@ -62,6 +63,19 @@ export function createViewportController(container, options) {
     sync();
   }
 
+  function refreshRenderQuality() {
+    if (renderQualityTimer != null) clearTimeout(renderQualityTimer);
+    renderQualityTimer = setTimeout(() => {
+      renderQualityTimer = null;
+      const cy = getCy();
+      if (!cy) return;
+      // A style refresh invalidates Cytoscape's layered canvas texture without
+      // changing graph data, layout, pan, zoom, or the public visual contract.
+      cy.elements().updateStyle();
+      sync();
+    }, 0);
+  }
+
   function zoomBy(factor, renderedPosition) {
     const cy = getCy();
     if (!cy) return;
@@ -98,6 +112,8 @@ export function createViewportController(container, options) {
   function destroy() {
     if (wheelHandler) container.removeEventListener("wheel", wheelHandler);
     wheelHandler = null;
+    if (renderQualityTimer != null) clearTimeout(renderQualityTimer);
+    renderQualityTimer = null;
   }
 
   return {
@@ -105,6 +121,7 @@ export function createViewportController(container, options) {
     bind,
     destroy,
     onViewport,
+    refreshRenderQuality,
     resetView: () => resize({ fit: true }),
     resize,
     setFitPadding(value) {

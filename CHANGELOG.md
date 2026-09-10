@@ -10,6 +10,11 @@ public contract is being validated.
 - Added a complete Simplified Chinese README with reciprocal language links,
   and included it in the published package contract.
 
+### Fixed
+
+- Refresh the rendered element layer after a completed canvas pan so cached
+  node labels return to full display resolution without requiring hover.
+
 ## [1.3.0] - 2026-09-10
 
 ### Added

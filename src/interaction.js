@@ -50,6 +50,8 @@ function eventData(element) {
 export function bindGraphInteractions(cy, container, handlers) {
   let expandTimer = null;
   let keyboardNodeId = null;
+  let viewportGestureActive = false;
+  let viewportGestureChanged = false;
   const originalTabIndex = container.getAttribute("tabindex");
   const originalKeyShortcuts = container.getAttribute("aria-keyshortcuts");
   const originalCursor = {
@@ -67,6 +69,24 @@ export function bindGraphInteractions(cy, container, handlers) {
     } else {
       container.style.removeProperty("cursor");
     }
+  }
+
+  function onViewportGestureStart(event) {
+    viewportGestureActive = event.target === cy;
+    viewportGestureChanged = false;
+  }
+
+  function onViewportGestureEnd() {
+    if (viewportGestureActive && viewportGestureChanged) {
+      handlers.onViewportGestureEnd();
+    }
+    viewportGestureActive = false;
+    viewportGestureChanged = false;
+  }
+
+  function onViewport(event) {
+    if (viewportGestureActive) viewportGestureChanged = true;
+    handlers.onViewport(event);
   }
 
   if (handlers.policy.keyboardNavigation) {
@@ -155,6 +175,8 @@ export function bindGraphInteractions(cy, container, handlers) {
     if (!node.isParent()) node.addClass("press");
   });
   cy.on("mouseup", () => cy.nodes(".press").removeClass("press"));
+  cy.on("tapstart", onViewportGestureStart);
+  cy.on("tapend", onViewportGestureEnd);
   cy.on("tap", "node", (event) => {
     const node = event.target;
     if (node.isParent()) return;
@@ -191,7 +213,7 @@ export function bindGraphInteractions(cy, container, handlers) {
       handlers.clearEdgeHighlight();
     }
   });
-  cy.on("viewport", handlers.onViewport);
+  cy.on("viewport", onViewport);
 
   return {
     refreshKeyboardFocus() {

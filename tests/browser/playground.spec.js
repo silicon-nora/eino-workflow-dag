@@ -168,6 +168,43 @@ test("public playground remains usable across narrow, tablet, and desktop screen
   }
 });
 
+test("canvas panning invalidates the viewport texture after the gesture", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/examples/plain/");
+  await page.waitForFunction(() => window.dagInstance);
+  await page.locator("#dag canvas").first().waitFor();
+
+  const probe = await page.evaluate(() => {
+    const cy = window.dagInstance[Symbol.for("eino-workflow-dag.cytoscape")]();
+    const collectionPrototype = Object.getPrototypeOf(cy.elements());
+    const originalUpdateStyle = collectionPrototype.updateStyle;
+    window.styleRefreshCount = 0;
+    collectionPrototype.updateStyle = function (...args) {
+      window.styleRefreshCount += 1;
+      return originalUpdateStyle.apply(this, args);
+    };
+
+    const host = document.querySelector("#dag").getBoundingClientRect();
+    return {
+      start: { x: host.left + host.width - 80, y: host.top + 80 },
+      pan: cy.pan(),
+    };
+  });
+
+  await page.mouse.move(probe.start.x, probe.start.y);
+  await page.mouse.down();
+  await page.mouse.move(probe.start.x - 60, probe.start.y + 20, { steps: 8 });
+  await page.mouse.up();
+  await settle(page);
+
+  const afterPan = await page.evaluate(() => {
+    const cy = window.dagInstance[Symbol.for("eino-workflow-dag.cytoscape")]();
+    return { pan: cy.pan(), styleRefreshCount: window.styleRefreshCount };
+  });
+  expect(afterPan.pan).not.toEqual(probe.pan);
+  expect(afterPan.styleRefreshCount).toBeGreaterThan(0);
+});
+
 test("public playground has no serious automated accessibility violations", async ({ page }) => {
   await page.goto("/.artifacts/pages/?lang=zh");
   await page.waitForFunction(() => window.playground?.ready);
