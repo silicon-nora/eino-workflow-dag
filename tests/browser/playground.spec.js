@@ -11,7 +11,7 @@ async function settle(page) {
 
 test("public playground validates, renders, and links nodes to protocol JSON", async ({ page }) => {
   await page.setViewportSize({ width: 1560, height: 980 });
-  await page.goto("/.artifacts/pages/");
+  await page.goto("/.artifacts/pages/?lang=en");
   await page.waitForFunction(() => window.playground?.ready);
   await page.locator("#dag canvas").first().waitFor();
 
@@ -51,19 +51,58 @@ test("public playground validates, renders, and links nodes to protocol JSON", a
   await expect(page.locator("#dag canvas").first()).toBeVisible();
 });
 
-test("public playground remains usable on a narrow screen", async ({ page }) => {
+test("public playground supports Chinese without resetting the workflow view", async ({ page }) => {
+  await page.setViewportSize({ width: 1560, height: 980 });
+  await page.goto("/.artifacts/pages/?lang=en");
+  await page.waitForFunction(() => window.playground?.ready);
+  await page.locator("#sample").selectOption("recovery");
+  await page.locator('[data-direction="DOWN"]').click();
+  await page.locator('#theme-controls [data-theme="midnight"]').click();
+  const snapshotBefore = await page.locator("#snapshot-json").inputValue();
+
+  await page.locator('[data-language="zh"]').click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await expect(page).toHaveTitle("Eino Workflow DAG · 在线演示");
+  await expect(page.locator("#playground-title")).toContainText("读懂工作流");
+  await expect(page.locator("#sample option:checked")).toHaveText("失败与恢复");
+  await expect(page.locator("#validation-result")).toContainText("已在本地渲染");
+  await expect(page.locator('[data-direction="RIGHT"] em')).toHaveText("向右");
+  expect(await page.locator("#snapshot-json").inputValue()).toBe(snapshotBefore);
+  expect(await page.evaluate(() => ({
+    language: window.playground.language,
+    direction: window.playground.instance.getDirection(),
+    theme: window.playground.instance.getTheme(),
+  }))).toEqual({ language: "zh", direction: "DOWN", theme: "midnight" });
+
+  await page.reload();
+  await page.waitForFunction(() => window.playground?.ready);
+  await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  expect(new URL(page.url()).searchParams.get("lang")).toBe("zh");
+});
+
+test("public playground remains usable across narrow, tablet, and desktop screens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/.artifacts/pages/");
+  await page.goto("/.artifacts/pages/?lang=zh");
   await page.waitForFunction(() => window.playground?.ready);
   await page.locator("#dag canvas").first().waitFor();
 
-  await expect(page.locator("#playground-title")).toBeVisible();
-  await expect(page.locator("#snapshot-json")).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1024, height: 900 },
+    { width: 1440, height: 1000 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await settle(page);
+    await expect(page.locator("#playground-title")).toBeVisible();
+    await expect(page.locator("#snapshot-json")).toBeVisible();
+    await expect(page.locator('[data-language="zh"]')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  }
 });
 
 test("public playground has no serious automated accessibility violations", async ({ page }) => {
-  await page.goto("/.artifacts/pages/");
+  await page.goto("/.artifacts/pages/?lang=zh");
   await page.waitForFunction(() => window.playground?.ready);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa"])

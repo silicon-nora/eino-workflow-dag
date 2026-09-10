@@ -1,7 +1,175 @@
+const messages = {
+  en: {
+    pageTitle: "Eino Workflow DAG · Playground",
+    pageDescription: "Validate and render EinoWorkflowSnapshot documents entirely in your browser.",
+    playgroundHome: "Eino Workflow DAG playground home",
+    brandSubtitle: "Protocol playground",
+    projectLinks: "Project links",
+    language: "Language",
+    docs: "Docs",
+    hero: "Read the workflow.<br>See the execution.",
+    intro: "Choose a representative Eino workflow or paste your own JSON. Validation and rendering happen locally in this browser; the page sends no snapshot data.",
+    workflowPlayground: "Workflow playground",
+    playgroundControls: "Playground controls",
+    input: "Input",
+    workflowCase: "Workflow case",
+    sample: "Sample",
+    sampleAgent: "Agent with nested workflow",
+    sampleAgentNote: "Every leaf reports component Lambda; kind carries the stable visual meaning.",
+    sampleRecovery: "Failure and recovery",
+    sampleRecoveryNote: "Final execution outcomes stay separate from topology and can be updated in place.",
+    sampleMinimal: "Minimal protocol",
+    sampleMinimalNote: "The smallest useful schema-v1 document: two nodes and one typed dependency.",
+    geometry: "Geometry",
+    layoutDirection: "Layout direction",
+    right: "Right",
+    down: "Down",
+    left: "Left",
+    up: "Up",
+    appearance: "Appearance",
+    rendererTheme: "Renderer theme",
+    themeClassic: "Classic",
+    themeInk: "Ink",
+    themeMidnight: "Midnight",
+    expandAll: "Expand all",
+    collapseAll: "Collapse all",
+    fitCanvas: "Fit canvas",
+    renderedWorkflow: "Rendered workflow",
+    loadingRenderer: "Loading renderer",
+    selectedNode: "Selected node",
+    selectNodePrompt: "Click a node to locate it in the protocol",
+    layouts: "layouts",
+    patches: "patches",
+    cacheHits: "cache hits",
+    snapshotEditor: "Snapshot protocol editor",
+    protocol: "Protocol",
+    format: "Format",
+    snapshotJson: "Eino workflow snapshot JSON",
+    applyHint: "⌘ / Ctrl + Enter to apply",
+    waitingRenderer: "Waiting for the renderer.",
+    validationIssues: "Validation issues",
+    copyJson: "Copy JSON",
+    copied: "Copied",
+    applySnapshot: "Apply snapshot",
+    footerProduct: "Apache-2.0 · Read-only renderer · Eino-specific protocol",
+    footerPrivacy: "Snapshot data stays in this tab.",
+    validSnapshot: "Valid schema-v1 snapshot · rendered locally",
+    moreIssues: "{count} more issues",
+    protocolIssues: "{count} protocol {noun} · canvas unchanged",
+    issue: "issue",
+    issues: "issues",
+    rendererError: "Renderer error",
+    invalidJson: "Invalid JSON",
+    fixSyntax: "Fix syntax to render",
+    snapshotRejected: "Snapshot rejected",
+    snapshotRendered: "Snapshot rendered",
+    renderSummary: "{nodes} nodes · {edges} edges · {outcomes} outcomes",
+    jsonFormatted: "JSON formatted · apply to validate",
+    selectAndCopy: "Select and copy the highlighted JSON",
+    rendererUnavailable: "Renderer unavailable",
+    checkDistribution: "Check the built distribution files",
+  },
+  zh: {
+    pageTitle: "Eino Workflow DAG · 在线演示",
+    pageDescription: "在浏览器本地校验并渲染 EinoWorkflowSnapshot 文档。",
+    playgroundHome: "Eino Workflow DAG 在线演示首页",
+    brandSubtitle: "协议演示台",
+    projectLinks: "项目链接",
+    language: "语言",
+    docs: "文档",
+    hero: "读懂工作流。<br>看清执行过程。",
+    intro: "选择一个典型的 Eino 工作流，或粘贴你自己的 JSON。校验与渲染全部在当前浏览器中完成，页面不会发送任何快照数据。",
+    workflowPlayground: "工作流演示台",
+    playgroundControls: "演示控制项",
+    input: "输入",
+    workflowCase: "工作流案例",
+    sample: "示例",
+    sampleAgent: "带嵌套工作流的 Agent",
+    sampleAgentNote: "每个叶子节点的 component 都是 Lambda，kind 提供稳定的视觉语义。",
+    sampleRecovery: "失败与恢复",
+    sampleRecoveryNote: "最终执行结果与拓扑保持分离，并可在原图上更新。",
+    sampleMinimal: "最小协议",
+    sampleMinimalNote: "最小可用的 schema-v1 文档：两个节点和一条带类型的依赖关系。",
+    geometry: "几何布局",
+    layoutDirection: "布局方向",
+    right: "向右",
+    down: "向下",
+    left: "向左",
+    up: "向上",
+    appearance: "外观",
+    rendererTheme: "渲染主题",
+    themeClassic: "经典",
+    themeInk: "墨色",
+    themeMidnight: "午夜",
+    expandAll: "全部展开",
+    collapseAll: "全部收起",
+    fitCanvas: "适应画布",
+    renderedWorkflow: "工作流渲染结果",
+    loadingRenderer: "正在加载渲染器",
+    selectedNode: "当前节点",
+    selectNodePrompt: "点击节点，即可在协议中定位",
+    layouts: "布局次数",
+    patches: "数据更新",
+    cacheHits: "缓存命中",
+    snapshotEditor: "快照协议编辑器",
+    protocol: "协议",
+    format: "格式化",
+    snapshotJson: "Eino 工作流快照 JSON",
+    applyHint: "⌘ / Ctrl + Enter 应用",
+    waitingRenderer: "正在等待渲染器。",
+    validationIssues: "校验问题",
+    copyJson: "复制 JSON",
+    copied: "已复制",
+    applySnapshot: "应用快照",
+    footerProduct: "Apache-2.0 · 只读渲染器 · Eino 专用协议",
+    footerPrivacy: "快照数据仅保留在当前标签页。",
+    validSnapshot: "有效的 schema-v1 快照 · 已在本地渲染",
+    moreIssues: "另有 {count} 个问题",
+    protocolIssues: "{count} 个协议问题 · 画布未改变",
+    issue: "问题",
+    issues: "问题",
+    rendererError: "渲染器错误",
+    invalidJson: "JSON 无效",
+    fixSyntax: "修正语法后即可渲染",
+    snapshotRejected: "快照未通过校验",
+    snapshotRendered: "快照已渲染",
+    renderSummary: "{nodes} 个节点 · {edges} 条边 · {outcomes} 个执行结果",
+    jsonFormatted: "JSON 已格式化 · 应用后进行校验",
+    selectAndCopy: "请复制已选中的 JSON",
+    rendererUnavailable: "渲染器不可用",
+    checkDistribution: "请检查构建后的发布文件",
+  },
+};
+
+const rendererLocales = {
+  en: undefined,
+  zh: {
+    kinds: {
+      start: "开始",
+      end: "结束",
+      io: "输入/输出",
+      llm: "大模型",
+      cpu: "代码",
+      branch: "分支",
+      merge: "合并",
+      subgraph: "子图",
+      graph: "工作流",
+    },
+    statuses: { success: "成功", failed: "失败", skipped: "已跳过" },
+    tooltip: {
+      status: "状态",
+      duration: "耗时",
+      error: "错误",
+      tokenUsage: "Token 用量",
+      metrics: "指标",
+    },
+    collapseSubgraphTitle: "收起子图",
+  },
+};
+
 const samples = {
   agent: {
-    label: "Agent with nested workflow",
-    note: "Every leaf reports component Lambda; kind carries the stable visual meaning.",
+    noteKey: "sampleAgentNote",
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -64,8 +232,7 @@ const samples = {
     },
   },
   recovery: {
-    label: "Failure and recovery",
-    note: "Final execution outcomes stay separate from topology and can be updated in place.",
+    noteKey: "sampleRecoveryNote",
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -102,8 +269,7 @@ const samples = {
     },
   },
   minimal: {
-    label: "Minimal protocol",
-    note: "The smallest useful schema-v1 document: two nodes and one typed dependency.",
+    noteKey: "sampleMinimalNote",
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -144,6 +310,105 @@ let instance;
 let activeSnapshot;
 let activeDirection = "RIGHT";
 let activeTheme = "classic";
+let activeLanguage = "en";
+let selectedPathIsPrompt = true;
+let renderState = { kind: "", titleKey: "loadingRenderer", summaryKey: null, params: {} };
+let validationState = { kind: "neutral", key: "waitingRenderer", params: {} };
+let visibleIssues = [];
+
+function t(key, params = {}) {
+  const template = messages[activeLanguage][key] || messages.en[key] || key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
+function preferredLanguage() {
+  const queryLanguage = new URLSearchParams(window.location.search).get("lang");
+  if (queryLanguage === "zh" || queryLanguage === "en") return queryLanguage;
+  try {
+    const savedLanguage = localStorage.getItem("eino-workflow-dag-playground-language");
+    if (savedLanguage === "zh" || savedLanguage === "en") return savedLanguage;
+  } catch {
+    // Storage can be disabled; browser language remains a safe fallback.
+  }
+  return navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
+function displayRenderState() {
+  elements.statusLight.className = `status-light ${renderState.kind}`;
+  elements.renderStatus.textContent = t(renderState.titleKey, renderState.params);
+  if (renderState.summaryKey) {
+    elements.renderSummary.textContent = t(renderState.summaryKey, renderState.params);
+  } else if (renderState.summaryText !== undefined) {
+    elements.renderSummary.textContent = renderState.summaryText;
+  }
+}
+
+function displayValidationState() {
+  elements.validation.className = `validation-result${validationState.kind === "neutral" ? "" : ` ${validationState.kind}`}`;
+  elements.validation.textContent = t(validationState.key, validationState.params);
+}
+
+function renderIssueList() {
+  elements.issues.replaceChildren();
+  for (const error of visibleIssues.slice(0, 6)) {
+    const item = document.createElement("li");
+    item.textContent = `${error.path} · ${error.code}: ${error.message}`;
+    elements.issues.append(item);
+  }
+  if (visibleIssues.length > 6) {
+    const item = document.createElement("li");
+    item.textContent = t("moreIssues", { count: visibleIssues.length - 6 });
+    elements.issues.append(item);
+  }
+  elements.issues.classList.toggle("visible", visibleIssues.length > 0);
+}
+
+function applyLanguage(language, { persist = true, updateUrl = true } = {}) {
+  activeLanguage = language === "zh" ? "zh" : "en";
+  document.documentElement.lang = activeLanguage === "zh" ? "zh-CN" : "en";
+  document.title = t("pageTitle");
+  document.querySelector('meta[name="description"]').content = t("pageDescription");
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach((element) => {
+    element.innerHTML = t(element.dataset.i18nHtml);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-language]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.language === activeLanguage));
+  });
+  if (elements.sample.value && samples[elements.sample.value]) {
+    elements.sampleNote.textContent = t(samples[elements.sample.value].noteKey);
+  }
+  if (validationState.key === "protocolIssues") {
+    validationState.params.noun = t(validationState.params.count === 1 ? "issue" : "issues");
+  }
+  if (renderState.summaryKey === "protocolIssues") {
+    renderState.params.noun = t(renderState.params.count === 1 ? "issue" : "issues");
+  }
+  if (selectedPathIsPrompt) elements.selectedPath.textContent = t("selectNodePrompt");
+  displayRenderState();
+  displayValidationState();
+  renderIssueList();
+  instance?.setLocale(rendererLocales[activeLanguage]);
+  scheduleDiagnostics();
+
+  if (persist) {
+    try {
+      localStorage.setItem("eino-workflow-dag-playground-language", activeLanguage);
+    } catch {
+      // The language still applies for this tab when storage is disabled.
+    }
+  }
+  if (updateUrl) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", activeLanguage);
+    history.replaceState(null, "", url);
+  }
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -202,10 +467,9 @@ function subgraphPaths(graph, prefix = []) {
   return paths;
 }
 
-function setRenderState(kind, title, summary) {
-  elements.statusLight.className = `status-light ${kind}`;
-  elements.renderStatus.textContent = title;
-  if (summary !== undefined) elements.renderSummary.textContent = summary;
+function setRenderState(kind, titleKey, summaryKey, params = {}, summaryText) {
+  renderState = { kind, titleKey, summaryKey, params, summaryText };
+  displayRenderState();
 }
 
 function updateDiagnostics() {
@@ -230,33 +494,30 @@ function scheduleCanvasFit() {
 }
 
 function showIssues(errors) {
-  elements.issues.replaceChildren();
+  visibleIssues = errors;
   if (!errors.length) {
-    elements.issues.classList.remove("visible");
-    elements.validation.className = "validation-result valid";
-    elements.validation.textContent = "Valid schema-v1 snapshot · rendered locally";
+    validationState = { kind: "valid", key: "validSnapshot", params: {} };
+    displayValidationState();
+    renderIssueList();
     return;
   }
-
-  for (const error of errors.slice(0, 6)) {
-    const item = document.createElement("li");
-    item.textContent = `${error.path} · ${error.code}: ${error.message}`;
-    elements.issues.append(item);
-  }
-  if (errors.length > 6) {
-    const item = document.createElement("li");
-    item.textContent = `${errors.length - 6} more issues`;
-    elements.issues.append(item);
-  }
-  elements.issues.classList.add("visible");
-  elements.validation.className = "validation-result invalid";
-  elements.validation.textContent = `${errors.length} protocol issue${errors.length === 1 ? "" : "s"} · canvas unchanged`;
+  validationState = {
+    kind: "invalid",
+    key: "protocolIssues",
+    params: {
+      count: errors.length,
+      noun: t(errors.length === 1 ? "issue" : "issues"),
+    },
+  };
+  displayValidationState();
+  renderIssueList();
 }
 
 function locateNodeInEditor(path) {
   const id = path.at(-1);
   const needle = `"id": ${JSON.stringify(id)}`;
   const start = elements.editor.value.indexOf(needle);
+  selectedPathIsPrompt = false;
   elements.selectedPath.textContent = path.join(" / ");
   if (start < 0) return;
   elements.editor.focus({ preventScroll: true });
@@ -270,6 +531,7 @@ function mount(snapshot) {
     snapshot,
     direction: activeDirection,
     theme: activeTheme,
+    locale: rendererLocales[activeLanguage],
     expanded: subgraphPaths(snapshot.workflow),
     activeNodePath: null,
     onNodeClick(node) {
@@ -278,13 +540,14 @@ function mount(snapshot) {
       scheduleDiagnostics();
     },
     onEdgeClick(edge) {
+      selectedPathIsPrompt = false;
       elements.selectedPath.textContent = `${edge.source.join(" / ")} → ${edge.target.join(" / ")}`;
     },
     onExpandedChange() {
       scheduleDiagnostics();
     },
     onError(error) {
-      setRenderState("invalid", "Renderer error", error.message);
+      setRenderState("invalid", "rendererError", null, {}, error.message);
     },
   });
 }
@@ -296,14 +559,17 @@ function applyEditorSnapshot({ fit = true } = {}) {
   } catch (error) {
     const issue = { path: "JSON", code: "invalid_json", message: error.message };
     showIssues([issue]);
-    setRenderState("invalid", "Invalid JSON", "Fix syntax to render");
+    setRenderState("invalid", "invalidJson", "fixSyntax");
     return false;
   }
 
   const validation = api.validateWorkflowSnapshot(candidate);
   if (!validation.valid) {
     showIssues(validation.errors);
-    setRenderState("invalid", "Snapshot rejected", `${validation.errors.length} protocol issue${validation.errors.length === 1 ? "" : "s"}`);
+    setRenderState("invalid", "snapshotRejected", "protocolIssues", {
+      count: validation.errors.length,
+      noun: t(validation.errors.length === 1 ? "issue" : "issues"),
+    });
     return false;
   }
 
@@ -314,16 +580,21 @@ function applyEditorSnapshot({ fit = true } = {}) {
   const counts = graphCounts(activeSnapshot.workflow);
   const executions = activeSnapshot.execution?.nodes?.length || 0;
   showIssues([]);
-  setRenderState("valid", "Snapshot rendered", `${counts.nodes} nodes · ${counts.edges} edges · ${executions} outcomes`);
+  setRenderState("valid", "snapshotRendered", "renderSummary", {
+    nodes: counts.nodes,
+    edges: counts.edges,
+    outcomes: executions,
+  });
   scheduleCanvasFit();
   return true;
 }
 
 function loadSample(id) {
   const sample = samples[id];
-  elements.sampleNote.textContent = sample.note;
+  elements.sampleNote.textContent = t(sample.noteKey);
   elements.editor.value = JSON.stringify(clone(sample.snapshot), null, 2);
-  elements.selectedPath.textContent = "Click a node to locate it in the protocol";
+  selectedPathIsPrompt = true;
+  elements.selectedPath.textContent = t("selectNodePrompt");
   applyEditorSnapshot();
 }
 
@@ -339,7 +610,8 @@ function initializeThemes() {
     button.type = "button";
     button.dataset.theme = theme;
     button.setAttribute("aria-pressed", String(theme === activeTheme));
-    button.textContent = theme[0].toUpperCase() + theme.slice(1);
+    button.dataset.i18n = `theme${theme[0].toUpperCase()}${theme.slice(1)}`;
+    button.textContent = t(button.dataset.i18n);
     button.addEventListener("click", () => {
       activeTheme = theme;
       selectPressed(elements.themes, "[data-theme]", "theme", theme);
@@ -351,6 +623,12 @@ function initializeThemes() {
 }
 
 elements.sample.addEventListener("change", () => loadSample(elements.sample.value));
+
+document.querySelector(".language-switch").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-language]");
+  if (!button || button.dataset.language === activeLanguage) return;
+  applyLanguage(button.dataset.language);
+});
 
 document.querySelector("#direction-controls").addEventListener("click", (event) => {
   const button = event.target.closest("[data-direction]");
@@ -365,8 +643,8 @@ elements.apply.addEventListener("click", () => applyEditorSnapshot());
 elements.format.addEventListener("click", () => {
   try {
     elements.editor.value = JSON.stringify(JSON.parse(elements.editor.value), null, 2);
-    elements.validation.textContent = "JSON formatted · apply to validate";
-    elements.validation.className = "validation-result";
+    validationState = { kind: "neutral", key: "jsonFormatted", params: {} };
+    displayValidationState();
   } catch (error) {
     showIssues([{ path: "JSON", code: "invalid_json", message: error.message }]);
   }
@@ -375,11 +653,12 @@ elements.format.addEventListener("click", () => {
 elements.copy.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(elements.editor.value);
-    elements.copy.textContent = "Copied";
-    setTimeout(() => { elements.copy.textContent = "Copy JSON"; }, 1200);
+    elements.copy.textContent = t("copied");
+    setTimeout(() => { elements.copy.textContent = t("copyJson"); }, 1200);
   } catch {
     elements.editor.select();
-    elements.validation.textContent = "Select and copy the highlighted JSON";
+    validationState = { kind: "neutral", key: "selectAndCopy", params: {} };
+    displayValidationState();
   }
 });
 
@@ -404,9 +683,13 @@ window.playground = {
   get api() { return api; },
   get instance() { return instance; },
   get snapshot() { return activeSnapshot; },
+  get language() { return activeLanguage; },
   get ready() { return !!instance; },
   apply: applyEditorSnapshot,
+  setLanguage: applyLanguage,
 };
+
+applyLanguage(preferredLanguage(), { persist: false, updateUrl: false });
 
 try {
   await loadRenderer();
@@ -416,5 +699,5 @@ try {
   loadSample(elements.sample.value);
 } catch (error) {
   showIssues([{ path: "renderer", code: "load_failed", message: error.message }]);
-  setRenderState("invalid", "Renderer unavailable", "Check the built distribution files");
+  setRenderState("invalid", "rendererUnavailable", "checkDistribution");
 }

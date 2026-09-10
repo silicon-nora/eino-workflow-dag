@@ -12,6 +12,13 @@ public contract is being validated.
 - Added a GitHub Pages deployment workflow and three-browser coverage for the
   playground's protocol editor, node-to-JSON navigation, responsive layout,
   and automated accessibility checks.
+- Added persistent English and Simplified Chinese playground interfaces,
+  including localized renderer labels and browser-language detection.
+
+### Changed
+
+- Increased playground type and control sizes, with dedicated phone, tablet,
+  compact-desktop, and wide-desktop layouts.
 
 ## [1.2.0] - 2026-09-09
 

@@ -8,8 +8,9 @@ A framework-independent, read-only renderer for nested
 [CloudWeGo Eino](https://github.com/cloudwego/eino) workflows and their
 execution state.
 
-[Open the browser playground](https://silicon-nora.github.io/eino-workflow-dag/)
+[Open the bilingual browser playground](https://silicon-nora.github.io/eino-workflow-dag/)
 to validate and render a schema-v1 snapshot without installing the package.
+The interface supports English and Simplified Chinese.
 
 The library accepts one JSON-safe visualization protocol, renders predictable
 layered DAGs, and provides optional React and Vue bindings. It does not execute
