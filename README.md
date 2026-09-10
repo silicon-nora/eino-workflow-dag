@@ -268,11 +268,12 @@ They include the original Eino `component` and node `metadata`; they do not
 expose Cytoscape objects.
 
 The default node label shows the node name, its type, and an optional execution
-duration. An explicit `kind` supplies its raw protocol value in place of the
-raw Eino `component`; when `kind` is omitted, `component` remains the displayed
-fallback. Neither type is translated or normalized for the default label. This
-presentation choice does not replace or mutate the original component identity
-available to callbacks and formatters.
+duration. An explicit `kind` supplies a fixed technical label—`LLM`, `I/O`,
+`CPU`, `Graph`, `Branch`, or `Merge`—in place of the raw Eino `component`;
+when `kind` is omitted, `component` remains the displayed fallback. These
+technical labels do not change with locale. This presentation choice does not
+replace or mutate the original component identity available to callbacks and
+formatters.
 
 `onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
 `metadata`. When a rendered relationship also represents an Eino branch, its

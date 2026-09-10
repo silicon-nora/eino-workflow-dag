@@ -7,9 +7,23 @@ export function formatDuration(ms) {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
+function kindTypeLabel(kind) {
+  switch (kind) {
+    case "llm": return "LLM";
+    case "io": return "I/O";
+    case "cpu": return "CPU";
+    case "graph": return "Graph";
+    case "branch": return "Branch";
+    case "merge": return "Merge";
+    default: return kind || "";
+  }
+}
+
 function defaultNodeLabel(node) {
   const title = node.name || node.key || node.id;
-  const type = node.display_kind || node.component || "";
+  const type = node.display_kind
+    ? kindTypeLabel(node.display_kind)
+    : node.component || "";
   const detail = [
     type,
     node.cost_ms == null ? "" : formatDuration(node.cost_ms),

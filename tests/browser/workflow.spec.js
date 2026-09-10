@@ -927,7 +927,7 @@ test("renders an empty nested workflow as a labeled non-expandable node", async 
 
   expect(result).toEqual({
     nodes: 1,
-    label: "Empty workflow\ngraph",
+    label: "Empty workflow\nGraph",
     subgraph: true,
     expandable: false,
     expanded: false,
