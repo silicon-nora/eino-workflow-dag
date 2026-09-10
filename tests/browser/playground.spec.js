@@ -32,6 +32,26 @@ test("public playground validates, renders, and links nodes to protocol JSON", a
   await expect(page.locator("#validation-result")).toContainText("Valid schema-v1 snapshot");
   await expect(page.locator("#render-summary")).toContainText("9 nodes");
   await expect(page.locator("#theme-controls [data-theme]")).toHaveCount(3);
+  expect(await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.playground.instance[access]();
+    const draft = cy.nodes().filter((node) =>
+      node.data("key") === "draft" && node.parent().data("key") === "research",
+    ).first();
+    return {
+      component: draft.data("component"),
+      kind: draft.data("kind"),
+      label: draft.data("label"),
+      lambdaLabels: cy.nodes().filter((node) =>
+        String(node.data("label") || "").includes("Lambda"),
+      ).length,
+    };
+  })).toEqual({
+    component: "Lambda",
+    kind: "llm",
+    label: "Draft answer\nLLM  ·  606ms",
+    lambdaLabels: 0,
+  });
 
   await page.locator('[data-direction="DOWN"]').click();
   await page.locator('#theme-controls [data-theme="midnight"]').click();
@@ -95,12 +115,18 @@ test("public playground supports Chinese without resetting the workflow view", a
     theme: window.playground.instance.getTheme(),
     workflowName: window.playground.snapshot.workflow.name,
     nodeName: window.playground.snapshot.workflow.nodes[0].name,
+    primaryLabel: window.playground.instance[Symbol.for("eino-workflow-dag.cytoscape")]()
+      .nodes()
+      .filter((node) => node.data("key") === "primary")
+      .first()
+      .data("label"),
   }))).toEqual({
     language: "zh",
     direction: "DOWN",
     theme: "midnight",
     workflowName: "容错生成",
     nodeName: "准备输入",
+    primaryLabel: "主模型\n大模型  ·  311ms",
   });
 
   await page.reload();

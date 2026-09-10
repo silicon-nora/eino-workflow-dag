@@ -91,6 +91,10 @@ component-based inference. When it is omitted, the renderer retains its
 component fallback. A node containing a nested `workflow` may omit `kind` or
 use `graph`; `graph` is invalid without a nested workflow.
 
+In the default node label, an explicit `kind` replaces the displayed component
+text with its localized kind label. The original `component` value remains
+available through renderer callbacks and formatters.
+
 The endpoint IDs `start` and `end` are reserved. `start` is valid as a
 dependency or branch source and `end` as a dependency or branch target. All
 other references must name a node in the same graph layer. Cross-layer

@@ -102,6 +102,15 @@ assert(
   "explicit kind takes precedence over component inference",
 );
 assert(
+  explicitKindNormalized.root.nodes[0].display_kind === "branch",
+  "explicit kind is retained as the preferred displayed type",
+);
+assert(
+  normalized.root.nodes[1].display_kind === "graph" &&
+    normalized.root.nodes[1].graph.nodes[0].display_kind === undefined,
+  "nested workflows display as graphs while component-only leaves retain their component type",
+);
+assert(
   normalized.definitionKey !== explicitKindNormalized.definitionKey,
   "explicit kind participates in structural invalidation",
 );
