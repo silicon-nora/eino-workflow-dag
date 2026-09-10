@@ -1,4 +1,4 @@
-import { hasOwnKey, mergePlainRecords } from "./key-map.js";
+import { hasOwnKey } from "./key-map.js";
 import { decodeNodePath } from "./snapshot.js";
 
 export function formatDuration(ms) {
@@ -7,26 +7,9 @@ export function formatDuration(ms) {
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-export function kindLabel(kind, localeKinds) {
-  const labels = mergePlainRecords({
-    start: "Start",
-    end: "End",
-    io: "I/O",
-    llm: "LLM",
-    cpu: "Code",
-    branch: "Branch",
-    merge: "Merge",
-    subgraph: "Subgraph",
-    graph: "Graph",
-  }, localeKinds);
-  return (hasOwnKey(labels, kind) ? labels[kind] : kind) || "Node";
-}
-
-function defaultNodeLabel(node, locale) {
+function defaultNodeLabel(node) {
   const title = node.name || node.key || node.id;
-  const type = node.display_kind
-    ? kindLabel(node.display_kind, locale?.kinds)
-    : node.component || "";
+  const type = node.display_kind || node.component || "";
   const detail = [
     type,
     node.cost_ms == null ? "" : formatDuration(node.cost_ms),
@@ -72,7 +55,7 @@ export function toCytoscapeElements(visible, options = {}) {
     if (!node.expanded || !node.subgraph) {
       const content = formatter
         ? formatter(toVisibleNodeData(node))
-        : defaultNodeLabel(node, options.locale);
+        : defaultNodeLabel(node);
       label = content == null ? "" : String(content);
     }
     const data = {

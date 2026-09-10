@@ -49,7 +49,7 @@ test("public playground validates, renders, and links nodes to protocol JSON", a
   })).toEqual({
     component: "Lambda",
     kind: "llm",
-    label: "Draft answer\nLLM  ·  606ms",
+    label: "Draft answer\nllm  ·  606ms",
     lambdaLabels: 0,
   });
 
@@ -126,7 +126,7 @@ test("public playground supports Chinese without resetting the workflow view", a
     theme: "midnight",
     workflowName: "容错生成",
     nodeName: "准备输入",
-    primaryLabel: "主模型\n大模型  ·  311ms",
+    primaryLabel: "主模型\nllm  ·  311ms",
   });
 
   await page.reload();

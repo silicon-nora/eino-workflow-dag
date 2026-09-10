@@ -92,8 +92,9 @@ component fallback. A node containing a nested `workflow` may omit `kind` or
 use `graph`; `graph` is invalid without a nested workflow.
 
 In the default node label, an explicit `kind` replaces the displayed component
-text with its localized kind label. The original `component` value remains
-available through renderer callbacks and formatters.
+text with its raw enum value. Neither kind nor component values are translated.
+The original `component` value remains available through renderer callbacks and
+formatters.
 
 The endpoint IDs `start` and `end` are reserved. `start` is valid as a
 dependency or branch source and `end` as a dependency or branch target. All

@@ -260,18 +260,19 @@ Eino component values remain open strings. An explicit node `kind` takes
 precedence over component inference; nodes that omit `kind` retain the existing
 component fallback. Execution status is the fixed `success`, `failed`, or
 `skipped` outcome.
-Resolved kind and status labels remain available through `locale.kinds` and
-`locale.statuses`.
+Resolved kind and status label maps remain available through `locale.kinds`
+and `locale.statuses` for custom presentation.
 
 `tooltipFormatter` and `nodeLabelFormatter` receive renderer-owned plain data.
 They include the original Eino `component` and node `metadata`; they do not
 expose Cytoscape objects.
 
 The default node label shows the node name, its type, and an optional execution
-duration. An explicit `kind` supplies the localized type label in place of the
+duration. An explicit `kind` supplies its raw protocol value in place of the
 raw Eino `component`; when `kind` is omitted, `component` remains the displayed
-fallback. This presentation choice does not replace or mutate the original
-component identity available to callbacks and formatters.
+fallback. Neither type is translated or normalized for the default label. This
+presentation choice does not replace or mutate the original component identity
+available to callbacks and formatters.
 
 `onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
 `metadata`. When a rendered relationship also represents an Eino branch, its

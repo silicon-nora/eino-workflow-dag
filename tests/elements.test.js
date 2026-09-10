@@ -1,6 +1,5 @@
 import {
   formatDuration,
-  kindLabel,
   syncCytoscapeElements,
   toCytoscapeElements,
   toRenderedNodeData,
@@ -17,12 +16,6 @@ function assert(condition, message) {
 
 assert(formatDuration(42) === "42ms", "millisecond duration");
 assert(formatDuration(1250) === "1.25s", "second duration");
-assert(kindLabel("llm") === "LLM", "known kind label");
-assert(kindLabel("cpu", { cpu: "代码" }) === "代码", "kind labels can be localized");
-assert(
-  kindLabel("__proto__", JSON.parse('{"__proto__":"Custom"}')) === "Custom",
-  "prototype-like kind keys can be localized",
-);
 
 const elements = toCytoscapeElements(
   {
@@ -71,16 +64,16 @@ const defaultLabels = toCytoscapeElements({
   ],
   edges: [],
 });
-assert(defaultLabels[0].data.label === "Timed\nLLM  ·  0ms", "explicit kinds replace component text and preserve zero duration");
-assert(defaultLabels[1].data.label === "Untimed\nI/O", "kind-only details omit a missing duration");
+assert(defaultLabels[0].data.label === "Timed\nllm  ·  0ms", "raw explicit kinds replace component text and preserve zero duration");
+assert(defaultLabels[1].data.label === "Untimed\nio", "raw kind-only details omit a missing duration");
 assert(defaultLabels[2].data.label === "Component\nRetriever", "components remain the type fallback when kind is omitted");
 assert(defaultLabels[3].data.label === "Bare", "missing component, kind, and duration leave a title-only label");
 assert(
   toCytoscapeElements({
     nodes: [{ id: "localized", name: "Localized", kind: "llm", display_kind: "llm", component: "Lambda" }],
     edges: [],
-  }, { locale: { kinds: { llm: "大模型" } } })[0].data.label === "Localized\n大模型",
-  "displayed kind labels use the renderer locale",
+  }, { locale: { kinds: { llm: "大模型" } } })[0].data.label === "Localized\nllm",
+  "displayed kind values are not translated by the renderer locale",
 );
 let untimedPublicNode;
 toCytoscapeElements(
@@ -94,7 +87,7 @@ assert(
     id: "outer/inner",
     key: "inner",
     title: "Inner",
-    label: "Inner\nCode  ·  12ms",
+    label: "Inner\ncpu  ·  12ms",
     parent: "outer",
     kind: "cpu",
     component: "Lambda",
@@ -123,7 +116,7 @@ assert(
     subgraph: true,
     expanded: false,
     level: 2,
-    label: "Inner\nCode  ·  12ms",
+    label: "Inner\ncpu  ·  12ms",
   }),
   "rendered node callbacks share one complete public data conversion",
 );

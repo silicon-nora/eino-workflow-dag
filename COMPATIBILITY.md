@@ -49,18 +49,18 @@ errors introduced by a future schema or package major.
 Eino component categories are open strings. Without an explicit kind, the
 original component remains the visible type and known values receive built-in
 visual treatment. A node may instead declare the closed node-kind enum `llm`,
-`io`, `cpu`, `branch`, `merge`, or `graph`; explicit kind supplies the localized
-visible type and wins over component inference without changing the original
-component identity.
+`io`, `cpu`, `branch`, `merge`, or `graph`; explicit kind supplies its raw value
+as the visible type and wins over component inference without changing the
+original component identity.
 
 Node execution status is the closed final-outcome enum `success`, `failed`, or
 `skipped`. A node without a final outcome is omitted from `execution.nodes`.
 Adding another status requires a new snapshot schema version.
 
-Applications can localize component kinds and the three statuses with
-`locale.kinds` and `locale.statuses`, or customize rendered text with
-`nodeLabelFormatter` and `tooltipFormatter`. Formatters receive renderer-owned
-plain data, not mutable engine objects.
+Default node labels render both kind and component values verbatim. Applications
+can use `locale.kinds` and `locale.statuses` in custom presentation, or replace
+rendered text with `nodeLabelFormatter` and `tooltipFormatter`. Formatters
+receive renderer-owned plain data, not mutable engine objects.
 
 ## Themes
 
