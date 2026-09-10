@@ -5,6 +5,11 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Added
+
+- Added a complete Simplified Chinese README with reciprocal language links,
+  and included it in the published package contract.
+
 ## [1.3.0] - 2026-09-10
 
 ### Added

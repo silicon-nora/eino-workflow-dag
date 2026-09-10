@@ -24,6 +24,7 @@ const required = [
   "PROVENANCE.md",
   "PUBLIC_ASSETS.json",
   "README.md",
+  "README.zh-CN.md",
   "THIRD_PARTY_NOTICES.md",
   "TYPE_SURFACE.json",
   "dist/index.js",
