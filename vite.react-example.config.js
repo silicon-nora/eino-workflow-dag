@@ -5,10 +5,10 @@ const exampleRoot = resolve(import.meta.dirname, "examples/react");
 
 export default defineConfig({
   root: exampleRoot,
-  base: "/examples/react-dist/",
+  base: "/.artifacts/examples/react/",
   build: {
     emptyOutDir: true,
-    outDir: resolve(import.meta.dirname, "examples/react-dist"),
+    outDir: resolve(import.meta.dirname, ".artifacts/examples/react"),
     rollupOptions: {
       input: resolve(exampleRoot, "index.html"),
     },

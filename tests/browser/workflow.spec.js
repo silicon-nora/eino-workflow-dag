@@ -7,7 +7,7 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
     if (message.type() === "error") errors.push(message.text());
   });
 
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
   await page.evaluate(() => {
     const access = Symbol.for("eino-workflow-dag.cytoscape");
@@ -214,7 +214,7 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
 });
 
 test("tooltip text supports native pointer selection without panning the graph", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const node = await page.evaluate(() => {
@@ -269,7 +269,7 @@ test("isolates host callback failures after applying built-in behavior", async (
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(String(error)));
 
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(async () => {
@@ -424,7 +424,7 @@ test("isolates host callback failures after applying built-in behavior", async (
 });
 
 test("restores host state on destroy", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
   const result = await page.evaluate(() => {
     const host = document.createElement("div");
@@ -518,7 +518,7 @@ test("restores host state on destroy", async ({ page }) => {
 });
 
 test("rolls back a partial mount and silences callbacks after destroy", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(async () => {
@@ -602,7 +602,7 @@ test("rolls back a partial mount and silences callbacks after destroy", async ({
 });
 
 test("isolates vanilla instances that share one parent", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(async () => {
@@ -682,7 +682,7 @@ test("isolates vanilla instances that share one parent", async ({ page }) => {
 });
 
 test("applies instance themes and opt-out interaction policy", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(async () => {
@@ -807,7 +807,7 @@ test("applies instance themes and opt-out interaction policy", async ({ page }) 
 test("applies theme geometry to root and nested layout in every direction", async ({
   page,
 }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const results = await page.evaluate(async () => {
@@ -934,7 +934,7 @@ test("applies theme geometry to root and nested layout in every direction", asyn
 });
 
 test("renders an empty nested workflow as a labeled non-expandable node", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
 
   const result = await page.evaluate(async () => {
     const host = document.createElement("div");
@@ -990,7 +990,7 @@ test("renders an empty nested workflow as a labeled non-expandable node", async 
 });
 
 test("retains an edge when a legal node ID resembles its generated ID", async ({ page }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
 
   const result = await page.evaluate(async () => {
     const host = document.createElement("div");
@@ -1039,7 +1039,7 @@ test("retains an edge when a legal node ID resembles its generated ID", async ({
 test("invalidates measured geometry without relayout for paint-only theme changes", async ({
   page,
 }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(() => {
@@ -1085,7 +1085,7 @@ test("invalidates measured geometry without relayout for paint-only theme change
 test("invalidates formatted-label layouts and shares complete node callback data", async ({
   page,
 }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const result = await page.evaluate(() => {

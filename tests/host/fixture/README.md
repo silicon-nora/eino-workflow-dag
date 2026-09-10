@@ -1,4 +1,4 @@
-# Registry host observation
+# Registry host fixture
 
 This is an independent consumer of the exact published npm package. It imports
 `eino-workflow-dag@1.0.0` from its own dependency tree and never resolves
@@ -9,8 +9,8 @@ fixture in `integrations/go`. The controls vary only the execution observations
 supplied by a host.
 
 ```sh
-npm ci --prefix examples/registry-host
-npm run dev --prefix examples/registry-host -- --host 127.0.0.1 --port 4175
+npm ci --prefix tests/host/fixture
+npm run dev --prefix tests/host/fixture -- --host 127.0.0.1 --port 4175
 ```
 
 Verify the four directions, execution-only updates, missing execution state,

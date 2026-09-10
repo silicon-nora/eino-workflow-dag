@@ -100,7 +100,7 @@ repository so reports and regression tests remain safe to publish.
 The checked-in exact-Registry host has a repeatable Chromium observation suite:
 
 ```bash
-npm ci --prefix examples/registry-host --ignore-scripts
+npm ci --prefix tests/host/fixture --ignore-scripts
 npx playwright test --config=playwright.host.config.js --project=chromium
 ```
 

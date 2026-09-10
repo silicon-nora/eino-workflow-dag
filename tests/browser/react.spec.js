@@ -6,7 +6,7 @@ test("React wrapper mounts, updates incrementally, and survives StrictMode", asy
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
   });
-  await page.goto("/examples/react-dist/");
+  await page.goto("/.artifacts/examples/react/");
   await page.locator(".eino-workflow-dag-react canvas").first().waitFor();
   await page.evaluate(() => {
     const access = Symbol.for("eino-workflow-dag.cytoscape");

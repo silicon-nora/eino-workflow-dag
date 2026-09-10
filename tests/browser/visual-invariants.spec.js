@@ -4,7 +4,7 @@ const directions = ["RIGHT", "LEFT", "DOWN", "UP"];
 
 test("preserves visual geometry invariants in every direction", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
   await page.evaluate(() => {
     const access = Symbol.for("eino-workflow-dag.cytoscape");

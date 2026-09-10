@@ -2,9 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 const hosts = [
-  { name: "plain UMD", url: "/examples/plain/", canvas: "#dag canvas" },
+  { name: "vanilla UMD", url: "/examples/vanilla/", canvas: "#dag canvas" },
   { name: "Vue", url: "/examples/vue/", canvas: ".eino-workflow-dag-vue canvas" },
-  { name: "React", url: "/examples/react-dist/", canvas: ".eino-workflow-dag-react canvas" },
+  { name: "React", url: "/.artifacts/examples/react/", canvas: ".eino-workflow-dag-react canvas" },
 ];
 
 for (const host of hosts) {
@@ -31,7 +31,7 @@ for (const host of hosts) {
 test("keyboard navigation announces and activates workflow nodes", async ({
   page,
 }) => {
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   const dag = page.locator("#dag");

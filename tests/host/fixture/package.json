@@ -1,5 +1,5 @@
 {
-  "name": "eino-workflow-dag-registry-host",
+  "name": "eino-workflow-dag-registry-host-fixture",
   "version": "0.0.0",
   "private": true,
   "type": "module",

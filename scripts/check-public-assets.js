@@ -8,6 +8,7 @@ const inventory = JSON.parse(
 );
 const excludedDirectories = new Set([
   ".git",
+  ".artifacts",
   "dist",
   "node_modules",
   "playwright-report",

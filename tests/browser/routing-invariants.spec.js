@@ -152,7 +152,7 @@ test("preserves routing invariants across updates, directions, and cache hits", 
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.locator("#dag canvas").first().waitFor();
 
   // Warm the original graph in every direction before replacing its topology.

@@ -5,6 +5,13 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Changed
+
+- Keep `examples/` focused on runnable Vanilla, React, and Vue source examples;
+  move generated output and automated test fixtures to their dedicated areas.
+- Isolate Playwright outputs by suite and exclude generated `.artifacts` from
+  repository asset review.
+
 ## [1.3.1] - 2026-09-10
 
 ### Added

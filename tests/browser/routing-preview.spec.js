@@ -128,7 +128,7 @@ async function inspectRoutes(page, direction) {
 
 test("routing preview covers every case and direction", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/examples/routing-preview/");
+  await page.goto("/tests/fixtures/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
 
   const caseIds = await page.locator("#case option").evaluateAll((options) =>
@@ -164,7 +164,7 @@ test("an expanded graph keeps its external Level 0 edge straight", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/examples/routing-preview/");
+  await page.goto("/tests/fixtures/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
   await page.locator("#case").selectOption("production");
   await page.evaluate(() => window.routingPreview.setExpanded([["guided_flow"]]));
@@ -223,7 +223,7 @@ test("production branches advance by their own rendered width", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/examples/routing-preview/");
+  await page.goto("/tests/fixtures/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
   await page.locator("#case").selectOption("production");
   await settleLayout(page);
@@ -305,7 +305,7 @@ test("production branches advance by their own rendered width", async ({
 
 test("a same-Level shortcut clears the rendered node box in every direction", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/examples/routing-preview/");
+  await page.goto("/tests/fixtures/routing-preview/");
   await page.locator("#dag canvas").first().waitFor();
   await page.evaluate(() => {
     window.routingPreview.update({

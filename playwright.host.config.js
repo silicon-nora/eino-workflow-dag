@@ -8,6 +8,7 @@ export default defineConfig({
   workers: 1,
   timeout: 90_000,
   reporter: process.env.CI ? "github" : "line",
+  outputDir: ".artifacts/playwright/host",
   use: {
     baseURL: "http://127.0.0.1:4175",
     headless: true,
@@ -24,7 +25,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev --prefix examples/registry-host -- --host 127.0.0.1 --port 4175 --force",
+    command: "npm run dev --prefix tests/host/fixture -- --host 127.0.0.1 --port 4175 --force",
     url: "http://127.0.0.1:4175/",
     reuseExistingServer: !process.env.CI,
   },
