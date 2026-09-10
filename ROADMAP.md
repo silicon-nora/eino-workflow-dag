@@ -95,8 +95,8 @@ JavaScript contract.
 
 ## Current milestone — open-source adoption
 
-- [ ] Publish a browser-only snapshot playground through GitHub Pages
-- [ ] Make representative protocol, execution, nesting, and failure cases runnable online
+- [x] Publish a browser-only snapshot playground through GitHub Pages
+- [x] Make representative protocol, execution, nesting, and failure cases runnable online
 - [x] Link selected rendered nodes back to their protocol JSON
 - [x] Keep snapshot validation and rendering entirely inside the browser tab
 - [x] Maintain mobile, keyboard, and three-browser coverage for the public playground
@@ -123,11 +123,10 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Publish and verify the browser-only playground.
-2. Improve documentation navigation around quick start, Go projection, protocol,
+1. Improve documentation navigation around quick start, Go projection, protocol,
    customization, and troubleshooting.
-3. Observe stable releases in real consumers and triage reproducible public issues.
-4. Add a new package API only when adoption evidence identifies a reusable need.
+2. Observe stable releases in real consumers and triage reproducible public issues.
+3. Add a new package API only when adoption evidence identifies a reusable need.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle
