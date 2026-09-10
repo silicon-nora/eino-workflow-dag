@@ -1,5 +1,7 @@
 # eino-workflow-dag
 
+**English** | [简体中文](./README.zh-CN.md)
+
 [![npm](https://img.shields.io/npm/v/eino-workflow-dag)](https://www.npmjs.com/package/eino-workflow-dag)
 [![CI](https://github.com/silicon-nora/eino-workflow-dag/actions/workflows/ci.yml/badge.svg)](https://github.com/silicon-nora/eino-workflow-dag/actions/workflows/ci.yml)
 [![License](https://img.shields.io/npm/l/eino-workflow-dag)](./LICENSE)
@@ -106,6 +108,10 @@ script directly; the API is exposed as `window.EinoWorkflowDAG`:
 <script src="https://cdn.jsdelivr.net/npm/eino-workflow-dag@1/dist/eino-workflow-dag.umd.js"></script>
 ```
 
+This snippet only covers asset loading. Create the host, snapshot, and view as
+shown in [Quick start](#quick-start), using methods from
+`window.EinoWorkflowDAG` instead of imports.
+
 Pin an exact package version in production when deployments must be
 reproducible.
 
@@ -139,7 +145,10 @@ interface EinoWorkflowSnapshot {
   `skipped`. Nodes without a final outcome have no execution record.
 - Execution nodes use array paths such as `["research", "model"]`, so local IDs
   never become ambiguous.
-- `metadata` is the only extension point for application-specific JSON data.
+- `metadata` is the only application-owned extension mechanism. It may appear
+  on a snapshot, graph, node, edge, field mapping, branch, or execution.
+  The renderer validates its JSON shape but never derives topology, execution
+  state, node kind, layout, or styling from it.
 - Eino endpoints use `start` and `end`. They cannot be node IDs.
 - Cyclic graphs are rejected. Eino Workflow and acyclic Graph output are in
   scope; cyclic Pregel output is not.
@@ -176,11 +185,11 @@ It captures the compiled Eino topology, normalizes it deterministically, and
 emits the same snapshot consumed by the JavaScript validator.
 
 ```bash
-go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.0.0
+go get github.com/silicon-nora/eino-workflow-dag/integrations/go@v1.2.0
 ```
 
-The Go projection is an independently versioned module. Its `v1.0.0` release
-uses the immutable Git tag `integrations/go/v1.0.0`; npm package tags and Go
+The Go projection is an independently versioned module. Its `v1.2.0` release
+uses the immutable Git tag `integrations/go/v1.2.0`; npm package tags and Go
 module tags do not share a version clock.
 
 ## Instance API
@@ -257,9 +266,11 @@ highlight, keyboard, pan, and wheel-zoom behavior. See the normative
 [customization contract](./CUSTOMIZATION.md).
 
 Eino component values remain open strings. An explicit node `kind` takes
-precedence over component inference; nodes that omit `kind` retain the existing
-component fallback. Execution status is the fixed `success`, `failed`, or
-`skipped` outcome.
+precedence over component inference. When `kind` is omitted, component-based
+inference affects built-in visual treatment only; the default label still shows
+the original component value verbatim. Producers that require stable,
+cross-producer visual semantics should provide `kind`. Execution status is the
+fixed `success`, `failed`, or `skipped` outcome.
 Resolved kind and status label maps remain available through `locale.kinds`
 and `locale.statuses` for custom presentation.
 
@@ -275,10 +286,13 @@ technical labels do not change with locale. This presentation choice does not
 replace or mutate the original component identity available to callbacks and
 formatters.
 
-`onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
-`metadata`. When a rendered relationship also represents an Eino branch, its
-metadata is available separately as `branchMetadata`. Node formatter data and
-rendered edges also expose their graph-local numeric `level`.
+Node `metadata` is exposed to node callbacks and formatters. `onEdgeClick`
+receives the edge `channels`, Eino field `mappings` (including mapping
+metadata), and edge `metadata`. When a rendered relationship also represents
+an Eino branch, its metadata is available separately as `branchMetadata` and
+`branchMetadataList`. Snapshot-, graph-, and execution-level metadata remain
+available on the host-owned input snapshot. Node formatter data and rendered
+edges also expose their graph-local numeric `level`.
 
 Presentation settings are never read from snapshot `metadata`. Metadata is
 passed to host callbacks and formatters without acquiring renderer semantics.
@@ -289,6 +303,14 @@ Every workflow graph, including each expanded nested workflow, owns an
 independent set of layout rails numbered from Level 0. The renderer derives
 these Levels from the Eino workflow topology and optional execution duration;
 applications do not provide a second path classification.
+
+Within each graph layer, Level 0 is the start-to-end route with the greatest
+sum of measured node durations. Missing durations count as zero, ties prefer
+the route with more topology hops, and skipped nodes are excluded whenever a
+non-skipped route exists. The selected nodes are removed and the same longest-
+route calculation is repeated to assign Level 1 through N. A nested workflow
+wrapper contributes only its own duration in the parent layer; its inner graph
+computes a separate set of Levels.
 
 Nodes at the same Level in the same graph share one cross-axis rail. Expanded
 workflow nodes align their inner Level 0 waist with the parent Level assigned
@@ -308,7 +330,8 @@ expanded workflow's external rail port stays aligned with its inner Level 0
 rail. Consequently, adjacent same-Level nodes use a straight connection when
 the corridor is clear; a same-Level edge may still bend when it must pass an
 intervening node or other obstacle.
-The visible-graph callback exposes `levelZeroPath` and
+The `VisibleGraph` value passed as the second argument to
+`accessibilityLabelFormatter` exposes `levelZeroPath` and
 `levelZeroDurationMs` as a summary of the root graph's first rail.
 
 ## Cytoscape-specific integration
@@ -321,7 +344,9 @@ import {
   createCytoscapeWorkflowDAG,
   getCytoscape,
 } from "eino-workflow-dag/cytoscape";
+import "eino-workflow-dag/styles.css";
 
+// Reuse container and snapshot from Quick start.
 const view = createCytoscapeWorkflowDAG(container, {
   snapshot,
   additionalStyles: [
