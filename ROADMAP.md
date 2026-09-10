@@ -62,7 +62,7 @@ JavaScript contract.
 - [x] Review the first RC observation and clear stale execution data on update
 - [x] Publish and validate `1.0.0-rc.2` after the RC observation fix
 - [x] Observe `1.0.0-rc.2` in an
-  [independent exact-npm host](./examples/registry-host/README.md) across execution,
+  [independent exact-npm host](./tests/host/fixture/README.md) across execution,
   geometry, resize, and lifecycle changes
 - [x] Publish and validate `1.0.0-rc.3` with the visual and interaction
   customization contract

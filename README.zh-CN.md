@@ -332,8 +332,11 @@ const cy = getCytoscape(view);
 
 React 和 Vue 都是可选 peer dependency。Cytoscape 是唯一的生产依赖。
 
+Vanilla、React 和 Vue 的可运行集成源码统一收录在
+[`examples/`](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples)。
+
 如需在本地检查路由，请先构建包并提供仓库根目录的静态服务，然后打开交互式
-[路由预览](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples/routing-preview)。
+[路由预览](https://github.com/silicon-nora/eino-workflow-dag/tree/main/tests/fixtures/routing-preview)。
 其中包含四种布局方向下的串行、扇入、菱形、嵌套工作流、生产规模和压力测试用例。
 浏览器测试套件会执行同一组矩阵。
 

@@ -81,7 +81,7 @@ jobs:
       - run: npm run test:browser -- --project=${{ matrix.browser }}
       - if: matrix.browser == 'chromium'
         name: Install exact Registry host dependencies
-        run: npm ci --prefix examples/registry-host --ignore-scripts
+        run: npm ci --prefix tests/host/fixture --ignore-scripts
       - if: matrix.browser == 'chromium'
         name: Exercise Registry host customization controls
         run: npx playwright test --config=playwright.host.config.js --project=chromium

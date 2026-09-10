@@ -7,7 +7,6 @@ const excludedDirectories = new Set([
   "dist",
   "node_modules",
   "test-results",
-  "examples/react-dist",
   ".artifacts",
 ]);
 assertNoSensitiveContent(projectRoot, { excludedDirectories });

@@ -372,9 +372,12 @@ upgrades against their selectors and Cytoscape calls.
 Both React and Vue are optional peer dependencies. Cytoscape is the only
 production dependency.
 
+Runnable Vanilla, React, and Vue integration sources are indexed in
+[`examples/`](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples).
+
 For local routing inspection, build the package, serve the repository root,
 and open the interactive
-[routing preview](https://github.com/silicon-nora/eino-workflow-dag/tree/main/examples/routing-preview).
+[routing preview](https://github.com/silicon-nora/eino-workflow-dag/tree/main/tests/fixtures/routing-preview).
 It contains serial, fan-in, diamond, nested-workflow, production-scale, and
 stress cases in all four layout directions. The same matrix is exercised by the
 browser test suite.

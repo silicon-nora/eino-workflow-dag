@@ -3,7 +3,6 @@ dist/
 coverage/
 playwright-report/
 test-results/
-examples/react-dist/
 .packed-consumer-*/
 .packed-browser-*/
 .artifacts/

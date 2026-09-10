@@ -170,7 +170,7 @@ test("public playground remains usable across narrow, tablet, and desktop screen
 
 test("canvas panning invalidates the viewport texture after the gesture", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.waitForFunction(() => window.dagInstance);
   await page.locator("#dag canvas").first().waitFor();
 
@@ -207,7 +207,7 @@ test("canvas panning invalidates the viewport texture after the gesture", async 
 
 test("dragging from a node pans the viewport without moving or clicking the node", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/examples/plain/");
+  await page.goto("/examples/vanilla/");
   await page.waitForFunction(() => window.dagInstance);
   await page.locator("#dag canvas").first().waitFor();
 
