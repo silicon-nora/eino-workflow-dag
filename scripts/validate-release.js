@@ -22,6 +22,9 @@ const manifest = JSON.parse(readFileSync(resolve(projectRoot, "package.json"), "
 const fixture = JSON.parse(
   readFileSync(resolve(projectRoot, "fixtures/eino-workflow-v1.json"), "utf8"),
 );
+const nodeKindFixture = JSON.parse(
+  readFileSync(resolve(projectRoot, "fixtures/eino-workflow-kind-v1.json"), "utf8"),
+);
 
 class CommandFailure extends Error {
   constructor(command, status, signal) {
@@ -99,7 +102,7 @@ function installPublishedPackage(work, packageSpec, registry) {
   throw failure;
 }
 
-function browserConsumerSource(version, snapshot) {
+function browserConsumerSource(version, snapshot, explicitKindFixture) {
   const enriched = structuredClone(snapshot);
   enriched.metadata = { validation: "release-host" };
   const prepare = enriched.workflow.nodes.find((node) => node.id === "prepare");
@@ -114,17 +117,19 @@ import { parseWorkflowSnapshot } from "${manifest.name}/validation";
 import "${manifest.name}/styles.css";
 
 const baseSnapshot = parseWorkflowSnapshot(${JSON.stringify(enriched)});
+const nodeKindSnapshot = parseWorkflowSnapshot(${JSON.stringify(explicitKindFixture)});
 const host = document.querySelector("#dag");
 const flow = document.querySelector("#flow");
 let instance = null;
 let snapshot = structuredClone(baseSnapshot);
 const events = [];
 
-function mount() {
+function mount(options = {}) {
   instance = createCytoscapeWorkflowDAG(host, {
     snapshot,
     direction: "RIGHT",
     pinNodeTip: false,
+    ...options,
     onNodeClick(node) { events.push({ type: "node", value: node }); },
     onEdgeClick(edge) { events.push({ type: "edge", value: edge }); },
     onError(error) { events.push({ type: "error", value: error.message }); },
@@ -135,6 +140,7 @@ function mount() {
 window.releaseHarness = {
   version: ${JSON.stringify(version)},
   baseSnapshot,
+  nodeKindSnapshot,
   events,
   get instance() { return instance; },
   get cy() { return instance ? getCytoscape(instance) : null; },
@@ -145,6 +151,23 @@ window.releaseHarness = {
   remount() {
     if (instance) instance.destroy();
     host.replaceChildren();
+    return mount();
+  },
+  mountNodeKindFixture() {
+    if (instance) instance.destroy();
+    host.replaceChildren();
+    snapshot = structuredClone(nodeKindSnapshot);
+    return mount({
+      expanded: [["answer/flow"]],
+      additionalStyles: [
+        { selector: 'node[kind = "llm"]', style: { "border-width": 11 } },
+      ],
+    });
+  },
+  restoreBaseFixture() {
+    if (instance) instance.destroy();
+    host.replaceChildren();
+    snapshot = structuredClone(baseSnapshot);
     return mount();
   },
   cycleLifecycle(count) {
@@ -194,7 +217,7 @@ function prepareBrowserConsumer(version, packageSpec, registry) {
   );
   writeFileSync(
     resolve(work, "src/main.js"),
-    browserConsumerSource(version, fixture),
+    browserConsumerSource(version, fixture, nodeKindFixture),
   );
   const environment = installPublishedPackage(work, packageSpec, registry);
   const installedManifest = JSON.parse(
