@@ -560,6 +560,7 @@ export function mountRenderer(container, options) {
             );
           },
           onViewport: viewport.onViewport,
+          onViewportGestureEnd: viewport.refreshRenderQuality,
           setEdgeHighlight: edgeState.set,
           togglePath: toggleEncodedPath,
           tooltip: tooltip,

@@ -152,6 +152,9 @@
   line-height: var(--eino-workflow-dag-tooltip-line-height, 1.45);
   white-space: pre-wrap;
   word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
   pointer-events: auto;
 }
 

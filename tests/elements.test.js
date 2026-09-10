@@ -39,6 +39,7 @@ const elements = toCytoscapeElements(
 
 const a = elements.find((element) => element.data.id === "a");
 const g = elements.find((element) => element.data.id === "g");
+assert(a.pannable === true, "node drag gestures pass through to viewport panning");
 assert(a.data.key === "a", "rendered nodes preserve their graph-local key");
 assert(a.data.level === 0, "rendered nodes preserve their graph-local Level");
 assert(a.data.label === "A:Lambda:team:success:10", "custom label formatter receives public Eino node data");

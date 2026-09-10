@@ -10,6 +10,15 @@ public contract is being validated.
 - Added a complete Simplified Chinese README with reciprocal language links,
   and included it in the published package contract.
 
+### Fixed
+
+- Allow drag gestures that start on nodes to pan the viewport without moving
+  nodes or triggering their click actions.
+- Refresh the rendered element layer after a completed canvas pan so cached
+  node labels return to full display resolution without requiring hover.
+- Allow native text selection and context menus inside node tooltips without
+  starting an underlying canvas pan gesture.
+
 ## [1.3.0] - 2026-09-10
 
 ### Added
