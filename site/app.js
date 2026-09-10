@@ -469,6 +469,12 @@ function sameNodePath(left, right) {
     && left.every((segment, index) => segment === right[index]);
 }
 
+function clearNodePointerState() {
+  const getCytoscape = instance?.[Symbol.for("eino-workflow-dag.cytoscape")];
+  const cy = typeof getCytoscape === "function" ? getCytoscape() : null;
+  cy?.nodes(".hover, .press").removeClass("hover press");
+}
+
 function localizedSampleSnapshot(sample, language) {
   const snapshot = clone(sample.snapshot);
   const names = sample.localizedNames?.[language];
@@ -614,6 +620,7 @@ function mount(snapshot) {
     onNodeClick(node) {
       if (sameNodePath(instance.getActiveNodePath(), node.path)) {
         instance.setActiveNodePath(null);
+        clearNodePointerState();
         selectedPathIsPrompt = true;
         elements.selectedPath.textContent = t("selectNodePrompt");
         scheduleDiagnostics();
