@@ -48,7 +48,7 @@ JavaScript contract.
 - [x] Publish `1.0.0-rc.1` and resolve every release-blocking defect
 - [x] Publish `1.0.0` under npm's `latest` dist-tag
 
-## Current milestone — 1.0.0 stabilization
+## Completed milestone — 1.0.0 stabilization
 
 - [x] Use execution duration when assigning graph-local Levels
 - [x] Keep branch geometry stable across nested-workflow expansion
@@ -83,7 +83,24 @@ JavaScript contract.
 - [x] Centralize render and theme invalidation around geometry signatures
 - [x] Split runtime public data, host callbacks, host DOM lifecycle, and layout options
 - [x] Lock the resulting dependency boundaries with architecture tests
-- [ ] Validate the exact `1.1.0` candidate artifact and publish it
+- [x] Validate the exact `1.1.0` candidate artifact and publish it
+
+## 1.2 explicit node semantics
+
+- [x] Add the optional closed `WorkflowNode.kind` enum to schema version 1
+- [x] Keep existing schema-v1 documents and projection output compatible
+- [x] Add Go path-based node-kind resolution for Eino `GraphInfo`
+- [x] Publish aligned npm and Go module `1.2.0` versions
+- [x] Validate explicit kinds against the exact npm package in three browsers
+
+## Current milestone — open-source adoption
+
+- [ ] Publish a browser-only snapshot playground through GitHub Pages
+- [ ] Make representative protocol, execution, nesting, and failure cases runnable online
+- [x] Link selected rendered nodes back to their protocol JSON
+- [x] Keep snapshot validation and rendering entirely inside the browser tab
+- [x] Maintain mobile, keyboard, and three-browser coverage for the public playground
+- [ ] Use external issue reports and measured workloads to define any future package API
 
 ## Alpha.3 — public boundary
 
@@ -106,9 +123,11 @@ JavaScript contract.
 
 ## Next implementation order
 
-1. Validate the exact `1.1.0` candidate artifact across package, browser, and Go gates.
-2. Publish `1.1.0` without changing the frozen protocol or public API contracts.
-3. Observe the stable package in real consumers and triage reported issues.
+1. Publish and verify the browser-only playground.
+2. Improve documentation navigation around quick start, Go projection, protocol,
+   customization, and troubleshooting.
+3. Observe stable releases in real consumers and triage reproducible public issues.
+4. Add a new package API only when adoption evidence identifies a reusable need.
 
 Off-main-thread layout is deferred from `1.0.0`. It may return later as an
 optional adapter if measured browser workloads justify the added API and bundle

@@ -1,8 +1,15 @@
 # eino-workflow-dag
 
+[![npm](https://img.shields.io/npm/v/eino-workflow-dag)](https://www.npmjs.com/package/eino-workflow-dag)
+[![CI](https://github.com/silicon-nora/eino-workflow-dag/actions/workflows/ci.yml/badge.svg)](https://github.com/silicon-nora/eino-workflow-dag/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/eino-workflow-dag)](./LICENSE)
+
 A framework-independent, read-only renderer for nested
 [CloudWeGo Eino](https://github.com/cloudwego/eino) workflows and their
 execution state.
+
+[Open the browser playground](https://silicon-nora.github.io/eino-workflow-dag/)
+to validate and render a schema-v1 snapshot without installing the package.
 
 The library accepts one JSON-safe visualization protocol, renders predictable
 layered DAGs, and provides optional React and Vue bindings. It does not execute

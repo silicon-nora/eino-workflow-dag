@@ -5,6 +5,14 @@ public contract is being validated.
 
 ## [Unreleased]
 
+### Added
+
+- Added a browser-only public playground for validating, rendering, and
+  inspecting schema-v1 snapshots without uploading workflow data.
+- Added a GitHub Pages deployment workflow and three-browser coverage for the
+  playground's protocol editor, node-to-JSON navigation, responsive layout,
+  and automated accessibility checks.
+
 ## [1.2.0] - 2026-09-09
 
 ### Added
