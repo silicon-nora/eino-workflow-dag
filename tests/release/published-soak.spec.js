@@ -87,6 +87,75 @@ test("published package survives representative integration use", async ({ page 
     "support-assistant",
   );
 
+  await page.evaluate(() => window.releaseHarness.mountNodeKindFixture());
+  await settle(page);
+  const nodeKindCoverage = await page.evaluate(() => {
+    const harness = window.releaseHarness;
+    const byKey = (key) => harness.cy.nodes().filter(
+      (node) => node.data("key") === key,
+    ).first();
+    const route = byKey("route/strategy");
+    const answer = byKey("answer/flow");
+    const invoke = byKey("invoke/model");
+    route.emit("tap");
+    const callback = harness.events
+      .filter((event) => event.type === "node")
+      .at(-1);
+    const initial = {
+      route: {
+        kind: route.data("kind"),
+        component: route.data("component"),
+      },
+      answer: {
+        kind: answer.data("kind"),
+        expanded: answer.data("expanded"),
+      },
+      invoke: {
+        kind: invoke.data("kind"),
+        component: invoke.data("component"),
+        visible: invoke.visible(),
+        borderWidth: invoke.numericStyle("border-width"),
+      },
+    };
+    const before = harness.instance.getDiagnostics();
+    const updated = structuredClone(harness.nodeKindSnapshot);
+    updated.workflow.nodes.find((node) => node.id === "route/strategy").kind = "cpu";
+    harness.update(updated);
+    const after = harness.instance.getDiagnostics();
+    return {
+      ...initial,
+      callback,
+      updatedRouteKind: byKey("route/strategy").data("kind"),
+      before,
+      after,
+    };
+  });
+  expect(nodeKindCoverage.route).toEqual({ kind: "branch", component: "Lambda" });
+  expect(nodeKindCoverage.answer).toEqual({ kind: "graph", expanded: true });
+  expect(nodeKindCoverage.invoke).toEqual({
+    kind: "llm",
+    component: "Lambda",
+    visible: true,
+    borderWidth: 11,
+  });
+  expect(nodeKindCoverage.callback).toMatchObject({
+    type: "node",
+    value: {
+      path: ["route/strategy"],
+      kind: "branch",
+      component: "Lambda",
+    },
+  });
+  expect(nodeKindCoverage.updatedRouteKind).toBe("cpu");
+  expect(nodeKindCoverage.after.topologySyncs).toBe(
+    nodeKindCoverage.before.topologySyncs,
+  );
+  expect(nodeKindCoverage.after.layoutRuns).toBe(
+    nodeKindCoverage.before.layoutRuns + 1,
+  );
+  await page.evaluate(() => window.releaseHarness.restoreBaseFixture());
+  await settle(page);
+
   const callbacks = await page.evaluate(() => {
     const cy = window.releaseHarness.cy;
     cy.getElementById("prepare").emit("tap");
