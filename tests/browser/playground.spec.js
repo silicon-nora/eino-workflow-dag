@@ -37,6 +37,20 @@ test("public playground validates, renders, and links nodes to protocol JSON", a
     editor.value.slice(editor.selectionStart, editor.selectionEnd),
   )).toBe('"id": "draft"');
 
+  await page.evaluate(() => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.playground.instance[access]();
+    cy.nodes().filter((node) =>
+      node.data("key") === "draft" && node.parent().data("key") === "research",
+    ).first().emit("tap");
+  });
+  await expect(page.locator("#selected-path")).toHaveText("Click a node to locate it in the protocol");
+  expect(await page.evaluate(() => ({
+    activePath: window.playground.instance.getActiveNodePath(),
+    highlightedNodes: window.playground.instance[Symbol.for("eino-workflow-dag.cytoscape")]()
+      .nodes(".active-node").length,
+  }))).toEqual({ activePath: null, highlightedNodes: 0 });
+
   await page.locator("#sample").selectOption("recovery");
   await expect(page.locator("#render-summary")).toContainText("5 nodes");
   await expect(page.locator("#snapshot-json")).toHaveValue(/"status": "failed"/);

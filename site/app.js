@@ -462,6 +462,13 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function sameNodePath(left, right) {
+  return Array.isArray(left)
+    && Array.isArray(right)
+    && left.length === right.length
+    && left.every((segment, index) => segment === right[index]);
+}
+
 function localizedSampleSnapshot(sample, language) {
   const snapshot = clone(sample.snapshot);
   const names = sample.localizedNames?.[language];
@@ -605,6 +612,13 @@ function mount(snapshot) {
     expanded: subgraphPaths(snapshot.workflow),
     activeNodePath: null,
     onNodeClick(node) {
+      if (sameNodePath(instance.getActiveNodePath(), node.path)) {
+        instance.setActiveNodePath(null);
+        selectedPathIsPrompt = true;
+        elements.selectedPath.textContent = t("selectNodePrompt");
+        scheduleDiagnostics();
+        return;
+      }
       instance.setActiveNodePath(node.path);
       locateNodeInEditor(node.path);
       scheduleDiagnostics();

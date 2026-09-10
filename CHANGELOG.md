@@ -21,6 +21,11 @@ public contract is being validated.
 - Increased playground type and control sizes, with dedicated phone, tablet,
   compact-desktop, and wide-desktop layouts.
 
+### Fixed
+
+- Clicking the selected node again now clears its Playground highlight and
+  returns the protocol inspector to its unselected state.
+
 ## [1.2.0] - 2026-09-09
 
 ### Added
