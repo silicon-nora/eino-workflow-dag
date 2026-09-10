@@ -170,6 +170,25 @@ const rendererLocales = {
 const samples = {
   agent: {
     noteKey: "sampleAgentNote",
+    localizedNames: {
+      zh: {
+        workflows: {
+          "": "研究助手",
+          research: "研究流程",
+        },
+        nodes: {
+          intake: "规范化请求",
+          route: "选择路径",
+          direct: "直接响应",
+          research: "研究工作流",
+          "research/lookup": "检索上下文",
+          "research/rank": "证据排序",
+          "research/draft": "生成答案",
+          merge: "合并结果",
+          deliver: "输出答案",
+        },
+      },
+    },
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -233,6 +252,18 @@ const samples = {
   },
   recovery: {
     noteKey: "sampleRecoveryNote",
+    localizedNames: {
+      zh: {
+        workflows: { "": "容错生成" },
+        nodes: {
+          prepare: "准备输入",
+          primary: "主模型",
+          fallback: "备用模型",
+          select: "选择结果",
+          store: "存储响应",
+        },
+      },
+    },
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -270,6 +301,14 @@ const samples = {
   },
   minimal: {
     noteKey: "sampleMinimalNote",
+    localizedNames: {
+      zh: {
+        nodes: {
+          input: "输入",
+          model: "生成",
+        },
+      },
+    },
     snapshot: {
       schemaVersion: 1,
       workflow: {
@@ -315,6 +354,7 @@ let selectedPathIsPrompt = true;
 let renderState = { kind: "", titleKey: "loadingRenderer", summaryKey: null, params: {} };
 let validationState = { kind: "neutral", key: "waitingRenderer", params: {} };
 let visibleIssues = [];
+let lastLoadedSampleDocument = null;
 
 function t(key, params = {}) {
   const template = messages[activeLanguage][key] || messages.en[key] || key;
@@ -364,7 +404,11 @@ function renderIssueList() {
 }
 
 function applyLanguage(language, { persist = true, updateUrl = true } = {}) {
-  activeLanguage = language === "zh" ? "zh" : "en";
+  const nextLanguage = language === "zh" ? "zh" : "en";
+  const shouldRelocalizeSample = Boolean(
+    lastLoadedSampleDocument && elements.editor.value === lastLoadedSampleDocument,
+  );
+  activeLanguage = nextLanguage;
   document.documentElement.lang = activeLanguage === "zh" ? "zh-CN" : "en";
   document.title = t("pageTitle");
   document.querySelector('meta[name="description"]').content = t("pageDescription");
@@ -394,7 +438,11 @@ function applyLanguage(language, { persist = true, updateUrl = true } = {}) {
   displayValidationState();
   renderIssueList();
   instance?.setLocale(rendererLocales[activeLanguage]);
-  scheduleDiagnostics();
+  if (shouldRelocalizeSample && api) {
+    loadSample(elements.sample.value, { fit: false, resetSelection: false });
+  } else {
+    scheduleDiagnostics();
+  }
 
   if (persist) {
     try {
@@ -412,6 +460,28 @@ function applyLanguage(language, { persist = true, updateUrl = true } = {}) {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function localizedSampleSnapshot(sample, language) {
+  const snapshot = clone(sample.snapshot);
+  const names = sample.localizedNames?.[language];
+  if (!names) return snapshot;
+
+  function applyNames(workflow, prefix = []) {
+    const workflowPath = prefix.join("/");
+    if (Object.hasOwn(names.workflows || {}, workflowPath)) {
+      workflow.name = names.workflows[workflowPath];
+    }
+    for (const node of workflow.nodes) {
+      const path = [...prefix, node.id];
+      const nodePath = path.join("/");
+      if (Object.hasOwn(names.nodes || {}, nodePath)) node.name = names.nodes[nodePath];
+      if (node.workflow) applyNames(node.workflow, path);
+    }
+  }
+
+  applyNames(snapshot.workflow);
+  return snapshot;
 }
 
 function assetBase() {
@@ -585,17 +655,21 @@ function applyEditorSnapshot({ fit = true } = {}) {
     edges: counts.edges,
     outcomes: executions,
   });
-  scheduleCanvasFit();
+  if (fit) scheduleCanvasFit();
+  else scheduleDiagnostics();
   return true;
 }
 
-function loadSample(id) {
+function loadSample(id, { fit = true, resetSelection = true } = {}) {
   const sample = samples[id];
   elements.sampleNote.textContent = t(sample.noteKey);
-  elements.editor.value = JSON.stringify(clone(sample.snapshot), null, 2);
-  selectedPathIsPrompt = true;
-  elements.selectedPath.textContent = t("selectNodePrompt");
-  applyEditorSnapshot();
+  lastLoadedSampleDocument = JSON.stringify(localizedSampleSnapshot(sample, activeLanguage), null, 2);
+  elements.editor.value = lastLoadedSampleDocument;
+  if (resetSelection) {
+    selectedPathIsPrompt = true;
+    elements.selectedPath.textContent = t("selectNodePrompt");
+  }
+  applyEditorSnapshot({ fit });
 }
 
 function selectPressed(container, selector, attribute, value) {
