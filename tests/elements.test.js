@@ -64,16 +64,30 @@ const defaultLabels = toCytoscapeElements({
   ],
   edges: [],
 });
-assert(defaultLabels[0].data.label === "Timed\nllm  ·  0ms", "raw explicit kinds replace component text and preserve zero duration");
-assert(defaultLabels[1].data.label === "Untimed\nio", "raw kind-only details omit a missing duration");
+assert(defaultLabels[0].data.label === "Timed\nLLM  ·  0ms", "canonical kind labels replace component text and preserve zero duration");
+assert(defaultLabels[1].data.label === "Untimed\nI/O", "canonical kind-only details omit a missing duration");
 assert(defaultLabels[2].data.label === "Component\nRetriever", "components remain the type fallback when kind is omitted");
 assert(defaultLabels[3].data.label === "Bare", "missing component, kind, and duration leave a title-only label");
+for (const [kind, label] of [
+  ["llm", "LLM"],
+  ["io", "I/O"],
+  ["cpu", "CPU"],
+  ["graph", "Graph"],
+  ["branch", "Branch"],
+  ["merge", "Merge"],
+]) {
+  const [element] = toCytoscapeElements({
+    nodes: [{ id: kind, name: "Kind", kind, display_kind: kind }],
+    edges: [],
+  });
+  assert(element.data.label === `Kind\n${label}`, `${kind} uses its canonical technical label`);
+}
 assert(
   toCytoscapeElements({
     nodes: [{ id: "localized", name: "Localized", kind: "llm", display_kind: "llm", component: "Lambda" }],
     edges: [],
-  }, { locale: { kinds: { llm: "大模型" } } })[0].data.label === "Localized\nllm",
-  "displayed kind values are not translated by the renderer locale",
+  }, { locale: { kinds: { llm: "大模型" } } })[0].data.label === "Localized\nLLM",
+  "canonical technical labels are not translated by the renderer locale",
 );
 let untimedPublicNode;
 toCytoscapeElements(
@@ -87,7 +101,7 @@ assert(
     id: "outer/inner",
     key: "inner",
     title: "Inner",
-    label: "Inner\ncpu  ·  12ms",
+    label: "Inner\nCPU  ·  12ms",
     parent: "outer",
     kind: "cpu",
     component: "Lambda",
@@ -116,7 +130,7 @@ assert(
     subgraph: true,
     expanded: false,
     level: 2,
-    label: "Inner\ncpu  ·  12ms",
+    label: "Inner\nCPU  ·  12ms",
   }),
   "rendered node callbacks share one complete public data conversion",
 );
