@@ -23,8 +23,8 @@ public contract is being validated.
 
 ### Fixed
 
-- Clicking the selected node again now clears its Playground highlight and
-  returns the protocol inspector to its unselected state.
+- Clicking the selected node again now clears both its selection and residual
+  pointer highlight, then returns the protocol inspector to its unselected state.
 
 ## [1.2.0] - 2026-09-09
 

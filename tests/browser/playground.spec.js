@@ -9,6 +9,20 @@ async function settle(page) {
   );
 }
 
+async function nodeCenter(page, key, parentKey) {
+  return page.evaluate(({ nodeKey, parentNodeKey }) => {
+    const access = Symbol.for("eino-workflow-dag.cytoscape");
+    const cy = window.playground.instance[access]();
+    const node = cy.nodes().filter((candidate) =>
+      candidate.data("key") === nodeKey
+        && candidate.parent().data("key") === parentNodeKey,
+    ).first();
+    const position = node.renderedPosition();
+    const bounds = document.querySelector("#dag").getBoundingClientRect();
+    return { x: bounds.left + position.x, y: bounds.top + position.y };
+  }, { nodeKey: key, parentNodeKey: parentKey });
+}
+
 test("public playground validates, renders, and links nodes to protocol JSON", async ({ page }) => {
   await page.setViewportSize({ width: 1560, height: 980 });
   await page.goto("/.artifacts/pages/?lang=en");
@@ -25,31 +39,22 @@ test("public playground validates, renders, and links nodes to protocol JSON", a
   expect(await page.evaluate(() => window.playground.instance.getDirection())).toBe("DOWN");
   expect(await page.evaluate(() => window.playground.instance.getTheme())).toBe("midnight");
 
-  await page.evaluate(() => {
-    const access = Symbol.for("eino-workflow-dag.cytoscape");
-    const cy = window.playground.instance[access]();
-    cy.nodes().filter((node) =>
-      node.data("key") === "draft" && node.parent().data("key") === "research",
-    ).first().emit("tap");
-  });
+  const draftCenter = await nodeCenter(page, "draft", "research");
+  await page.mouse.click(draftCenter.x, draftCenter.y);
   await expect(page.locator("#selected-path")).toHaveText("research / draft");
   expect(await page.locator("#snapshot-json").evaluate((editor) =>
     editor.value.slice(editor.selectionStart, editor.selectionEnd),
   )).toBe('"id": "draft"');
 
-  await page.evaluate(() => {
-    const access = Symbol.for("eino-workflow-dag.cytoscape");
-    const cy = window.playground.instance[access]();
-    cy.nodes().filter((node) =>
-      node.data("key") === "draft" && node.parent().data("key") === "research",
-    ).first().emit("tap");
-  });
+  await page.mouse.click(draftCenter.x, draftCenter.y);
   await expect(page.locator("#selected-path")).toHaveText("Click a node to locate it in the protocol");
   expect(await page.evaluate(() => ({
     activePath: window.playground.instance.getActiveNodePath(),
     highlightedNodes: window.playground.instance[Symbol.for("eino-workflow-dag.cytoscape")]()
       .nodes(".active-node").length,
-  }))).toEqual({ activePath: null, highlightedNodes: 0 });
+    hoveredNodes: window.playground.instance[Symbol.for("eino-workflow-dag.cytoscape")]()
+      .nodes(".hover").length,
+  }))).toEqual({ activePath: null, highlightedNodes: 0, hoveredNodes: 0 });
 
   await page.locator("#sample").selectOption("recovery");
   await expect(page.locator("#render-summary")).toContainText("5 nodes");
