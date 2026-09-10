@@ -5,6 +5,8 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-10
+
 ### Added
 
 - Added a complete Simplified Chinese README with reciprocal language links,
