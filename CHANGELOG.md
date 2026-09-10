@@ -5,6 +5,8 @@ public contract is being validated.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-10
+
 ### Added
 
 - Added a browser-only public playground for validating, rendering, and
