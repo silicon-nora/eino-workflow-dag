@@ -132,6 +132,7 @@ export function projectWorkflowSnapshot(snapshot) {
         original_id: node.id,
         ...(node.name === undefined ? {} : { name: node.name }),
         ...(node.component === undefined ? {} : { component: node.component }),
+        ...(node.kind === undefined ? {} : { display_kind: node.kind }),
         kind: node.kind ?? visualKind(node.component),
         ...(node.metadata === undefined ? {} : { metadata: node.metadata }),
         ...(execution.status === undefined ? {} : { status: execution.status }),
@@ -151,6 +152,7 @@ export function projectWorkflowSnapshot(snapshot) {
       };
       if (node.workflow !== undefined && node.workflow !== null) {
         projected.kind = "graph";
+        projected.display_kind = "graph";
         projected.graph = graphShell(node.workflow);
         pending.push({ workflow: node.workflow, target: projected.graph, prefix: path });
       }

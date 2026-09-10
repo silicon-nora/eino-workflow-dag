@@ -46,11 +46,12 @@ errors introduced by a future schema or package major.
 
 ## Component and status values
 
-Eino component categories are open strings. Known values receive built-in
-labels and visual treatment; unknown component values remain visible and use
-the generic fallback. A node may instead declare the closed node-kind enum
-`llm`, `io`, `cpu`, `branch`, `merge`, or `graph`; explicit kind wins over
-component inference without changing the original component identity.
+Eino component categories are open strings. Without an explicit kind, the
+original component remains the visible type and known values receive built-in
+visual treatment. A node may instead declare the closed node-kind enum `llm`,
+`io`, `cpu`, `branch`, `merge`, or `graph`; explicit kind supplies the localized
+visible type and wins over component inference without changing the original
+component identity.
 
 Node execution status is the closed final-outcome enum `success`, `failed`, or
 `skipped`. A node without a final outcome is omitted from `execution.nodes`.

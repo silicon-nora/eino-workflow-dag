@@ -267,10 +267,11 @@ Resolved kind and status labels remain available through `locale.kinds` and
 They include the original Eino `component` and node `metadata`; they do not
 expose Cytoscape objects.
 
-The default node label uses the node name followed by its original Eino
-`component`. A duration is appended only when the snapshot contains execution
-timing for that node. The internal visual kind is used for styling, not as a
-replacement for the component identity.
+The default node label shows the node name, its type, and an optional execution
+duration. An explicit `kind` supplies the localized type label in place of the
+raw Eino `component`; when `kind` is omitted, `component` remains the displayed
+fallback. This presentation choice does not replace or mutate the original
+component identity available to callbacks and formatters.
 
 `onEdgeClick` receives the edge `channels`, Eino field `mappings`, and edge
 `metadata`. When a rendered relationship also represents an Eino branch, its

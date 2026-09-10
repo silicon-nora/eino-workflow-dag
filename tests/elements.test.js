@@ -64,15 +64,24 @@ assert(!("main" in renderedEdge.data), "rendered edges use Level as their only p
 
 const defaultLabels = toCytoscapeElements({
   nodes: [
-    { id: "timed", name: "Timed", kind: "llm", component: "ChatModel", cost_ms: 0 },
-    { id: "untimed", name: "Untimed", kind: "io", component: "Retriever" },
-    { id: "bare", name: "Bare", kind: "cpu" },
+    { id: "timed", name: "Timed", kind: "llm", display_kind: "llm", component: "Lambda", cost_ms: 0 },
+    { id: "untimed", name: "Untimed", kind: "io", display_kind: "io", component: "Lambda" },
+    { id: "component", name: "Component", kind: "io", component: "Retriever" },
+    { id: "bare", name: "Bare" },
   ],
   edges: [],
 });
-assert(defaultLabels[0].data.label === "Timed\nChatModel  ·  0ms", "default labels use Eino components and preserve zero duration");
-assert(defaultLabels[1].data.label === "Untimed\nRetriever", "missing duration is omitted from default labels");
-assert(defaultLabels[2].data.label === "Bare", "missing component and duration leave a title-only label");
+assert(defaultLabels[0].data.label === "Timed\nLLM  ·  0ms", "explicit kinds replace component text and preserve zero duration");
+assert(defaultLabels[1].data.label === "Untimed\nI/O", "kind-only details omit a missing duration");
+assert(defaultLabels[2].data.label === "Component\nRetriever", "components remain the type fallback when kind is omitted");
+assert(defaultLabels[3].data.label === "Bare", "missing component, kind, and duration leave a title-only label");
+assert(
+  toCytoscapeElements({
+    nodes: [{ id: "localized", name: "Localized", kind: "llm", display_kind: "llm", component: "Lambda" }],
+    edges: [],
+  }, { locale: { kinds: { llm: "大模型" } } })[0].data.label === "Localized\n大模型",
+  "displayed kind labels use the renderer locale",
+);
 let untimedPublicNode;
 toCytoscapeElements(
   { nodes: [{ id: "untimed", component: "Retriever" }], edges: [] },
@@ -85,7 +94,7 @@ assert(
     id: "outer/inner",
     key: "inner",
     title: "Inner",
-    label: "Inner\nLambda",
+    label: "Inner\nCode  ·  12ms",
     parent: "outer",
     kind: "cpu",
     component: "Lambda",
@@ -114,7 +123,7 @@ assert(
     subgraph: true,
     expanded: false,
     level: 2,
-    label: "Inner\nLambda",
+    label: "Inner\nCode  ·  12ms",
   }),
   "rendered node callbacks share one complete public data conversion",
 );

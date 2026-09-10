@@ -20,6 +20,9 @@ public contract is being validated.
 
 - Increased playground type and control sizes, with dedicated phone, tablet,
   compact-desktop, and wide-desktop layouts.
+- Default node labels now show name, type, and optional duration. An explicit
+  `kind` replaces repeated component text with its localized semantic label,
+  while component-only snapshots keep their original component as the type.
 
 ### Fixed
 

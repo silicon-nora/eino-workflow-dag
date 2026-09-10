@@ -24,8 +24,11 @@ export function kindLabel(kind, localeKinds) {
 
 function defaultNodeLabel(node, locale) {
   const title = node.name || node.key || node.id;
+  const type = node.display_kind
+    ? kindLabel(node.display_kind, locale?.kinds)
+    : node.component || "";
   const detail = [
-    node.component || "",
+    type,
     node.cost_ms == null ? "" : formatDuration(node.cost_ms),
   ].filter(Boolean).join("  ·  ");
   return detail ? `${title}\n${detail}` : title;
