@@ -67,17 +67,39 @@ test("public playground supports Chinese without resetting the workflow view", a
   await expect(page.locator("#sample option:checked")).toHaveText("失败与恢复");
   await expect(page.locator("#validation-result")).toContainText("已在本地渲染");
   await expect(page.locator('[data-direction="RIGHT"] em')).toHaveText("向右");
-  expect(await page.locator("#snapshot-json").inputValue()).toBe(snapshotBefore);
+  await expect(page.locator("#snapshot-json")).toHaveValue(/"name": "准备输入"/);
+  await expect(page.locator("#snapshot-json")).toHaveValue(/"name": "主模型"/);
+  expect(await page.locator("#snapshot-json").inputValue()).not.toBe(snapshotBefore);
   expect(await page.evaluate(() => ({
     language: window.playground.language,
     direction: window.playground.instance.getDirection(),
     theme: window.playground.instance.getTheme(),
-  }))).toEqual({ language: "zh", direction: "DOWN", theme: "midnight" });
+    workflowName: window.playground.snapshot.workflow.name,
+    nodeName: window.playground.snapshot.workflow.nodes[0].name,
+  }))).toEqual({
+    language: "zh",
+    direction: "DOWN",
+    theme: "midnight",
+    workflowName: "容错生成",
+    nodeName: "准备输入",
+  });
 
   await page.reload();
   await page.waitForFunction(() => window.playground?.ready);
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+  await page.locator("#sample").evaluate((select) => {
+    select.value = "agent";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect(page.locator("#snapshot-json")).toHaveValue(/"name": "规范化请求"/);
   expect(new URL(page.url()).searchParams.get("lang")).toBe("zh");
+
+  await page.locator("#snapshot-json").evaluate((editor) => {
+    editor.value = editor.value.replace('"name": "规范化请求"', '"name": "自定义入口"');
+  });
+  await page.locator("#apply-json").click();
+  await page.locator('[data-language="en"]').click();
+  await expect(page.locator("#snapshot-json")).toHaveValue(/"name": "自定义入口"/);
 });
 
 test("public playground remains usable across narrow, tablet, and desktop screens", async ({ page }) => {

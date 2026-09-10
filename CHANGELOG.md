@@ -13,7 +13,8 @@ public contract is being validated.
   playground's protocol editor, node-to-JSON navigation, responsive layout,
   and automated accessibility checks.
 - Added persistent English and Simplified Chinese playground interfaces,
-  including localized renderer labels and browser-language detection.
+  including localized renderer labels, built-in sample names, and
+  browser-language detection.
 
 ### Changed
 
