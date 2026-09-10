@@ -1,6 +1,13 @@
 import { hasOwnKey, mergePlainRecords } from "./key-map.js";
 import { resolveLocale } from "./locale.js";
 
+const TOOLTIP_BOUNDARY_EVENTS = Object.freeze([
+  "contextmenu",
+  "mousedown",
+  "pointerdown",
+  "touchstart",
+]);
+
 function statusLabel(status, locale) {
   const labels = mergePlainRecords({
     success: "Success",
@@ -107,6 +114,10 @@ export function createNodeTooltip(container, options = {}) {
     refresh();
   }
 
+  function stopGraphGesture(event) {
+    event.stopPropagation();
+  }
+
   function ensureTip() {
     if (tip) return tip;
     tip = document.createElement("div");
@@ -114,6 +125,9 @@ export function createNodeTooltip(container, options = {}) {
     tip.hidden = true;
     tip.addEventListener("mouseenter", onTipEnter);
     tip.addEventListener("mouseleave", onTipLeave);
+    TOOLTIP_BOUNDARY_EVENTS.forEach((eventName) => {
+      tip.addEventListener(eventName, stopGraphGesture);
+    });
     container.appendChild(tip);
     return tip;
   }
@@ -216,6 +230,9 @@ export function createNodeTooltip(container, options = {}) {
     if (tip) {
       tip.removeEventListener("mouseenter", onTipEnter);
       tip.removeEventListener("mouseleave", onTipLeave);
+      TOOLTIP_BOUNDARY_EVENTS.forEach((eventName) => {
+        tip.removeEventListener(eventName, stopGraphGesture);
+      });
       tip.remove();
       tip = null;
     }

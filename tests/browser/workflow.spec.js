@@ -213,6 +213,58 @@ test("renders, updates, addresses nodes by path, and cleans up", async ({ page }
   expect(errors).toEqual([]);
 });
 
+test("tooltip text supports native pointer selection without panning the graph", async ({ page }) => {
+  await page.goto("/examples/plain/");
+  await page.locator("#dag canvas").first().waitFor();
+
+  const node = await page.evaluate(() => {
+    const cy = window.dagInstance[Symbol.for("eino-workflow-dag.cytoscape")]();
+    const target = cy.getElementById("research/search");
+    const position = target.renderedPosition();
+    const host = document.querySelector("#dag").getBoundingClientRect();
+    return {
+      pan: cy.pan(),
+      x: host.left + position.x,
+      y: host.top + position.y,
+    };
+  });
+
+  await page.mouse.move(node.x, node.y);
+  const tooltip = page.locator(".cy-node-tip:not([hidden])");
+  await expect(tooltip).toContainText("Status: Success");
+  const bounds = await tooltip.boundingBox();
+  expect(bounds).not.toBeNull();
+
+  await page.mouse.move(bounds.x + 12, bounds.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + bounds.width - 12,
+    bounds.y + bounds.height - 10,
+    { steps: 10 },
+  );
+  await page.mouse.up();
+
+  const result = await page.evaluate(() => {
+    const cy = window.dagInstance[Symbol.for("eino-workflow-dag.cytoscape")]();
+    return {
+      pan: cy.pan(),
+      selection: window.getSelection()?.toString() || "",
+      tooltipVisible: !document.querySelector(".cy-node-tip").hidden,
+    };
+  });
+  expect(result.selection.length).toBeGreaterThan(0);
+  expect(result.pan).toEqual(node.pan);
+  expect(result.tooltipVisible).toBe(true);
+  expect(await tooltip.evaluate((element) => {
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    element.dispatchEvent(event);
+    return event.defaultPrevented;
+  })).toBe(false);
+});
+
 test("isolates host callback failures after applying built-in behavior", async ({ page }) => {
   const pageErrors = [];
   page.on("pageerror", (error) => pageErrors.push(String(error)));

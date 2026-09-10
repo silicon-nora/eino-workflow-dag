@@ -14,6 +14,8 @@ public contract is being validated.
 
 - Refresh the rendered element layer after a completed canvas pan so cached
   node labels return to full display resolution without requiring hover.
+- Allow native text selection and context menus inside node tooltips without
+  starting an underlying canvas pan gesture.
 
 ## [1.3.0] - 2026-09-10
 
